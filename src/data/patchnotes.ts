@@ -1,0 +1,31 @@
+export interface PatchNote {
+  version: string;
+  date: string;
+  title: string;
+  items: string[];
+}
+
+/** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
+export const PATCH_NOTES: PatchNote[] = [
+  {
+    version: '1.0.0',
+    date: '2026-10-13',
+    title: 'Abertura do Ringue!',
+    items: [
+      'Lutas automáticas 1 contra 1 com boxe, wrestling e super ataques de fantasia.',
+      'Tag Team 2 contra 2: o parceiro espera no avental e entra quando lhe tocas na mão.',
+      'Desafio do Campeão: adversários mais fortes com recompensas maiores.',
+      'Criador de personagem: pele, olhos, sobrancelhas, boca, barba, cabelo, cor e altura.',
+      '10 atributos para evoluir: Força, Agarrão, Velocidade, Esquiva, Defesa, Vitalidade, Resistência, Precisão, Carisma e Contra-ataque.',
+      '7 raridades: Comum, Incomum, Raro, Épico, Lendário, Mítico e Celestial.',
+      '10 super ataques, 10 habilidades passivas e 7 poções que são usadas automaticamente.',
+      'Baús de Bronze, Prata, Ouro, Lendário e Mítico abertos no centro do ringue.',
+      'Missões diárias, semanais e Desafios Lendários com skins exclusivas.',
+      'Ligas por troféus: Bronze, Prata, Ouro, Platina, Diamante, Mestre e Lenda.',
+      'Trocas entre jogadores com códigos de transferência.',
+      'Instalável como aplicação (PWA) e jogável offline.',
+    ],
+  },
+];
+
+export const CURRENT_VERSION = PATCH_NOTES[0].version;

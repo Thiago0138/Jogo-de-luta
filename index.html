@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <title>Reis do Ringue</title>
+    <meta name="description" content="Lutas automáticas de wrestling e boxe com super ataques. Cria o teu lutador, coleciona skins raras e sobe às ligas mais altas." />
+    <meta name="theme-color" content="#120a24" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Reis do Ringue" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <style>
+      html,body{margin:0;height:100%;background:#120a24}
+      #splash{position:fixed;inset:0;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#3a1460,#120a24 70%);color:#ffd23d;font:900 32px/1 Impact,system-ui,sans-serif;letter-spacing:2px;text-shadow:0 4px 0 #140a1c}
+      #splash span{animation:p 1s ease-in-out infinite alternate}
+      @keyframes p{to{transform:scale(1.08)}}
+    </style>
+  </head>
+  <body>
+    <div id="splash"><span>REIS DO RINGUE</span></div>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

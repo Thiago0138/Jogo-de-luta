@@ -1,0 +1,201 @@
+import type { Stats } from '../data/stats';
+import type { Look } from '../render/look';
+import { Skel, newPose, solve, type Pose } from '../render/pose';
+import type { Expr } from '../render/fighter';
+import { ANIMS, locomotion, sample, type AnimName } from './anims';
+
+export interface FighterSpec {
+  name: string;
+  level: number;
+  stats: Stats;
+  look: Look;
+  supers: string[];
+  passives: string[];
+  /** Poções disponíveis no cinto (ids). */
+  belt: string[];
+  isPlayer: boolean;
+  /** Título exibido (ex.: "Campeão"). */
+  title?: string;
+  /** Multiplicador de vida (adversários de iniciação). */
+  hpMul?: number;
+}
+
+export type FState =
+  | 'idle'
+  | 'act'
+  | 'hit'
+  | 'down'
+  | 'thrown'
+  | 'apron'
+  | 'out'
+  | 'ko'
+  | 'victory';
+
+/** Valor que um script pode devolver: segundos a esperar, ou condição a verificar a cada frame. */
+export type Yield = number | (() => boolean);
+export type Script = Generator<Yield, void, unknown>;
+
+export class Fighter {
+  spec: FighterSpec;
+  team: 0 | 1;
+  slot: number;
+  x = 0;
+  z = 0;
+  vx = 0;
+  vz = 0;
+  facing: 1 | -1 = 1;
+  hp: number;
+  maxHp: number;
+  meter = 0;
+  state: FState = 'idle';
+  stateT = 0;
+
+  anim: AnimName | 'walk' | 'run' | 'walkBack' = 'guard';
+  at = 0;
+  animSpeed = 1;
+  phase = 0;
+  pose: Pose = newPose();
+  skel = new Skel();
+  /** Rotação/posição sobrepostas (para ser projetado por outro lutador). */
+  override: { x: number; y: number; rot: number } | null = null;
+
+  expr: Expr = 'normal';
+  exprT = 0;
+  flashT = 0;
+  glow: string | null = null;
+  layer = 0;
+
+  script: Script | null = null;
+  wait: Yield = 0;
+  armor = false;
+  thinkT = 0.6;
+  /** Reação já decidida para o próximo golpe recebido. */
+  evade: 'none' | 'dodge' | 'block' = 'none';
+  evadeT = 0;
+  downT = 0;
+  lastHitBy: Fighter | null = null;
+  combo = 0;
+  comboT = 0;
+
+  // buffs e usos únicos
+  furyT = 0;
+  ironT = 0;
+  speedT = 0;
+  usedBelt: boolean[] = [];
+  usedFolego = false;
+  usedFenix = false;
+  usedNectar = false;
+  minHpRatio = 1;
+  wantX: number | null = null;
+  /** Fora das cordas (não limitar ao ringue). */
+  noClamp = false;
+  spinAng = 0;
+  spinRate = 0;
+  ghost = false;
+  wings = false;
+  /** Adversário agarrado (para o libertar se este lutador for interrompido). */
+  holding: Fighter | null = null;
+  tagCooldown = 0;
+  assistCd = 3;
+  diveCd = 0;
+  tauntCd = 0;
+
+  constructor(spec: FighterSpec, team: 0 | 1, slot: number, hp: number) {
+    this.spec = spec;
+    this.team = team;
+    this.slot = slot;
+    this.hp = hp;
+    this.maxHp = hp;
+    this.usedBelt = spec.belt.map(() => false);
+  }
+
+  get s(): Stats {
+    return this.spec.stats;
+  }
+
+  has(passive: string): boolean {
+    return this.spec.passives.includes(passive);
+  }
+
+  play(a: AnimName | 'walk' | 'run' | 'walkBack', speed = 1, restart = true): void {
+    if (!restart && this.anim === a) return;
+    this.anim = a;
+    this.at = 0;
+    this.animSpeed = speed;
+  }
+
+  setState(s: FState): void {
+    this.state = s;
+    this.stateT = 0;
+  }
+
+  face(target: Fighter | number): void {
+    const tx = typeof target === 'number' ? target : target.x;
+    if (Math.abs(tx - this.x) > 4) this.facing = tx > this.x ? 1 : -1;
+  }
+
+  setExpr(e: Expr, t: number): void {
+    this.expr = e;
+    this.exprT = t;
+  }
+
+  run(script: Script, armor = false): void {
+    this.script = script;
+    this.wait = 0;
+    this.armor = armor;
+    this.setState('act');
+  }
+
+  stop(): void {
+    this.script = null;
+    this.wait = 0;
+    this.armor = false;
+    this.glow = null;
+    this.override = null;
+    this.ghost = false;
+    this.wings = false;
+    this.spinAng = 0;
+    this.spinRate = 0;
+    this.wantX = null;
+    const h = this.holding;
+    this.holding = null;
+    if (h && h.state === 'thrown') {
+      h.override = null;
+      h.z = 0;
+      h.state = 'down';
+      h.stateT = 0;
+      h.downT = 0.5;
+      h.play('lie');
+    }
+  }
+
+  get hpRatio(): number {
+    return this.hp / this.maxHp;
+  }
+
+  get grounded(): boolean {
+    return this.z <= 0.01;
+  }
+
+  /** Atualiza a pose (animação) e o esqueleto. */
+  animate(dt: number, t: number, extraRot = 0): void {
+    this.at += dt * this.animSpeed;
+    if (this.anim === 'walk' || this.anim === 'run' || this.anim === 'walkBack') {
+      this.phase += dt * (this.anim === 'run' ? 15 : 9);
+      locomotion(this.pose, this.phase, this.anim === 'run', this.anim === 'walkBack');
+    } else {
+      sample(ANIMS[this.anim], this.at, this.pose);
+      if (this.anim === 'guard') {
+        // respiração/balanço de boxe
+        this.pose.dy += Math.sin(t * 6 + this.slot) * 1.5;
+      }
+    }
+    if (extraRot !== 0) this.pose.rot += extraRot;
+    solve(this.pose, this.skel);
+    if (this.flashT > 0) this.flashT -= dt;
+    if (this.exprT > 0) {
+      this.exprT -= dt;
+      if (this.exprT <= 0) this.expr = 'normal';
+    }
+  }
+}
