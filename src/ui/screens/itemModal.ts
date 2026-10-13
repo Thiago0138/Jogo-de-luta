@@ -9,9 +9,9 @@ import { Preview } from '../preview';
 import { clearThumbs } from '../preview';
 import { openTrade } from './trade';
 
-export const superSlots = () => (S.level >= 8 ? 2 : 1);
-export const passiveSlots = () => (S.level >= 6 ? 2 : 1);
-export const beltSlots = () => 1 + (S.level >= 4 ? 1 : 0) + (S.level >= 12 ? 1 : 0);
+export const superSlots = () => 2;
+export const passiveSlots = () => 2;
+export const beltSlots = () => 3;
 
 export function isEquipped(id: string): boolean {
   const d = item(id);

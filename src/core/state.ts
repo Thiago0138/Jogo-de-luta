@@ -133,6 +133,12 @@ function load(): Save {
 
 export const S: Save = load();
 
+/** Tudo desbloqueado: todos os itens na coleção e poções com fartura. */
+for (const d of ITEM_LIST) {
+  if (d.kind === 'potion') S.owned[d.id] = Math.max(S.owned[d.id] ?? 0, 99);
+  else if (!S.owned[d.id]) S.owned[d.id] = 1;
+}
+
 type Listener = () => void;
 const listeners = new Set<Listener>();
 export function onChange(fn: Listener): () => void {

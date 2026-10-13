@@ -8,6 +8,16 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.0.1',
+    date: '2026-10-14',
+    title: 'Tudo desbloqueado!',
+    items: [
+      'Todas as skins, penteados, cores, máscaras, auras, supers e passivas ficam desbloqueados.',
+      '99 unidades de cada poção.',
+      'Os 2 espaços de super, 2 de passiva e 3 do cinto ficam disponíveis desde o nível 1.',
+    ],
+  },
+  {
     version: '1.0.0',
     date: '2026-10-13',
     title: 'Abertura do Ringue!',
