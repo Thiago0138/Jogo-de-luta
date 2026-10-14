@@ -6,7 +6,9 @@ import { HEAD_R, J_BF, J_BH, J_FE, J_FF, J_FH, J_HEAD, J_NECK, J_HIP, J_SH, Skel
 import { ANIMS, armIK, headLocal, sample, torsoLocal, type AnimName } from './anims';
 import { resolveLook } from '../render/look';
 import { baseStats } from '../data/stats';
-import { APRON_X, BACK_X, BACK_Y, FRONT_X, FRONT_Y, POST_H, RING, ROPE_H, newRopes, pushRope, updateRopes, type RopeState } from './arena';
+import {
+  APRON_X, BACK_X, BACK_Y, FRONT_X, FRONT_Y, POST_H, RING, ROPE_H, ROPE_LINE_X, newRopes, pushRope, ringShake, ropeHeightAt, ropeHold, updateRopes, type RopeState,
+} from './arena';
 import { Fighter, type FighterSpec, type Loco, type Script, type Yield } from './fighter';
 import { PK, Particles, type Banner, type Beam, type Bolt, type PopText, type Proj, type Wave } from './fx';
 
@@ -41,6 +43,8 @@ const GRAV = 2200;
 const WALK = 150;
 /** x das cordas laterais à profundidade dos lutadores e alturas das cordas do meio/de cima. */
 const ROPE_X = 498;
+/** Meia largura do corpo que encosta às cordas. */
+const BODY_HALF = 26;
 const ROPE_MID = 84;
 const ROPE_TOP = 123;
 /** Para lá disto (em |x|) um lutador já saiu de cena. */
@@ -288,6 +292,7 @@ export class Fight {
       f.stop();
       f.hidden = false;
       f.noClamp = false;
+      f.perchSide = -1;
       f.vx = 0;
       f.vz = 0;
       f.z = 0;
@@ -551,15 +556,10 @@ export class Fight {
   private *entPyro(f: Fighter, side: number, beam: Beam): Script {
     yield* this.jumpIn(f, side, side * (RING - 70));
     yield* this.walkTo(f, side * (RING - 20), 160, beam);
+    yield* this.climbRopes(f, side);
+    beam.x = f.x;
     f.facing = -side as 1 | -1;
-    f.play('perch');
-    let t = 0;
-    while (t < 0.45) {
-      t += this.dt;
-      f.z = (t / 0.45) * 115;
-      beam.x = f.x;
-      yield FRAME;
-    }
+    f.blendIn(0.2);
     f.play('flex');
     const order: [number, number][] = [[-FRONT_X, FRONT_Y - POST_H], [-BACK_X, BACK_Y - POST_H + 10], [BACK_X, BACK_Y - POST_H + 10], [FRONT_X, FRONT_Y - POST_H]];
     for (const [px, py] of order) {
@@ -575,11 +575,13 @@ export class Fight {
     sfx.cheer(1.4);
     yield* this.pose(f, 'flex', 1.2, 0.3, () => this.fireColumn(order[Math.floor(Math.random() * 4)][0], order[0][1], 0.7), beam);
     // salta do canto para o meio
+    this.leaveRopes(f, (side > 0 ? 1 : 0) as 0 | 1);
     f.play('tuck');
     const T = 0.55;
     f.vx = (side * 210 - f.x) / T;
     f.vz = (0.5 * GRAV * T * T - f.z) / T;
     yield () => f.z <= 0;
+    f.noClamp = false;
     f.vx = 0;
     this.dust(f.x, 10);
     sfx.thud();
@@ -1006,6 +1008,7 @@ export class Fight {
     if (this.extras.length) this.extras = this.extras.filter((e) => !e.hidden);
     if (this.darkenTarget > 0 && !this.fighters.some((f) => f.glow)) this.darkenTarget = 0;
     this.resolveOverlap();
+    this.ropeContacts();
     updateRopes(this.ropes, dt);
     this.hype = Math.max(0.15, this.hype - dt * 0.03);
     crowdLevel(this.hype);
@@ -1158,11 +1161,12 @@ export class Fight {
         }
       }
       if (!f.script && f.state !== 'idle') f.vx *= Math.pow(0.02, dt);
-      const lim = RING - 10;
+      const lim = ROPE_LINE_X - BODY_HALF;
       if (Math.abs(f.x) > lim && !f.noClamp && (f.state as string) !== 'apron' && (f.state as string) !== 'out') {
         const side = f.x > 0 ? 1 : 0;
         if (Math.abs(f.vx) > 260) {
-          pushRope(this.ropes, side as 0 | 1, f.vx * 0.5);
+          pushRope(this.ropes, side as 0 | 1, Math.abs(f.vx) * 0.75);
+          sfx.ropes();
           if (!f.script) {
             f.vx = -f.vx * 0.55;
             sfx.whoosh();
@@ -1778,6 +1782,7 @@ export class Fight {
     this.dust(o.x, 10 + big * 8, 90);
     this.parts.spawn(PK.Ring, o.x, 0, 0, 0, 0.45, 140 + big * 80, '#ffffff', 0);
     sfx.slam(0.85 + big * 0.45);
+    ringShake(this.ropes, 0.6 + big * 0.6);
     if (big > 0.5) sfx.oooh(0.8 + big * 0.4);
     this.addHype(0.1 + big * 0.1);
   }
@@ -1927,34 +1932,104 @@ export class Fight {
    * Corre contra as cordas na direção `dir`, afunda-se nelas (as cordas esticam a sério)
    * e ressalta para o lado contrário com mais velocidade.
    */
+  /** Sobe pelas cordas de frente para elas (pé na de baixo, na do meio e na de cima) e fica empoleirado. */
+  private *climbRopes(f: Fighter, side: number): Script {
+    const sd = (side > 0 ? 1 : 0) as 0 | 1;
+    f.noClamp = true;
+    f.facing = side as 1 | -1;
+    f.play('perch');
+    f.blendIn(0.15);
+    const footX = side * (ROPE_LINE_X - 10);
+    for (let j = 0; j < 3; j++) {
+      const z0 = f.z;
+      const x0 = f.x;
+      let t = 0;
+      while (t < 0.17) {
+        t += this.dt;
+        const u = Math.min(1, t / 0.17);
+        const e = u * u * (3 - 2 * u);
+        f.x = x0 + (footX - x0) * Math.min(1, (j + e) / 2);
+        f.z = z0 + (ropeHeightAt(this.ropes, sd, j) - z0) * e;
+        f.vz = 0;
+        if (j > 0) ropeHold(this.ropes, sd, j - 1, 2, 9 * (1 - e));
+        ropeHold(this.ropes, sd, j, 2, 12 * e);
+        yield FRAME;
+      }
+      sfx.ropes();
+    }
+    f.perchSide = sd;
+  }
+
+  /** Salta da corda de cima: ela dispara para cima e fica a vibrar. */
+  private leaveRopes(f: Fighter, sd: 0 | 1): void {
+    f.perchSide = -1;
+    pushRope(this.ropes, sd, 60, 2, 520);
+    pushRope(this.ropes, sd, 40, 1, 220);
+    sfx.ropes();
+  }
+
+  /** Quem se encosta às cordas estica-as à volta do corpo. */
+  private ropeContacts(): void {
+    for (const f of this.fighters) {
+      // se o guião foi interrompido (ex.: atingido), deixa de estar empoleirado
+      if (f.perchSide >= 0 && !f.script) {
+        f.perchSide = -1;
+        f.noClamp = false;
+      }
+      if (f.perchSide >= 0) {
+        // empoleirado: a corda de cima cede e balança debaixo dos pés
+        const sd = f.perchSide as 0 | 1;
+        const sway = Math.sin(this.t * 9 + f.x) * 3;
+        ropeHold(this.ropes, sd, 2, 3, 14 + sway);
+        ropeHold(this.ropes, sd, 1, 1, 4);
+        f.z = ropeHeightAt(this.ropes, sd, 2);
+        f.vz = 0;
+        continue;
+      }
+      if (f.hidden || f.exiting || f.z > 30) continue;
+      const ax = Math.abs(f.x);
+      if (ax < ROPE_LINE_X - 60 || ax > ROPE_LINE_X + 10) continue;
+      const pen = ax + BODY_HALF - ROPE_LINE_X;
+      if (pen <= 0) continue;
+      const side = (f.x > 0 ? 1 : 0) as 0 | 1;
+      // a corda do meio apanha a anca/costas, a de cima os ombros, a de baixo as pernas
+      const lean = f.anim === 'ropes' ? 1 : 0.6;
+      ropeHold(this.ropes, side, 0, pen * 0.75);
+      ropeHold(this.ropes, side, 1, pen * 1.05);
+      ropeHold(this.ropes, side, 2, pen * 0.9 * lean);
+    }
+  }
+
   private *bounceRopes(f: Fighter, dir: number, speed: number): Script {
     f.facing = dir as 1 | -1;
     f.play('run');
     f.vx = dir * speed;
-    yield () => Math.abs(f.x) >= RING - 16;
-    const side = (f.x > 0 ? 1 : 0) as 0 | 1;
-    // afunda nas cordas
     f.noClamp = true;
+    // corre até encostar mesmo às cordas
+    const edge = ROPE_LINE_X - BODY_HALF;
+    yield () => Math.abs(f.x) >= edge;
+    const side = (f.x > 0 ? 1 : 0) as 0 | 1;
+    const x0 = Math.sign(f.x) * edge;
     f.play('ropes');
-    const x0 = f.x;
+    sfx.ropes();
+    // afunda nas cordas: elas esticam à volta do corpo (contacto em ropeContacts)
     let t = 0;
-    while (t < 0.16) {
+    const T = 0.24;
+    while (t < T) {
       t += this.dt;
-      const u = t / 0.16;
-      const sink = Math.sin(u * Math.PI) * 34;
-      f.x = x0 + dir * sink;
-      this.ropes.bulge[side] = dir * sink * 1.25;
-      this.ropes.vel[side] = 0;
+      const u = Math.min(1, t / T);
+      f.x = x0 + dir * Math.sin(u * Math.PI) * 54;
       f.vx = 0;
       yield FRAME;
     }
     f.x = x0;
-    pushRope(this.ropes, side, -dir * 500);
-    sfx.ropes();
-    f.noClamp = false;
+    // as cordas devolvem-no com força e ficam a vibrar
+    pushRope(this.ropes, side, 520);
     f.facing = -dir as 1 | -1;
     f.play('run');
-    f.vx = -dir * speed * 1.2;
+    f.vx = -dir * speed * 1.25;
+    yield () => Math.abs(f.x) < RING - 12;
+    f.noClamp = false;
     this.addHype(0.05);
   }
 
@@ -2212,36 +2287,36 @@ export class Fight {
     }
     f.vx = 0;
     f.x = cornerX;
-    f.face(o);
-    f.play('perch');
-    // sobe ao canto
-    const climb = 0.45;
+    const sd = (side > 0 ? 1 : 0) as 0 | 1;
+    yield* this.climbRopes(f, side);
     let t = 0;
-    while (t < climb) {
-      t += this.dt;
-      f.z = (t / climb) * 120;
-      yield FRAME;
-    }
-    f.z = 120;
+    // vira-se para o ringue em cima da corda de cima, que cede e balança debaixo dos pés
+    f.face(o);
+    f.blendIn(0.2);
     this.pop('À CORDA DE CIMA!', f.x, -330, '#ffffff', 22);
     this.emit('climb', f);
     this.addHype(0.2);
     sfx.cheer(0.8);
     this.focus = f;
     this.focusT = 1.3;
-    // fica em cima do canto (sem a gravidade o puxar para o tapete)
     t = 0;
-    while (t < 0.35) {
+    while (t < 0.55) {
       t += this.dt * this.spd(f);
-      f.z = 120;
-      f.vz = 0;
       yield FRAME;
     }
+    this.leaveRopes(f, sd);
+    const releaseClamp = () => {
+      if (Math.abs(f.x) < RING - 12) f.noClamp = false;
+    };
     if (o.state !== 'down') {
       f.play('tuck');
       f.vz = 300;
-      f.vx = -side * 120;
-      while (f.z > 0) yield FRAME;
+      f.vx = -side * 160;
+      while (f.z > 0) {
+        releaseClamp();
+        yield FRAME;
+      }
+      f.noClamp = false;
       f.play('guard');
       return;
     }
@@ -2262,11 +2337,13 @@ export class Fight {
     const rest = () => (o.state === 'down' && Math.abs(o.x - f.x) < 90 ? 16 * this.scale(o) : 0);
     while (f.z > rest() || el < 0.1) {
       el += this.dt;
+      releaseClamp();
       if (f.vz < 0 && f.z < 110 && o.state === 'down') this.cinematic(target, -40, 0.3, 0.9, true);
       if (moon) f.spinAng = -Math.min(1, el / T) * Math.PI * 2;
       if (msty && Math.random() < 0.8) this.parts.spawn(PK.Star, f.x, -f.z - 80, 0, 0, 0.5, 10, msty.color, 0);
       yield FRAME;
     }
+    f.noClamp = false;
     f.spinAng = 0;
     f.vx = 0;
     if (o.state === 'down' && Math.abs(o.x - f.x) < 90) {
@@ -2556,6 +2633,7 @@ export class Fight {
     yield () => f.z <= 0;
     this.dust(f.x, 8);
     sfx.slam(0.85);
+    ringShake(this.ropes, 0.4);
     this.shake(5, 0.15);
     if (f.state === 'ko') f.play('lieKO');
     else {
@@ -2797,15 +2875,26 @@ export class Fight {
           () => this.toLocal(f, rx - f.facing * 4, -ROPE_TOP),
         );
       }
+      const sd = (side > 0 ? 1 : 0) as 0 | 1;
+      if (grabbed) {
+        // afasta as cordas para passar: carrega na do meio e levanta a de cima
+        const open = Math.min(1, (t - 0.1) / 0.35);
+        ropeHold(this.ropes, sd, 1, 6 * open, 24 * open, undefined, 0.24);
+        ropeHold(this.ropes, sd, 2, 3 * open, -16 * open, undefined, 0.24);
+        ropeHold(this.ropes, sd, 0, 2 * open, 6 * open, undefined, 0.24);
+      }
       if (!pushed && t > 0.8) {
         pushed = true;
-        pushRope(this.ropes, side > 0 ? 1 : 0, 130);
         sfx.whoosh();
       }
       if (grabbed && t > 1.9) {
         grabbed = false;
         released = true;
         g.set(pf, pb);
+        // largadas, as cordas voltam ao sítio a vibrar
+        pushRope(this.ropes, sd, 40, 1, -260);
+        pushRope(this.ropes, sd, 30, 2, 200);
+        sfx.ropes();
       }
       yield FRAME;
     }
@@ -3326,10 +3415,7 @@ export class Fight {
     yield 0.3;
     const away = -f.facing;
     f.facing = away as 1 | -1;
-    f.play('run');
-    f.vx = away * 600;
-    yield () => Math.abs(f.x) >= RING - 14;
-    pushRope(this.ropes, f.x > 0 ? 1 : 0, away * 900);
+    yield* this.bounceRopes(f, away, 600);
     f.facing = -away as 1 | -1;
     f.play('clothes');
     yield* this.dashTo(f, o, 800, 70, 80);

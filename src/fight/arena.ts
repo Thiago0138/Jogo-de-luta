@@ -13,27 +13,134 @@ export const APRON_X = RING + 92;
 
 export const TEAM_COLORS = ['#ff3b4e', '#2f7bff'];
 
+/** Profundidade (0 = poste de trás, 1 = poste da frente) da linha onde os lutadores estão. */
+export const ROPE_U = -BACK_Y / (FRONT_Y - BACK_Y);
+/** x das cordas laterais na linha dos lutadores. */
+export const ROPE_LINE_X = BACK_X + (FRONT_X - BACK_X) * ROPE_U;
+const NODES = 15;
+
+/** Uma corda simulada como fio elástico: deslocamento para fora (d) e para baixo (h) em cada nó. */
+export interface RopeLine {
+  d: Float32Array;
+  vd: Float32Array;
+  h: Float32Array;
+  vh: Float32Array;
+  /** Contactos ativos: deslocamento imposto em cada nó e até quando (tempo). */
+  hd: Float32Array;
+  hh: Float32Array;
+  until: Float32Array;
+}
+
 export interface RopeState {
-  /** Deformação das cordas laterais (esquerda/direita) e velocidade da mola. */
-  bulge: [number, number];
-  vel: [number, number];
-  /** Deformação da corda da frente por cima do lutador que entra/sai. */
+  /** Cordas laterais [lado][corda 0..2] e cordas da frente [corda 0..2]. */
+  side: RopeLine[][];
+  front: RopeLine[];
+  t: number;
+}
+
+function line(): RopeLine {
+  return {
+    d: new Float32Array(NODES), vd: new Float32Array(NODES), h: new Float32Array(NODES), vh: new Float32Array(NODES),
+    hd: new Float32Array(NODES), hh: new Float32Array(NODES), until: new Float32Array(NODES),
+  };
 }
 
 export function newRopes(): RopeState {
-  return { bulge: [0, 0], vel: [0, 0] };
+  return { side: [[line(), line(), line()], [line(), line(), line()]], front: [line(), line(), line()], t: 0 };
 }
 
-export function updateRopes(r: RopeState, dt: number): void {
-  for (let i = 0; i < 2; i++) {
-    const a = -r.bulge[i] * 260 - r.vel[i] * 9;
-    r.vel[i] += a * dt;
-    r.bulge[i] += r.vel[i] * dt;
+const TENSION = 2600;
+const DAMP = 2.6;
+
+function stepLine(L: RopeLine, dt: number, now: number): void {
+  const n = NODES - 1;
+  for (let i = 1; i < n; i++) {
+    const ad = TENSION * (L.d[i - 1] + L.d[i + 1] - 2 * L.d[i]) - DAMP * L.vd[i] - 14 * L.d[i];
+    const ah = TENSION * (L.h[i - 1] + L.h[i + 1] - 2 * L.h[i]) - DAMP * L.vh[i] - 14 * L.h[i];
+    L.vd[i] += ad * dt;
+    L.vh[i] += ah * dt;
+  }
+  for (let i = 1; i < n; i++) {
+    L.d[i] += L.vd[i] * dt;
+    L.h[i] += L.vh[i] * dt;
+    if (L.until[i] > now) {
+      // o corpo empurra a corda: fica pelo menos tão deslocada como o contacto
+      if (L.hd[i] > 0 && L.d[i] < L.hd[i]) {
+        L.d[i] += (L.hd[i] - L.d[i]) * 0.6;
+        L.vd[i] = Math.max(0, L.vd[i]) * 0.3;
+      }
+      if (L.hh[i] !== 0 && Math.abs(L.h[i]) < Math.abs(L.hh[i])) {
+        L.h[i] += (L.hh[i] - L.h[i]) * 0.6;
+        L.vh[i] *= 0.3;
+      }
+    }
   }
 }
 
-export function pushRope(r: RopeState, side: 0 | 1, amount: number): void {
-  r.vel[side] += amount;
+export function updateRopes(r: RopeState, dt: number): void {
+  r.t += dt;
+  const sub = 4;
+  const h = Math.min(dt, 0.05) / sub;
+  for (let k = 0; k < sub; k++) {
+    for (const side of r.side) for (const L of side) stepLine(L, h, r.t);
+    for (const L of r.front) stepLine(L, h, r.t);
+  }
+}
+
+/**
+ * Contacto com uma corda lateral: empurra-a para fora (`out`) e/ou para baixo (`down`) à volta
+ * da profundidade `u`, durante `life` segundos (renovar a cada frame enquanto dura).
+ */
+export function ropeHold(r: RopeState, side: 0 | 1, rope: number, out: number, down = 0, u = ROPE_U, width = 0.2, life = 0.06): void {
+  const L = r.side[side][rope];
+  for (let i = 1; i < NODES - 1; i++) {
+    const k = Math.abs(i / (NODES - 1) - u) / width;
+    if (k >= 1) continue;
+    const w = Math.cos(k * Math.PI * 0.5);
+    const f = w * w;
+    if (L.until[i] <= r.t) {
+      L.hd[i] = 0;
+      L.hh[i] = 0;
+    }
+    L.hd[i] = Math.max(L.hd[i], out * f);
+    if (Math.abs(down * f) > Math.abs(L.hh[i])) L.hh[i] = down * f;
+    L.until[i] = r.t + life;
+  }
+}
+
+/** Impulso numa corda lateral (todas as 3 se `rope` < 0): ela abana e as ondas correm até aos postes. */
+export function pushRope(r: RopeState, side: 0 | 1, amount: number, rope = -1, up = 0, u = ROPE_U): void {
+  for (let j = 0; j < 3; j++) {
+    if (rope >= 0 && j !== rope) continue;
+    const L = r.side[side][j];
+    const k = rope >= 0 ? 1 : [0.65, 1, 0.85][j];
+    for (let i = 1; i < NODES - 1; i++) {
+      const x = Math.abs(i / (NODES - 1) - u) / 0.22;
+      if (x >= 1) continue;
+      const f = Math.cos(x * Math.PI * 0.5);
+      L.vd[i] += Math.abs(amount) * k * f;
+      L.vh[i] -= up * k * f;
+    }
+  }
+}
+
+/** O ringue estremece (queda forte no tapete): todas as cordas vibram um pouco. */
+export function ringShake(r: RopeState, power: number): void {
+  const all = [...r.side[0], ...r.side[1], ...r.front];
+  for (const L of all) {
+    for (let i = 1; i < NODES - 1; i++) {
+      const f = Math.sin((i / (NODES - 1)) * Math.PI);
+      L.vh[i] += power * (40 + Math.random() * 30) * f;
+      L.vd[i] += power * (Math.random() - 0.5) * 30 * f;
+    }
+  }
+}
+
+/** Altura (em ecrã) de uma corda lateral na linha dos lutadores, já com a deformação. */
+export function ropeHeightAt(r: RopeState, side: 0 | 1, rope: number): number {
+  const L = r.side[side][rope];
+  const i = Math.round(ROPE_U * (NODES - 1));
+  return ROPE_H[rope] * (0.92 + 0.08 * ROPE_U) - L.h[i];
 }
 
 // ───────────────────────── Fundo pré-renderizado ─────────────────────────
@@ -430,6 +537,12 @@ function rope(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number,
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.quadraticCurveTo(cx, cy, x2, y2);
+  strokeRope(ctx, color);
+}
+
+function strokeRope(ctx: CanvasRenderingContext2D, color: string) {
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.lineWidth = 7;
   ctx.strokeStyle = '#120a18';
   ctx.stroke();
@@ -439,6 +552,40 @@ function rope(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number,
   ctx.lineWidth = 1.2;
   ctx.strokeStyle = 'rgba(255,255,255,0.55)';
   ctx.stroke();
+}
+
+/** Desenha uma corda simulada entre dois pontos (só os nós de i0 a i1), com curvas suaves. */
+function simRope(
+  ctx: CanvasRenderingContext2D, L: RopeLine, x1: number, y1: number, x2: number, y2: number, ox: number, sag: number, color: string, i0 = 0, i1 = NODES - 1,
+) {
+  const n = NODES - 1;
+  const px = (i: number) => x1 + ((x2 - x1) * i) / n + L.d[i] * ox;
+  const py = (i: number) => y1 + ((y2 - y1) * i) / n + L.h[i] + Math.sin((i / n) * Math.PI) * sag;
+  ctx.beginPath();
+  ctx.moveTo(px(i0), py(i0));
+  for (let i = i0 + 1; i < i1; i++) {
+    const mx = (px(i) + px(i + 1)) / 2;
+    const my = (py(i) + py(i + 1)) / 2;
+    ctx.quadraticCurveTo(px(i), py(i), mx, my);
+  }
+  ctx.lineTo(px(i1), py(i1));
+  strokeRope(ctx, color);
+}
+
+/** Cordas laterais: a parte de trás (até à linha dos lutadores) ou a da frente (por cima deles). */
+function sideRopes(ctx: CanvasRenderingContext2D, ropes: RopeState, front: boolean) {
+  const split = Math.round(ROPE_U * (NODES - 1));
+  for (let side = 0; side < 2; side++) {
+    const sx = side ? 1 : -1;
+    for (let i = 0; i < 3; i++) {
+      const hb = ROPE_H[i] * 0.92;
+      const hf = ROPE_H[i];
+      simRope(
+        ctx, ropes.side[side][i], sx * BACK_X, BACK_Y - hb, sx * FRONT_X, FRONT_Y - hf, sx, 2, ROPE_COLORS[i],
+        front ? split : 0, front ? NODES - 1 : split,
+      );
+    }
+  }
 }
 
 const ROPE_COLORS = ['#e63946', '#f1f1f1', '#2f7bff'];
@@ -533,20 +680,8 @@ export function drawRingBack(ctx: CanvasRenderingContext2D, ropes: RopeState): v
     const h = ROPE_H[i] * 0.92;
     rope(ctx, -BACK_X, BACK_Y - h, BACK_X, BACK_Y - h, 0, BACK_Y - h + 3, ROPE_COLORS[i]);
   }
-  // cordas laterais (com deformação quando alguém bate nelas)
-  for (let side = 0; side < 2; side++) {
-    const sx = side ? 1 : -1;
-    const b = ropes.bulge[side] * sx;
-    for (let i = 0; i < 3; i++) {
-      const hb = ROPE_H[i] * 0.92;
-      const hf = ROPE_H[i];
-      const x1 = sx * BACK_X;
-      const y1 = BACK_Y - hb;
-      const x2 = sx * FRONT_X;
-      const y2 = FRONT_Y - hf;
-      rope(ctx, x1, y1, x2, y2, (x1 + x2) / 2 + b * (1 - i * 0.15), (y1 + y2) / 2, ROPE_COLORS[i]);
-    }
-  }
+  // cordas laterais: a metade de trás fica atrás dos lutadores
+  sideRopes(ctx, ropes, false);
 }
 
 export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t = 0, hype = 0.3): void {
@@ -592,11 +727,12 @@ export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t
   post(ctx, -FRONT_X, FRONT_Y, POST_H, 18, 0);
   post(ctx, FRONT_X, FRONT_Y, POST_H, 18, 1);
   // cordas da frente (ligeiramente transparentes para não tapar a ação)
+  // metade da frente das cordas laterais: passa por cima de quem se encosta a elas
+  sideRopes(ctx, ropes, true);
   ctx.globalAlpha = 0.9;
   for (let i = 0; i < 3; i++) {
     const h = ROPE_H[i];
-    const sag = 4 + Math.abs(ropes.bulge[0] + ropes.bulge[1]) * 0.05;
-    rope(ctx, -FRONT_X, FRONT_Y - h, FRONT_X, FRONT_Y - h, 0, FRONT_Y - h + sag, ROPE_COLORS[i]);
+    simRope(ctx, ropes.front[i], -FRONT_X, FRONT_Y - h, FRONT_X, FRONT_Y - h, 0, 4, ROPE_COLORS[i]);
   }
   ctx.globalAlpha = 1;
 }

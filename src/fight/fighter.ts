@@ -121,6 +121,8 @@ export class Fighter {
    * nem colide com ele; a cena desenha-o normalmente (não esbatido como os 'out').
    */
   exiting = false;
+  /** Em cima da corda de cima deste lado (0/1), ou -1. As cordas cedem debaixo dos pés. */
+  perchSide = -1;
   referee = false;
   /**
    * Pé de apoio preso ao chão: a anca avança pelo que as pernas fazem (sem deslizar no tapete).
