@@ -1,5 +1,5 @@
 import { drawFighter, glowSprite } from '../render/fighter';
-import { HEAD_R, J_HEAD } from '../render/pose';
+import { HEAD_R, J_BH, J_FF, J_FH, J_HEAD } from '../render/pose';
 import { setVolume, sfx, startCrowd, stopCrowd } from '../audio/sfx';
 import { S, commit } from '../core/state';
 import { APRON_X, BACK_Y, TEAM_COLORS, drawBackdrop, drawFloor, drawForeground, drawRingBack, drawRingFront, ensureArena } from './arena';
@@ -21,11 +21,12 @@ interface HudSide {
   hp: HTMLElement;
   trail: HTMLElement;
   meter: HTMLElement;
+  stam: HTMLElement;
   hpText: HTMLElement;
   name: HTMLElement;
   bench: HTMLElement | null;
   benchHp: HTMLElement | null;
-  last: { hp: number; trail: number; meter: number; full: boolean; who: Fighter | null; bench: number };
+  last: { hp: number; trail: number; meter: number; full: boolean; who: Fighter | null; bench: number; stam: number };
 }
 
 export class FightScene {
@@ -49,6 +50,10 @@ export class FightScene {
   private destroyed = false;
   private opts: SceneOpts;
   private trails = [1, 1];
+  private hudHidden = false;
+  /** Rastos dos punhos/pés (posições recentes no mundo). */
+  private smear = new Map<Fighter, Float32Array>();
+  private letter = 0;
   private onResize = () => this.resize();
   private onVis = () => {
     if (!document.hidden) this.last = performance.now();
@@ -111,6 +116,7 @@ export class FightScene {
         <div class="hud-name"><span class="hud-lvl">${f.spec.level}</span><b></b></div>
         <div class="hud-bar"><i class="trail"></i><i class="hp"></i><span class="hp-text"></span></div>
         <div class="hud-meter"><i></i><span>SUPER</span></div>
+        <div class="hud-stam"><i></i></div>
         ${tag ? '<div class="hud-bench"><span></span><div class="bench-bar"><i></i></div></div>' : ''}`;
       hud.appendChild(el);
       return {
@@ -118,11 +124,12 @@ export class FightScene {
         hp: el.querySelector('.hp') as HTMLElement,
         trail: el.querySelector('.trail') as HTMLElement,
         meter: el.querySelector('.hud-meter i') as HTMLElement,
+        stam: el.querySelector('.hud-stam i') as HTMLElement,
         hpText: el.querySelector('.hp-text') as HTMLElement,
         name: el.querySelector('.hud-name b') as HTMLElement,
         bench: el.querySelector('.hud-bench span') as HTMLElement | null,
         benchHp: el.querySelector('.bench-bar i') as HTMLElement | null,
-        last: { hp: -1, trail: -1, meter: -1, full: false, who: null, bench: -1 },
+        last: { hp: -1, trail: -1, meter: -1, full: false, who: null, bench: -1, stam: -1 },
       };
     };
     this.hud.push(mk(0));
@@ -153,6 +160,16 @@ export class FightScene {
       this.skip();
     };
     this.root.appendChild(ctr);
+    const hint = document.createElement('div');
+    hint.className = 'ent-hint';
+    hint.textContent = 'Toca para saltar a entrada';
+    this.root.appendChild(hint);
+    this.canvas.addEventListener('pointerdown', () => {
+      if (this.fight.phase === 'entrance') {
+        sfx.click();
+        this.fight.skipEntrance();
+      }
+    });
   }
 
   private updateHud(): void {
@@ -192,6 +209,12 @@ export class FightScene {
           h.root.classList.toggle('full', full);
         }
       }
+      const st = Math.round(f.stamina / 5) / 20;
+      if (st !== L.stam) {
+        L.stam = st;
+        h.stam.style.transform = `scaleX(${st})`;
+        h.stam.parentElement!.classList.toggle('low', st < 0.25);
+      }
       if (h.bench && h.benchHp) {
         const other = F.teams[ti].find((p) => p !== f);
         const b = other ? (other.state === 'out' ? -2 : Math.round((other.hp / other.maxHp) * 100)) : -2;
@@ -202,6 +225,11 @@ export class FightScene {
           h.bench.parentElement!.classList.toggle('out', other.state === 'out');
         }
       }
+    }
+    const ent = F.phase === 'entrance';
+    if (ent !== this.hudHidden) {
+      this.hudHidden = ent;
+      this.root.classList.toggle('entrance', ent);
     }
     const c = String(Math.max(0, Math.ceil(F.clock)));
     if (this.clockEl.textContent !== c) this.clockEl.textContent = c;
@@ -250,7 +278,7 @@ export class FightScene {
     const portrait = this.H > this.W;
     if (F.focus) {
       tx = F.focus.x;
-      desired = portrait ? 390 : 680;
+      desired = F.phase === 'entrance' ? (portrait ? 560 : 900) : portrait ? 390 : 680;
     } else {
       tx = (a.x + b.x) / 2;
       const d = Math.abs(a.x - b.x);
@@ -295,6 +323,9 @@ export class FightScene {
       ctx.fillRect(0, 0, W, H);
     }
 
+    this.drawHaze(ctx, W, H, F.t);
+    if (F.lasersT > 0) this.drawLasers(ctx, W, H, F.t, F.lasersT);
+
     // espaço do mundo
     ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, this.dpr * (W / 2 - this.camX * z + shx), this.dpr * (floorY + shy));
     drawFloor(ctx);
@@ -304,6 +335,7 @@ export class FightScene {
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = 0.22 + F.hype * 0.12;
     for (const f of F.active) {
+      if (f.hidden) continue;
       const hx = F.hipX(f);
       ctx.drawImage(glowSprite('#fff1cf'), hx - 170, -60, 340, 110);
     }
@@ -313,7 +345,7 @@ export class FightScene {
     // sombras
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
     for (const f of F.fighters) {
-      if (f.state === 'out') continue;
+      if (f.state === 'out' || f.hidden) continue;
       const s = Math.max(0.3, 1 - f.z / 400);
       ctx.beginPath();
       ctx.ellipse(F.hipX(f), 2, 44 * s, 9 * s, 0, 0, Math.PI * 2);
@@ -324,7 +356,11 @@ export class FightScene {
 
     // lutadores ordenados
     const list = F.fighters.slice().sort((p, q) => this.order(p) - this.order(q));
-    for (const f of list) this.drawF(ctx, f);
+    for (const f of list) {
+      if (f.hidden) continue;
+      this.drawSmear(ctx, f);
+      this.drawF(ctx, f);
+    }
 
     for (const p of F.projs) this.drawProj(ctx, p.kind, p.x, p.y, p.dir, p.color, F.t);
     for (const w of F.waves) {
@@ -341,8 +377,9 @@ export class FightScene {
     }
     F.parts.draw(ctx);
     for (const b of F.bolts) drawBolt(ctx, b);
+    for (const b of F.bursts) this.drawBurst(ctx, b.x, b.y, b.text, b.color, b.life / b.max, b.rot, z);
 
-    drawRingFront(ctx, F.ropes);
+    drawRingFront(ctx, F.ropes, F.t, F.hype);
     drawForeground(ctx, this.camX, F.t, F.hype);
 
     // textos flutuantes
@@ -372,8 +409,127 @@ export class FightScene {
       ctx.globalAlpha = 1;
     }
     this.drawVignette(ctx, W, H);
+    const lt = F.phase === 'entrance' || F.cutin ? 1 : 0;
+    this.letter += (lt - this.letter) * Math.min(1, dt * 6);
+    if (this.letter > 0.01) {
+      const bh = H * 0.085 * this.letter;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, bh);
+      ctx.fillRect(0, H - bh, W, bh);
+    }
     for (const b of F.banners) this.drawBanner(ctx, b.text, b.sub, b.color, b.life, b.max, b.size, W, H);
     if (F.cutin) this.drawCutIn(ctx, W, H);
+  }
+
+  private drawHaze(ctx: CanvasRenderingContext2D, W: number, H: number, t: number): void {
+    if (this.low) return;
+    ctx.globalCompositeOperation = 'lighter';
+    const g = glowSprite('#8f7ad6');
+    for (let i = 0; i < 4; i++) {
+      const x = ((t * (8 + i * 5) + i * W * 0.37) % (W * 1.6)) - W * 0.3;
+      const y = H * (0.25 + i * 0.12);
+      ctx.globalAlpha = 0.07;
+      ctx.drawImage(g, x - W * 0.35, y - H * 0.15, W * 0.7, H * 0.3);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  private drawLasers(ctx: CanvasRenderingContext2D, W: number, H: number, t: number, left: number): void {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const a = Math.min(1, left * 2);
+    const cols = ['#ff2e63', '#2ef0ff', '#3dff6e', '#b45cff'];
+    for (let i = 0; i < 8; i++) {
+      const fromLeft = i % 2 === 0;
+      const ox = fromLeft ? W * 0.05 : W * 0.95;
+      const ang = Math.PI / 2 + (fromLeft ? -1 : 1) * (0.25 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.2 + i * 0.9)));
+      const ex = ox + Math.cos(ang) * H * 1.4;
+      const ey = Math.sin(ang) * H * 1.4;
+      const c = cols[i % cols.length];
+      ctx.strokeStyle = c;
+      ctx.globalAlpha = 0.18 * a;
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(ox, 0);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+      ctx.globalAlpha = 0.9 * a;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  private static SMEAR_ANIMS = new Set(['jab', 'cross', 'hook', 'upper', 'body', 'haymaker', 'kick', 'clothes']);
+  private drawSmear(ctx: CanvasRenderingContext2D, f: Fighter): void {
+    const F = this.fight;
+    let buf = this.smear.get(f);
+    if (!buf) {
+      buf = new Float32Array(30).fill(NaN);
+      this.smear.set(f, buf);
+    }
+    // desloca o histórico (5 amostras × 3 pontos × 2 coordenadas)
+    buf.copyWithin(6, 0, 24);
+    const pts = [J_FH, J_BH, J_FF];
+    for (let k = 0; k < 3; k++) {
+      buf[k * 2] = F.jx(f, pts[k]);
+      buf[k * 2 + 1] = F.jy(f, pts[k]);
+    }
+    if (!FightScene.SMEAR_ANIMS.has(f.anim) || f.state === 'hit') return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      for (let i = 0; i < 4; i++) {
+        const x1 = buf[i * 6 + k * 2];
+        const y1 = buf[i * 6 + k * 2 + 1];
+        const x2 = buf[(i + 1) * 6 + k * 2];
+        const y2 = buf[(i + 1) * 6 + k * 2 + 1];
+        if (Number.isNaN(x2)) break;
+        const d = Math.hypot(x2 - x1, y2 - y1);
+        if (d < 7) continue;
+        ctx.globalAlpha = 0.32 * (1 - i / 4);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 20 * (1 - i / 5);
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  private drawBurst(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: string, a: number, rot: number, z: number): void {
+    const age = 1 - a;
+    const sc = (age < 0.25 ? 0.5 + (age / 0.25) * 0.7 : 1.2 - (age - 0.25) * 0.3) / Math.max(0.6, z);
+    ctx.save();
+    ctx.translate(x, y - 40);
+    ctx.rotate(rot);
+    ctx.scale(sc, sc);
+    ctx.globalAlpha = Math.min(1, a * 3);
+    ctx.beginPath();
+    const n = 12;
+    for (let i = 0; i < n * 2; i++) {
+      const r = i % 2 ? 26 : 50 + (i % 4 === 0 ? 8 : 0);
+      const ang = (i / (n * 2)) * Math.PI * 2;
+      ctx.lineTo(Math.cos(ang) * r * 1.25, Math.sin(ang) * r * 0.85);
+    }
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = '#140a1c';
+    ctx.stroke();
+    ctx.font = `30px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 7;
+    ctx.strokeText(text, 0, 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, 0, 2);
+    ctx.restore();
   }
 
   private order(f: Fighter): number {

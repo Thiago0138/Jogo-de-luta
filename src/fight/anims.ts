@@ -76,6 +76,16 @@ const RISE = P({ lean: -0.1, head: -0.2, fa1: 2.8, fa2: 0.6, ba1: 0.4, ba2: 0.3,
 const STUN1 = P({ lean: -0.15, head: 0.35, fa1: 0.2, fa2: 0.7, ba1: 0.1, ba2: 0.6, dx: -4 });
 const STUN2 = P({ lean: 0.2, head: -0.35, fa1: 0.25, fa2: 0.6, ba1: 0.2, ba2: 0.5, dx: 4 });
 
+const DANCE1 = P({ lean: -0.1, head: -0.3, fa1: 2.7, fa2: 0.4, ba1: 0.4, ba2: 1.8, fl1: 0.5, fl2: -0.6, bl1: -0.3, dy: 4 });
+const DANCE2 = P({ lean: 0.15, head: 0.2, fa1: 0.4, fa2: 1.8, ba1: 2.7, ba2: 0.4, fl1: -0.1, bl1: 0.3, bl2: -0.6, dy: 4 });
+const DANCE3 = P({ lean: 0, head: -0.1, fa1: 1.6, fa2: -0.3, ba1: 1.5, ba2: 0.3, fl1: 0.2, bl1: -0.2, dy: -4 });
+const FLEX = P({ lean: -0.05, head: -0.25, fa1: 1.9, fa2: 2.3, ba1: 1.75, ba2: 2.3, fl1: 0.35, bl1: -0.35, dy: 2 });
+const FLEX2 = P({ lean: -0.12, head: -0.35, fa1: 2.1, fa2: 2.1, ba1: 1.95, ba2: 2.1, fl1: 0.35, bl1: -0.35, dy: 4 });
+const POINT = P({ lean: -0.15, head: -0.45, fa1: 2.9, fa2: 0.05, ba1: 0.7, ba2: 1.6, fl1: 0.25, bl1: -0.25 });
+const TIRED = P({ lean: 0.55, head: -0.2, dy: 10, fa1: 0.55, fa2: 0.7, ba1: 0.45, ba2: 0.6, fl1: 0.45, fl2: -0.7, bl1: -0.25, bl2: -0.5 });
+const TIRED2 = P({ lean: 0.62, head: -0.1, dy: 13, fa1: 0.6, fa2: 0.6, ba1: 0.5, ba2: 0.55, fl1: 0.45, fl2: -0.75, bl1: -0.25, bl2: -0.55 });
+const CLINCH = P({ lean: 0.55, head: 0.3, fa1: 1.5, fa2: 1.2, ba1: 1.4, ba2: 1.3, fl1: 0.5, bl1: -0.6, bl2: -0.2 });
+
 function A(keys: [number, Pose, ((t: number) => number)?][], loop = false): Anim {
   return { keys: keys.map(([t, p, e]) => ({ t, p, e })), loop };
 }
@@ -122,6 +132,11 @@ export const ANIMS = {
   rise: A([[0, CHARGE], [0.2, RISE, snap], [10, RISE]]),
   stun: A([[0, STUN1], [0.45, STUN2], [0.9, STUN1]], true),
   lieKO: A([[0, LIE2], [10, LIE2]]),
+  dance: A([[0, DANCE1], [0.3, DANCE3], [0.6, DANCE2], [0.9, DANCE3], [1.2, DANCE1]], true),
+  flex: A([[0, GUARD], [0.25, FLEX, snap], [0.8, FLEX2], [1.3, FLEX]], true),
+  point: A([[0, GUARD], [0.25, POINT, snap], [0.9, P({ ...POINT, head: -0.6, dy: -3 })], [1.5, POINT]], true),
+  tired: A([[0, TIRED], [0.45, TIRED2], [0.9, TIRED]], true),
+  clinch: A([[0, GUARD], [0.15, CLINCH, snap], [10, CLINCH]]),
 } satisfies Record<string, Anim>;
 
 function easeIn2() {

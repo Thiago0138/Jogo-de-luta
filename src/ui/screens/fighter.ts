@@ -123,6 +123,7 @@ function gear(body: HTMLElement): void {
     { label: 'Aura', kind: 'aura', id: L.aura },
     { label: 'Penteado', kind: 'hair', id: S.appearance.hair },
     { label: 'Cor do cabelo', kind: 'hairColor', id: S.appearance.hairColor },
+    { label: 'Entrada', kind: 'entrance', id: L.entrance },
   ];
   const abil: Slot[] = [];
   for (let i = 0; i < 2; i++) abil.push({ label: `Super ${i + 1}`, kind: 'super', id: L.supers[i] ?? null, locked: i >= superSlots() ? 8 : undefined });

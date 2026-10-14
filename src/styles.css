@@ -2806,3 +2806,59 @@ span.rar-celestial,
   width: 90px;
   accent-color: var(--gold);
 }
+
+.hud-stam {
+  width: 55%;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+.hud-stam i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #3aa0ff, #7af7ff);
+  transform-origin: left;
+  transition: transform 0.2s;
+}
+.t1 .hud-stam i {
+  transform-origin: right;
+}
+.hud-stam.low i {
+  background: linear-gradient(90deg, #ff8a3d, #ffd23d);
+}
+.fight-hud,
+.fight-ctrl {
+  transition: opacity 0.4s, transform 0.4s;
+}
+.fight-root.entrance .fight-hud {
+  opacity: 0;
+  transform: translateY(-20px);
+}
+.fight-root.entrance .fight-ctrl {
+  opacity: 0.6;
+}
+.ent-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(10% + var(--safe-b));
+  text-align: center;
+  font-weight: 800;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.fight-root.entrance .ent-hint {
+  opacity: 1;
+  animation: pulse 1.4s infinite;
+}
+.id-art .id-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  font-size: 40px;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.5));
+}

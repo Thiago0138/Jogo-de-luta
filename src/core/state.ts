@@ -16,6 +16,7 @@ export interface Loadout {
   supers: string[];
   passives: string[];
   belt: string[];
+  entrance: string;
 }
 
 export interface MissionSet {
@@ -87,6 +88,7 @@ function fresh(): Save {
       supers: ['s_supersoco'],
       passives: ['p_ferro'],
       belt: ['c_vida'],
+      entrance: 'e_classica',
     },
     level: 1,
     xp: 0,

@@ -284,6 +284,9 @@ function post(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, w:
     ctx.beginPath();
     ctx.roundRect(x - w / 2 - 4, y - rh - 9, w + 8, 18, 5);
     ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillRect(x - w / 2 - 1, y - rh - 7, w + 2, 4);
+    ctx.fillStyle = TEAM_COLORS[team];
   }
   ctx.fillStyle = '#c0c4cc';
   ctx.fillRect(x - w / 2 - 2, y - h - 6, w + 4, 8);
@@ -303,6 +306,28 @@ export function drawRingBack(ctx: CanvasRenderingContext2D, ropes: RopeState): v
   ctx.lineTo(FRONT_X, FRONT_Y);
   ctx.lineTo(-FRONT_X, FRONT_Y);
   ctx.closePath();
+  ctx.fill();
+  // costuras da lona e bordo
+  ctx.strokeStyle = 'rgba(70,80,110,0.12)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let i = 1; i < 4; i++) {
+    const y = BACK_Y + ((FRONT_Y - BACK_Y) * i) / 4;
+    const w = BACK_X + ((FRONT_X - BACK_X) * i) / 4;
+    ctx.moveTo(-w, y);
+    ctx.lineTo(w, y);
+  }
+  for (let i = -4; i <= 4; i++) {
+    ctx.moveTo(i * (BACK_X / 5), BACK_Y);
+    ctx.lineTo(i * (FRONT_X / 5), FRONT_Y);
+  }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(196,18,44,0.85)';
+  ctx.beginPath();
+  ctx.moveTo(-FRONT_X, FRONT_Y - 7);
+  ctx.lineTo(FRONT_X, FRONT_Y - 7);
+  ctx.lineTo(FRONT_X, FRONT_Y);
+  ctx.lineTo(-FRONT_X, FRONT_Y);
   ctx.fill();
   // logótipo central do tapete
   ctx.save();
@@ -354,7 +379,7 @@ export function drawRingBack(ctx: CanvasRenderingContext2D, ropes: RopeState): v
   }
 }
 
-export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState): void {
+export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t = 0, hype = 0.3): void {
   // saia do ringue
   if (!skirtGrad) {
     skirtGrad = ctx.createLinearGradient(0, FRONT_Y, 0, FRONT_Y + 110);
@@ -365,6 +390,24 @@ export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState): 
   ctx.fillRect(-FRONT_X - 6, FRONT_Y, FRONT_X * 2 + 12, 120);
   ctx.fillStyle = '#c4122c';
   ctx.fillRect(-FRONT_X - 6, FRONT_Y, FRONT_X * 2 + 12, 8);
+  // fita de LED animada
+  const seg = 26;
+  const n = Math.ceil((FRONT_X * 2 + 12) / seg);
+  const prevOp = ctx.globalCompositeOperation;
+  for (let i = 0; i < n; i++) {
+    const x = -FRONT_X - 6 + i * seg;
+    const h = (i * 14 + t * (60 + hype * 160)) % 360;
+    ctx.fillStyle = `hsl(${h} 95% ${50 + hype * 15}%)`;
+    ctx.fillRect(x + 2, FRONT_Y + 12, seg - 4, 6);
+  }
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.globalAlpha = 0.25 + hype * 0.25;
+  ctx.fillStyle = '#ff7ad9';
+  ctx.fillRect(-FRONT_X - 6, FRONT_Y + 8, FRONT_X * 2 + 12, 14);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = prevOp;
+  ctx.fillStyle = '#c4122c';
+  ctx.fillRect(-FRONT_X - 6, FRONT_Y + 104, FRONT_X * 2 + 12, 6);
   ctx.fillStyle = 'rgba(255,255,255,0.9)';
   ctx.font = '44px "Luckiest Guy", Impact, sans-serif';
   ctx.textAlign = 'center';

@@ -3,7 +3,7 @@ import { emptyTally, type Tally } from '../data/missions';
 import { maxHp } from '../data/stats';
 import { sfx, crowdLevel } from '../audio/sfx';
 import { J_HEAD, J_NECK, J_HIP, clamp } from '../render/pose';
-import { APRON_X, RING, newRopes, pushRope, updateRopes, type RopeState } from './arena';
+import { APRON_X, BACK_X, BACK_Y, FRONT_X, FRONT_Y, POST_H, RING, ROPE_H, newRopes, pushRope, updateRopes, type RopeState } from './arena';
 import { Fighter, type FighterSpec, type Script, type Yield } from './fighter';
 import { PK, Particles, type Banner, type Beam, type Bolt, type PopText, type Proj, type Wave } from './fx';
 
@@ -12,6 +12,8 @@ export type Mode = 'solo' | 'tag' | 'champion';
 export interface FightSetup {
   mode: Mode;
   teams: [FighterSpec[], FighterSpec[]];
+  /** Mostrar as entradas dos lutadores antes da luta (por defeito sim). */
+  entrances?: boolean;
 }
 
 export interface FightReport {
@@ -27,6 +29,7 @@ export interface FightReport {
 
 /** Um frame (para scripts que precisam de correr frame a frame). */
 const FRAME = 1e-4;
+const BURST_WORDS = ['POW!', 'BAM!', 'CRACK!', 'BOOM!', 'WHAM!', 'SMASH!', 'KAPOW!'];
 const GRAV = 2200;
 const WALK = 150;
 
@@ -81,7 +84,10 @@ export class Fight {
   timeScale = 1;
   slowT = 0;
   freeze = 0;
-  phase: 'intro' | 'fight' | 'finish' | 'end' = 'intro';
+  phase: 'entrance' | 'intro' | 'fight' | 'finish' | 'end' = 'intro';
+  private entQueue: Fighter[] = [];
+  private entCur: Fighter | null = null;
+  private entBeam: Beam | null = null;
   phaseT = 0;
   winner: 0 | 1 | null = null;
   hype = 0.2;
@@ -92,6 +98,10 @@ export class Fight {
   bolts: Bolt[] = [];
   beams: Beam[] = [];
   waves: Wave[] = [];
+  bursts: { x: number; y: number; text: string; life: number; max: number; color: string; rot: number }[] = [];
+  /** Show de lasers da entrada (segundos restantes) e cor. */
+  lasersT = 0;
+  laserHue = 0;
   projs: Proj[] = [];
   cutin: CutIn | null = null;
   shakeT = 0;
@@ -121,8 +131,10 @@ export class Fight {
         if (si === 0) {
           f.x = side * (RING - 30);
           f.facing = ti === 0 ? 1 : -1;
-          f.run(this.introWalk(f, side * 210));
+          if (setup.entrances === false) f.run(this.introWalk(f, side * 210));
+          else f.hidden = true;
         } else {
+          if (setup.entrances !== false) f.hidden = true;
           f.x = side * APRON_X;
           f.facing = ti === 0 ? 1 : -1;
           f.setState('apron');
@@ -134,7 +146,12 @@ export class Fight {
       });
     });
     this.active = [this.teams[0][0], this.teams[1][0]];
-    if (this.mode === 'tag') this.clock = 120;
+    if (this.mode === 'tag') this.clock = 150;
+    if (setup.entrances !== false) {
+      this.phase = 'entrance';
+      // o adversário entra primeiro, o jogador fecha em grande
+      this.entQueue = [this.teams[1][0], this.teams[0][0]];
+    }
   }
 
   private *introWalk(f: Fighter, tx: number): Script {
@@ -148,6 +165,238 @@ export class Fight {
     f.play('taunt', 1.3);
     yield 0.9;
     f.play('guard');
+  }
+
+  // ───────────────────────── Entradas ─────────────────────────
+
+  private endEntrances(): void {
+    this.entCur = null;
+    this.phase = 'intro';
+    this.phaseT = 0;
+    this.darkenTarget = 0;
+    this.focus = null;
+    this.focusT = 0;
+    this.lasersT = 0;
+    if (this.entBeam) this.entBeam.life = 0;
+    this.entBeam = null;
+  }
+
+  /** Salta as entradas (toque no ecrã). */
+  skipEntrance(): void {
+    if (this.phase !== 'entrance') return;
+    this.entQueue = [];
+    for (const f of this.fighters) {
+      f.stop();
+      f.hidden = false;
+      f.noClamp = false;
+      f.vx = 0;
+      f.vz = 0;
+      f.z = 0;
+      const side = f.team === 0 ? -1 : 1;
+      if (this.active[f.team] === f) {
+        f.x = side * 210;
+        f.setState('idle');
+        f.play('guard');
+      } else {
+        f.x = side * APRON_X;
+        f.setState('apron');
+        f.play('apron');
+      }
+      f.facing = (f.team === 0 ? 1 : -1) as 1 | -1;
+    }
+    this.projs = [];
+    this.beams = [];
+    this.bolts = [];
+    this.cosmic = 0;
+    this.endEntrances();
+  }
+
+  private *entrance(f: Fighter): Script {
+    const d = ITEMS[f.spec.entrance ?? 'e_classica'] ?? ITEMS.e_classica;
+    const type = d.vis?.type ?? 'classica';
+    const pose = (d.vis?.style ?? 'victory') as 'victory' | 'dance' | 'flex' | 'point';
+    const side = f.team === 0 ? -1 : 1;
+    f.noClamp = true;
+    f.setState('act');
+    f.x = side * APRON_X;
+    f.facing = -side as 1 | -1;
+    f.play('apron');
+    this.darkenTarget = 0.62;
+    this.focus = f;
+    this.focusT = 99;
+    const beam: Beam = { x: f.x, w: 80, life: 99, max: 99, color: '#fff3d6' };
+    this.entBeam = beam;
+    this.beams.push(beam);
+    this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.icon} ${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.6, 0.75);
+    sfx.cheer(1);
+    this.addHype(0.4);
+    // efeito de abertura no canto
+    if (type === 'fumo' || type === 'cosmica') this.smokeBurst(f.x, 50);
+    if (type === 'dragao') {
+      this.projs.push({ kind: 'dragon', x: -side * 1100, y: -420, vx: side * 1300, life: 1.9, dir: side, color: '#ff5a00' });
+      sfx.fire();
+    }
+    if (type === 'pirotecnia') this.pyro(side);
+    if (type === 'trovao') this.thunder(f.x);
+    yield 0.6;
+    // salta as cordas para dentro do ringue
+    f.play('tuck');
+    const tx = side * (RING - 80);
+    const T = 0.5;
+    f.vx = (tx - f.x) / T;
+    f.vz = (0.5 * GRAV * T * T) / T;
+    f.z = 1;
+    yield () => f.z <= 0;
+    f.vx = 0;
+    this.dust(f.x, 8);
+    sfx.thud();
+    // caminha até à sua marca
+    const mark = side * 210;
+    f.play('walk');
+    while (Math.abs(f.x - mark) > 6) {
+      f.vx = Math.sign(mark - f.x) * 230;
+      beam.x = f.x;
+      yield FRAME;
+    }
+    f.vx = 0;
+    f.facing = -side as 1 | -1;
+    f.play(pose);
+    f.setExpr('happy', 3);
+    sfx.cheer(1.3);
+    this.addHype(0.5);
+    if (type === 'lasers') this.lasersT = 2.6;
+    if (type === 'cosmica') this.cosmic = 1;
+    let t = 0;
+    let tick = 0;
+    const COLORS = ['#ff3d6e', '#3aa0ff', '#ffd23d', '#4cd964', '#b45cff', '#7af7ff'];
+    while (t < 2.6) {
+      t += this.dt;
+      tick -= this.dt;
+      beam.x = f.x;
+      const fire = tick <= 0;
+      switch (type) {
+        case 'classica':
+          if (fire) {
+            tick = 0.6;
+            this.confetti(f.x, 40, COLORS);
+          }
+          break;
+        case 'danca':
+          beam.color = COLORS[Math.floor(t * 4) % COLORS.length];
+          if (Math.random() < 0.6) this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 260, -60 - Math.random() * 240, 0, -30, 0.5, 10, COLORS[Math.floor(Math.random() * COLORS.length)], 0);
+          break;
+        case 'fumo':
+          if (Math.random() < 0.5) this.parts.spawn(PK.Smoke, (Math.random() - 0.5) * 900, -6, (Math.random() - 0.5) * 60, -20 - Math.random() * 30, 1.6, 40, '#c9c4d8', 0);
+          break;
+        case 'lasers':
+          if (fire) {
+            tick = 0.5;
+            this.sparks(f.x, -120, 10, COLORS[Math.floor(t * 2) % COLORS.length], 500, PK.Star);
+          }
+          break;
+        case 'pirotecnia':
+          if (fire) {
+            tick = 0.55;
+            this.pyro(Math.random() < 0.5 ? -1 : 1);
+          }
+          break;
+        case 'fogos':
+          if (fire) {
+            tick = 0.38;
+            this.firework(COLORS[Math.floor(Math.random() * COLORS.length)]);
+          }
+          for (let i = 0; i < 2; i++) this.parts.spawn(PK.Spark, (Math.random() - 0.5) * 2 * RING, FRONT_Y - ROPE_H[2], 0, 120 + Math.random() * 80, 0.6, 2, '#ffe27a', 500);
+          break;
+        case 'trovao':
+          if (fire) {
+            tick = 0.45;
+            this.thunder((Math.random() - 0.5) * 2 * RING);
+          }
+          break;
+        case 'rei':
+          if (fire) {
+            tick = 0.25;
+            this.confetti(f.x, 30, ['#ffd23d', '#ffe680', '#fff6c2', '#e0a800']);
+          }
+          for (const sx of [-1, 1]) this.parts.spawn(PK.Ember, sx * (FRONT_X - 20), FRONT_Y - POST_H, sx * -40 + (Math.random() - 0.5) * 80, -500 - Math.random() * 200, 0.9, 18, '#ffd23d', 900);
+          break;
+        case 'dragao':
+          if (fire) {
+            tick = 0.5;
+            this.sparks(f.x, -100, 14, '#ff7a1a', 600, PK.Ember);
+          }
+          break;
+        case 'cosmica':
+          if (Math.random() < 0.35) {
+            const mx = (Math.random() - 0.5) * 1600;
+            this.parts.spawn(PK.Ember, mx, -900, 500, 900, 1.2, 22, Math.random() < 0.5 ? '#9b7aff' : '#7af7ff', 0);
+          }
+          break;
+      }
+      yield FRAME;
+    }
+    f.play('guard');
+    beam.life = 0;
+    this.entBeam = null;
+    this.cosmic = Math.min(this.cosmic, 0.99);
+    f.noClamp = false;
+    // o parceiro aparece no avental
+    for (const p of this.teams[f.team]) {
+      if (p !== f) {
+        p.hidden = false;
+        this.sparks(p.x, -120, 16, '#ffd23d', 400, PK.Star);
+      }
+    }
+    yield 0.3;
+  }
+
+  private confetti(x: number, n: number, colors: string[]): void {
+    for (let i = 0; i < n; i++) {
+      this.parts.spawn(PK.Confetti, x + (Math.random() - 0.5) * 700, -700 - Math.random() * 200, (Math.random() - 0.5) * 160, Math.random() * 80, 3, 5, colors[i % colors.length], 140);
+    }
+  }
+
+  private smokeBurst(x: number, n: number): void {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      this.parts.spawn(PK.Smoke, x + (Math.random() - 0.5) * 60, -40 - Math.random() * 80, Math.cos(a) * 260, Math.sin(a) * 120 - 40, 1.8, 46, i % 2 ? '#e8e4f2' : '#a9a2bd', 0);
+    }
+    sfx.whoosh();
+  }
+
+  /** Colunas de fogo nos postes de um lado (ou dos dois). */
+  private pyro(side: number): void {
+    for (const [px, py] of [[side * FRONT_X, FRONT_Y - POST_H], [side * BACK_X, BACK_Y - POST_H + 10]]) {
+      for (let i = 0; i < 26; i++) {
+        this.parts.spawn(PK.Ember, px + (Math.random() - 0.5) * 16, py, (Math.random() - 0.5) * 70, -700 - Math.random() * 500, 0.55 + Math.random() * 0.3, 30, i % 3 ? '#ff7a1a' : '#ffd000', 600);
+      }
+    }
+    this.flash = Math.max(this.flash, 0.25);
+    this.flashColor = '#ffb070';
+    this.shake(5, 0.2);
+    sfx.fire();
+  }
+
+  private firework(color: string): void {
+    const c = this.entCur ? this.entCur.x : 0;
+    const x = c + (Math.random() - 0.5) * 700;
+    const y = -330 - Math.random() * 170;
+    for (let i = 0; i < 36; i++) {
+      const a = (i / 36) * Math.PI * 2;
+      const v = 260 + Math.random() * 80;
+      this.parts.spawn(i % 2 ? PK.Ember : PK.Spark, x, y, Math.cos(a) * v, Math.sin(a) * v, 1 + Math.random() * 0.4, i % 2 ? 14 : 2.5, i % 4 ? color : '#ffffff', 160);
+    }
+    this.parts.spawn(PK.Star, x, y, 0, 0, 0.3, 70, '#ffffff', 0);
+    sfx.boom();
+  }
+
+  private thunder(x: number): void {
+    this.bolts.push({ x, y0: -1400, y1: 0, life: 0.3, color: '#9be8ff', seed: Math.random() * 999, width: 12 });
+    this.flash = Math.max(this.flash, 0.5);
+    this.flashColor = '#cfefff';
+    this.shake(8, 0.2);
+    this.sparks(x, -6, 18, '#9be8ff', 600);
+    sfx.zap();
   }
 
   // ───────────────────────── Utilitários ─────────────────────────
@@ -164,7 +413,7 @@ export class Fight {
     let s = 1 + f.s.vel * 0.006;
     if (f.has('p_maos')) s += 0.12;
     if (f.speedT > 0) s += 0.25;
-    return s;
+    return s * (0.72 + 0.28 * (f.stamina / 100));
   }
 
   scale(f: Fighter): number {
@@ -231,6 +480,11 @@ export class Fight {
     this.waves.push({ x, y, r: 10, vr: r / life, life, max: life, color });
   }
 
+  /** Gasta estamina (a Resistência reduz o custo). */
+  tire(f: Fighter, n: number): void {
+    f.stamina = Math.max(0, f.stamina - n * (1 - Math.min(0.4, f.s.res * 0.004)));
+  }
+
   // ───────────────────────── Ciclo principal ─────────────────────────
 
   update(rawDt: number): void {
@@ -255,6 +509,16 @@ export class Fight {
     this.t += dt;
     this.phaseT += dt;
 
+    if (this.phase === 'entrance' && (!this.entCur || !this.entCur.script)) {
+      const next = this.entQueue.shift();
+      if (next) {
+        this.entCur = next;
+        next.hidden = false;
+        next.run(this.entrance(next));
+      } else {
+        this.endEntrances();
+      }
+    }
     if (this.phase === 'intro' && this.phaseT > 0.1 && this.phaseT - dt <= 0.1) {
       this.banner('PREPARAR...', this.mode === 'tag' ? 'TAG TEAM' : this.mode === 'champion' ? 'DESAFIO DO CAMPEÃO' : 'COMBATE', '#ffffff', 1.1);
     }
@@ -324,6 +588,9 @@ export class Fight {
       w.r += w.vr * dt;
     }
     this.waves = this.waves.filter((w) => w.life > 0);
+    for (const b of this.bursts) b.life -= dt;
+    this.bursts = this.bursts.filter((b) => b.life > 0);
+    if (this.lasersT > 0) this.lasersT -= dt;
     for (const p of this.projs) {
       p.life -= dt;
       p.x += p.vx * dt;
@@ -356,6 +623,19 @@ export class Fight {
       f.comboT -= dt;
       if (f.comboT <= 0) f.combo = 0;
     }
+    // estamina, atordoamento e tempo no ringue
+    const resk = 1 + f.s.res * 0.012;
+    const regen = f.script ? 2.5 : f.state === 'idle' ? (f.anim === 'tired' ? 22 : 9) : 4;
+    f.stamina = Math.min(100, f.stamina + regen * resk * dt);
+    f.daze = Math.max(0, f.daze - 9 * dt);
+    if (this.phase === 'fight' && this.active[f.team] === f) f.inRingT += dt;
+    if (f.stunT > 0 && f.state === 'hit' && Math.random() < dt * 9) {
+      const a = this.t * 6 + Math.random();
+      this.parts.spawn(PK.Star, this.jx(f, J_HEAD) + Math.cos(a) * 28, this.jy(f, J_HEAD) - 34 + Math.sin(a) * 8, -Math.sin(a) * 40, 0, 0.45, 9, '#ffe27a', 0);
+    }
+    if (f.stamina < 25 && f.state !== 'down' && f.state !== 'ko' && Math.random() < dt * 2.5) {
+      this.parts.spawn(PK.Sweat, this.jx(f, J_HEAD) + (Math.random() - 0.5) * 30, this.jy(f, J_HEAD) - 10, (Math.random() - 0.5) * 120, -120, 0.5, 2.2, '#bfe6ff', 900);
+    }
     if (f.has('p_bencao') && f.hp > 0 && f.state !== 'ko') f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.01 * dt);
     if (f.evadeT > 0) {
       f.evadeT -= dt;
@@ -371,7 +651,8 @@ export class Fight {
           this.think(f, dt);
           break;
         case 'hit':
-          if (f.stateT > 0.32) {
+          if (f.stateT > Math.max(0.32, f.stunT)) {
+            f.stunT = 0;
             f.setState('idle');
             f.play('guard');
           }
@@ -398,7 +679,7 @@ export class Fight {
       }
       if (!f.script && f.state !== 'idle') f.vx *= Math.pow(0.02, dt);
       const lim = RING - 10;
-      if (Math.abs(f.x) > lim && !f.noClamp) {
+      if (Math.abs(f.x) > lim && !f.noClamp && (f.state as string) !== 'apron' && (f.state as string) !== 'out') {
         const side = f.x > 0 ? 1 : 0;
         if (Math.abs(f.vx) > 260) {
           pushRope(this.ropes, side as 0 | 1, f.vx * 0.5);
@@ -473,6 +754,8 @@ export class Fight {
   private updateApron(f: Fighter, dt: number): void {
     f.face(0);
     if (f.hp < f.maxHp) f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.012 * dt);
+    f.stamina = Math.min(100, f.stamina + 25 * dt);
+    f.daze = 0;
     if (f.script) {
       this.runScript(f, dt);
       if (!f.script && f.state === 'apron') f.play('apron', 1, false);
@@ -519,6 +802,17 @@ export class Fight {
     if (this.tryPotion(f)) return;
     if (this.mode === 'tag' && this.tryTag(f)) return;
 
+    // cansado: afasta-se e recupera o fôlego
+    if (f.stamina < 22 && o.state !== 'down' && Math.random() < 0.65) {
+      f.run(this.catchBreath(f, o));
+      return;
+    }
+    // clinch quando ambos estão cansados e colados
+    if (dist < 85 && f.stamina < 40 && o.stamina < 45 && o.state === 'idle' && !o.script && Math.random() < 0.25) {
+      f.run(this.clinch(f, o));
+      return;
+    }
+
     if (f.meter >= 100 && o.state !== 'down' && o.state !== 'thrown' && o.z < 10 && Math.random() < 0.8) {
       const sup = f.spec.supers[Math.floor(Math.random() * f.spec.supers.length)] ?? 's_supersoco';
       f.run(this.superMove(f, o, sup), true);
@@ -564,6 +858,7 @@ export class Fight {
       [dist < 85 ? 1.4 + st.agr * 0.05 + (stunned ? 1.5 : 0) : 0, () => this.grapple(f, o)],
       [dist < 85 ? 0.6 + st.agr * 0.02 : 0, () => this.irishWhip(f, o)],
       [0.7, () => this.stepBack(f)],
+      [0.6, () => this.feint(f, o)],
     ];
     let tot = 0;
     for (const [w] of opts) tot += w;
@@ -579,11 +874,14 @@ export class Fight {
 
   private idleMove(f: Fighter, o: Fighter, dist: number): void {
     if (f.wantX == null) {
-      // movimento leve de boxe
+      // footwork de boxe: entra e sai da distância, nunca fica parado muito tempo
       if (dist < 60) f.wantX = f.x - f.facing * 30;
-      else {
+      else if (o.state !== 'down' && Math.random() < this.dt * 2.2) {
+        const step = Math.random() < (dist > 120 ? 0.75 : 0.4) ? 22 + Math.random() * 18 : -(18 + Math.random() * 20);
+        f.wantX = clamp(f.x + f.facing * step, -RING + 30, RING - 30);
+      } else {
         f.vx = 0;
-        f.play('guard', 1, false);
+        f.play(f.stamina < 22 ? 'tired' : 'guard', 1, false);
         return;
       }
     }
@@ -663,6 +961,7 @@ export class Fight {
       }
       f.face(o);
       f.play(m);
+      this.tire(f, m === 'jab' ? 3 : m === 'cross' ? 4 : m === 'hook' ? 6 : 5);
       const hit = m === 'jab' ? 0.14 : m === 'cross' ? 0.18 : m === 'hook' ? 0.23 : 0.2;
       this.telegraph(f, o, 'punch', m !== 'body');
       f.vx = f.facing * 60;
@@ -678,23 +977,25 @@ export class Fight {
 
   private *heavy(f: Fighter, o: Fighter): Script {
     const r = Math.random();
+    this.tire(f, 8);
+    const st = o.stunT > 0;
     if (r < 0.32) {
       f.play('upper');
       this.telegraph(f, o, 'punch', true);
       yield 0.27;
-      this.strike(f, o, { dmg: 22, reach: 95, kind: 'punch', heavy: true, kd: Math.random() < 0.35, launch: 380, kb: 140 });
+      this.strike(f, o, { dmg: 22, reach: 95, kind: 'punch', heavy: true, kd: st || Math.random() < 0.08, launch: 380, kb: 140 });
       yield 0.4;
     } else if (r < 0.55) {
       f.play('hook');
       this.telegraph(f, o, 'punch', true);
       yield 0.23;
-      this.strike(f, o, { dmg: 17, reach: 100, kind: 'punch', heavy: true, kb: 200, kd: Math.random() < 0.2 });
+      this.strike(f, o, { dmg: 17, reach: 100, kind: 'punch', heavy: true, kb: 200, kd: st && Math.random() < 0.7 });
       yield 0.3;
     } else if (r < 0.78) {
       f.play('kick');
       this.telegraph(f, o, 'kick', false);
       yield 0.26;
-      this.strike(f, o, { dmg: 19, reach: 125, kind: 'kick', heavy: true, kb: 320, body: true, kd: Math.random() < 0.22 });
+      this.strike(f, o, { dmg: 19, reach: 125, kind: 'kick', heavy: true, kb: 320, body: true, kd: st });
       yield 0.38;
     } else {
       f.play('body');
@@ -704,9 +1005,77 @@ export class Fight {
       yield 0.12;
       f.play('upper', 1.2);
       yield 0.22;
-      this.strike(f, o, { dmg: 18, reach: 95, kind: 'punch', heavy: true, kd: Math.random() < 0.5, launch: 300, kb: 120 });
+      this.strike(f, o, { dmg: 18, reach: 95, kind: 'punch', heavy: true, kd: st || Math.random() < 0.12, launch: 300, kb: 120 });
       yield 0.35;
     }
+  }
+
+  private *catchBreath(f: Fighter, o: Fighter): Script {
+    f.play('walkBack');
+    f.vx = -f.facing * 150;
+    yield () => Math.abs(o.x - f.x) > 190 || Math.abs(f.x) > RING - 40;
+    f.vx = 0;
+    f.play('tired');
+    if (Math.random() < 0.5) this.pop('A RECUPERAR...', f.x, this.jy(f, J_HEAD) - 50, '#9ad7ff', 18);
+    yield 0.9;
+    f.setState('idle');
+  }
+
+  private *feint(f: Fighter, o: Fighter): Script {
+    f.play('jab', 0.7);
+    this.tire(f, 1);
+    this.telegraph(f, o, 'punch', true);
+    yield 0.08;
+    f.play('guard');
+    yield 0.18;
+    // se o adversário mordeu o isco, ataca já
+    if (o.script && o.evade !== 'none' && Math.random() < 0.6) {
+      yield 0.18;
+      f.play('cross');
+      this.tire(f, 4);
+      yield 0.18;
+      this.strike(f, o, { dmg: 13, reach: 110, kind: 'punch', kb: 90, unblockable: true });
+      yield 0.2;
+    }
+  }
+
+  private *clinch(f: Fighter, o: Fighter): Script {
+    o.stop();
+    o.setState('act');
+    o.script = this.held(o, f);
+    f.play('clinch');
+    o.play('clinch');
+    f.vx = f.facing * 80;
+    yield 0.15;
+    f.vx = 0;
+    this.pop('CLINCH', (f.x + o.x) / 2, -260, '#ffffff', 20);
+    for (let i = 0; i < 3; i++) {
+      yield 0.35;
+      if (o.state !== 'act') return;
+      f.play('body', 1.4);
+      yield 0.12;
+      this.strike(f, o, { dmg: 5, reach: 120, kind: 'punch', body: true, kb: 0, unblockable: true, quiet: true });
+      if (o.state !== 'act' && o.state !== 'hit') return;
+      o.setState('act');
+      o.script = this.held(o, f);
+      f.play('clinch');
+    }
+    yield 0.2;
+    f.play('cross', 1.2);
+    yield 0.1;
+    f.vx = -f.facing * 200;
+    o.vx = f.facing * 200;
+    yield 0.25;
+    f.vx = 0;
+  }
+
+  private *held(o: Fighter, f: Fighter): Script {
+    o.face(f);
+    o.play('clinch');
+    yield () => !f.script || f.anim === 'cross';
+    o.play('guard');
+    yield 0.3;
+    o.vx = 0;
   }
 
   private *stepBack(f: Fighter): Script {
@@ -723,6 +1092,7 @@ export class Fight {
   }
 
   private *grapple(f: Fighter, o: Fighter): Script {
+    this.tire(f, 10);
     f.play('grab');
     this.telegraph(f, o, 'grapple', false);
     f.vx = f.facing * 120;
@@ -844,6 +1214,7 @@ export class Fight {
   }
 
   private *irishWhip(f: Fighter, o: Fighter): Script {
+    this.tire(f, 8);
     f.play('grab');
     yield 0.14;
     if (Math.abs(o.x - f.x) > 95 || !this.canGrab(o)) {
@@ -902,6 +1273,7 @@ export class Fight {
   }
 
   private *ropeRun(f: Fighter, o: Fighter): Script {
+    this.tire(f, 12);
     const away = -f.facing;
     f.facing = away as 1 | -1;
     f.play('run');
@@ -933,6 +1305,7 @@ export class Fight {
   }
 
   private *dropkick(f: Fighter, o: Fighter): Script {
+    this.tire(f, 14);
     f.play('run');
     f.vx = f.facing * 380;
     while (Math.abs(o.x - f.x) > 210) yield FRAME;
@@ -999,6 +1372,7 @@ export class Fight {
   }
 
   private *topRopeDive(f: Fighter, o: Fighter): Script {
+    this.tire(f, 14);
     f.diveCd = 6;
     // escolhe o canto mais próximo atrás de si (para mergulhar na direção do adversário)
     const side = o.x > f.x ? -1 : 1;
@@ -1249,6 +1623,7 @@ export class Fight {
     dmg *= isGrapple ? 1 + att.s.agr * 0.022 : 1 + att.s.for * 0.02;
     if (o.kind === 'super') dmg *= 1 + (att.s.for + att.s.agr) * 0.006;
     if (att.furyT > 0) dmg *= 1.35;
+    dmg *= 0.72 + 0.28 * (att.stamina / 100);
     if (att.has('p_furia') && att.hpRatio < 0.3) dmg *= 1.35;
     // crítico
     let critC = 0.04 + att.s.pre * 0.0035;
@@ -1275,6 +1650,7 @@ export class Fight {
 
     dmg = Math.max(1, Math.round(dmg));
     def.hp -= dmg;
+    def.stamina = Math.max(0, def.stamina - dmg * 0.18);
     def.minHpRatio = Math.min(def.minHpRatio, Math.max(0, def.hp) / def.maxHp);
     def.lastHitBy = att;
     def.flashT = 0.07;
@@ -1299,6 +1675,10 @@ export class Fight {
       for (let i = 0; i < 4; i++) this.parts.spawn(PK.Sweat, hx, hy, dir * (100 + Math.random() * 200), -150 - Math.random() * 200, 0.6, 2.5, '#bfe6ff', 1400);
     }
     sfx.hit(heavy);
+    if (heavy && o.kind !== 'assist') {
+      this.bursts.push({ x: hx, y: hy - 10, text: BURST_WORDS[Math.floor(Math.random() * BURST_WORDS.length)], life: 0.42, max: 0.42, color: crit ? '#ffd23d' : o.color ?? '#ff5a5a', rot: (Math.random() - 0.5) * 0.5 });
+      if (this.bursts.length > 4) this.bursts.shift();
+    }
     this.freeze = heavy ? 0.085 : 0.035;
     this.shake(heavy ? 9 : 3.5, heavy ? 0.22 : 0.1);
     if (heavy) this.zoomPunch = 0.06;
@@ -1317,6 +1697,26 @@ export class Fight {
       this.handleZero(def, att, o.kind);
       return true;
     }
+    // atordoamento acumulado: golpes na cabeça contam mais
+    let kd = !!o.kd;
+    if (def.stunT > 0 && o.heavy && o.kind !== 'assist') kd = true;
+    if (!kd && o.kind !== 'assist' && def.state !== 'down' && def.state !== 'thrown') {
+      def.daze += dmg * (o.body ? 0.55 : 1.15) * (o.heavy ? 1.2 : 1);
+      if (def.daze >= 40 + def.s.res * 0.5 && !def.armor) {
+        def.daze = 0;
+        def.stop();
+        def.evade = 'none';
+        def.setState('hit');
+        def.play('stun');
+        def.stunT = Math.max(0.7, 1.4 - def.s.res * 0.006);
+        def.vx = dir * 60;
+        def.setExpr('hurt', def.stunT);
+        this.pop('ATORDOADO!', def.x, this.jy(def, J_HEAD) - 70, '#ffe27a', 26);
+        this.addHype(0.12);
+        sfx.cheer(0.6);
+        return true;
+      }
+    }
     if (def.armor) return true;
     if (def.state === 'down') {
       def.downT = Math.max(def.downT, 0.6);
@@ -1325,7 +1725,8 @@ export class Fight {
     if (def.state === 'thrown' && !o.ground) return true;
     def.stop();
     def.evade = 'none';
-    if (o.kd) {
+    if (kd) {
+      def.stunT = 0;
       this.knockDown(def, dir, o.kb ?? 200, o.launch ?? 260);
     } else {
       def.setState('hit');
@@ -1338,6 +1739,8 @@ export class Fight {
 
   knockDown(f: Fighter, dir: number, kb: number, launch: number): void {
     f.stop();
+    f.stunT = 0;
+    f.daze = 0;
     f.face(f.x - dir);
     f.setState('down');
     f.play('fall');
@@ -1460,6 +1863,8 @@ export class Fight {
 
   private *enterRing(f: Fighter): Script {
     f.setState('act');
+    f.inRingT = 0;
+    f.tagCooldown = 8;
     f.noClamp = true;
     const side = f.team === 0 ? -1 : 1;
     f.play('tuck');
@@ -1485,8 +1890,13 @@ export class Fight {
   private tryTag(f: Fighter): boolean {
     const p = this.partner(f);
     if (!p || f.tagCooldown > 0) return false;
-    if (f.hpRatio > 0.42 || p.hpRatio < f.hpRatio + 0.2) return false;
-    if (Math.random() > 0.35) return false;
+    const hp = f.hpRatio;
+    let chance = 0;
+    if (hp < 0.3 && p.hpRatio > hp) chance = 0.85;
+    else if (hp < 0.6 && p.hpRatio > hp + 0.12) chance = 0.45;
+    else if (f.stamina < 28 && p.stamina > 60) chance = 0.4;
+    else if (f.inRingT > 28 && p.hpRatio > 0.4) chance = 0.25;
+    if (Math.random() > chance) return false;
     f.run(this.tagOut(f, p));
     return true;
   }

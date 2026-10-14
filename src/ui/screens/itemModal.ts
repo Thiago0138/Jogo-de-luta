@@ -35,6 +35,8 @@ export function isEquipped(id: string): boolean {
       return L.passives.includes(id);
     case 'potion':
       return L.belt.includes(id);
+    case 'entrance':
+      return L.entrance === id;
   }
 }
 
@@ -83,6 +85,9 @@ export function toggleEquip(id: string): void {
     case 'potion':
       slotList(L.belt, beltSlots());
       break;
+    case 'entrance':
+      L.entrance = id;
+      break;
   }
   if (d.kind === 'hair' || d.kind === 'hairColor') clearThumbs();
   commit();
@@ -129,6 +134,11 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     const p = new Preview(resolveLook(app, lo));
     p.play('taunt', 'happy');
     art.appendChild(p.canvas);
+  } else if (d.kind === 'entrance') {
+    const p = new Preview(resolveLook(S.appearance, S.loadout));
+    p.play((d.vis?.style ?? 'victory') as never, 'happy');
+    art.appendChild(p.canvas);
+    art.appendChild(el('div', 'id-badge', d.icon));
   } else {
     art.appendChild(el('div', 'id-icon', d.icon));
   }

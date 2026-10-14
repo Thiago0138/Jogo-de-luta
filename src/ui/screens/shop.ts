@@ -14,6 +14,7 @@ import { openItem } from './itemModal';
 const TABS: { id: string; name: string }[] = [
   { id: 'featured', name: '⭐ Destaques' },
   { id: 'skins', name: '👕 Skins' },
+  { id: 'entrances', name: '🎆 Entradas' },
   { id: 'abilities', name: '⚡ Habilidades' },
   { id: 'potions', name: '🧪 Poções' },
   { id: 'chests', name: '🎁 Baús' },
@@ -78,6 +79,10 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
         body.appendChild(el('h3', 'sec', { outfit: 'Trajes', gloves: 'Luvas', mask: 'Máscaras', aura: 'Auras', hair: 'Penteados premium', hairColor: 'Cores de cabelo' }[k as string] ?? k));
         body.appendChild(grid(list.map((d) => ({ id: d.id, discount: 0 }))));
       }
+      break;
+    case 'entrances':
+      body.appendChild(el('p', 'muted small', 'Entra no ringue em grande: danças, fumo, lasers, pirotecnia e fogo de artifício antes de cada luta.'));
+      body.appendChild(grid(shopItems(['entrance']).map((d) => ({ id: d.id, discount: 0 }))));
       break;
     case 'abilities':
       body.appendChild(el('h3', 'sec', 'Super ataques'));

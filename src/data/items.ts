@@ -9,7 +9,8 @@ export type ItemKind =
   | 'aura'
   | 'super'
   | 'passive'
-  | 'potion';
+  | 'potion'
+  | 'entrance';
 
 export type ItemSource = 'start' | 'shop' | 'chest' | 'mission' | 'level';
 
@@ -50,6 +51,7 @@ export const KIND_NAMES: Record<ItemKind, string> = {
   super: 'Super ataque',
   passive: 'Habilidade passiva',
   potion: 'Poção',
+  entrance: 'Entrada',
 };
 
 const I: ItemDef[] = [
@@ -150,6 +152,18 @@ const I: ItemDef[] = [
   { id: 'p_muralha', kind: 'passive', name: 'Muralha', rarity: 'lendario', desc: '+15% de bloqueio e contra-ataques mais fortes.', icon: '🧱', source: 'chest', power: 0.15 },
   { id: 'p_fenix', kind: 'passive', name: 'Fénix', rarity: 'mitico', desc: 'Renasce uma vez com 35% de vida.', icon: '🐦‍🔥', source: 'chest', power: 0.35 },
   { id: 'p_bencao', kind: 'passive', name: 'Bênção Divina', rarity: 'celestial', desc: 'Começa com meio Super e regenera 1% de vida/s.', icon: '🕊️', source: 'mission', power: 0.01 },
+
+  // ───────────── Entradas no ringue ─────────────
+  { id: 'e_classica', kind: 'entrance', name: 'Entrada Clássica', rarity: 'comum', desc: 'Holofote, punhos no ar e o público a aplaudir.', icon: '🔦', source: 'start', vis: { type: 'classica', style: 'victory' } },
+  { id: 'e_danca', kind: 'entrance', name: 'Passo de Dança', rarity: 'incomum', desc: 'Entra a dançar com luzes de discoteca.', icon: '🕺', source: 'shop', coins: 1500, vis: { type: 'danca', style: 'dance' } },
+  { id: 'e_fumo', kind: 'entrance', name: 'Canhões de Fumo', rarity: 'raro', desc: 'Surge do meio de uma nuvem de fumo.', icon: '🌫️', source: 'shop', coins: 3500, vis: { type: 'fumo', style: 'flex' } },
+  { id: 'e_lasers', kind: 'entrance', name: 'Show de Lasers', rarity: 'epico', desc: 'Lasers coloridos varrem a arena ao ritmo da música.', icon: '🔴', source: 'shop', gems: 250, vis: { type: 'lasers', style: 'dance' } },
+  { id: 'e_pirotecnia', kind: 'entrance', name: 'Pirotecnia', rarity: 'epico', desc: 'Colunas de fogo explodem nos quatro cantos do ringue.', icon: '🔥', source: 'shop', gems: 300, vis: { type: 'pirotecnia', style: 'flex' } },
+  { id: 'e_fogos', kind: 'entrance', name: 'Fogo de Artifício', rarity: 'lendario', desc: 'Foguetes, explosões no céu e cascatas de faíscas das cordas.', icon: '🎆', source: 'shop', gems: 550, vis: { type: 'fogos', style: 'point' } },
+  { id: 'e_trovao', kind: 'entrance', name: 'Tempestade', rarity: 'lendario', desc: 'Relâmpagos caem à volta do ringue a cada passo.', icon: '⛈️', source: 'chest', vis: { type: 'trovao', style: 'flex' } },
+  { id: 'e_rei', kind: 'entrance', name: 'Entrada Real', rarity: 'mitico', desc: 'Chuva de confettis dourados e fontes de faíscas para o rei.', icon: '👑', source: 'shop', gems: 900, vis: { type: 'rei', style: 'victory' } },
+  { id: 'e_dragao', kind: 'entrance', name: 'Voo do Dragão', rarity: 'mitico', desc: 'Um dragão de fogo sobrevoa a arena antes de entrares.', icon: '🐲', source: 'chest', vis: { type: 'dragao', style: 'point' } },
+  { id: 'e_cosmica', kind: 'entrance', name: 'Portal Cósmico', rarity: 'celestial', desc: 'A arena transforma-se no espaço e chovem meteoros.', icon: '🌠', source: 'mission', vis: { type: 'cosmica', style: 'flex' } },
 
   // ───────────── Poções / energias ─────────────
   { id: 'c_vida', kind: 'potion', name: 'Poção de Vida', rarity: 'comum', desc: 'Recupera 20% da vida quando estás em apuros.', icon: '🧪', source: 'shop', coins: 120, power: 0.2 },

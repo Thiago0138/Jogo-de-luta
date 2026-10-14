@@ -18,6 +18,8 @@ export interface FighterSpec {
   title?: string;
   /** Multiplicador de vida (adversários de iniciação). */
   hpMul?: number;
+  /** Entrada no ringue (id do item). */
+  entrance?: string;
 }
 
 export type FState =
@@ -86,6 +88,15 @@ export class Fighter {
   usedFenix = false;
   usedNectar = false;
   minHpRatio = 1;
+  /** Estamina 0–100: gasta com golpes, recupera ao respirar. */
+  stamina = 100;
+  /** Acumulado de dano à cabeça; ao passar o limite o lutador fica atordoado. */
+  daze = 0;
+  stunT = 0;
+  /** Tempo seguido dentro do ringue (tag team). */
+  inRingT = 0;
+  /** Invisível (ainda não fez a entrada). */
+  hidden = false;
   wantX: number | null = null;
   /** Fora das cordas (não limitar ao ringue). */
   noClamp = false;

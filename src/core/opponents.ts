@@ -100,6 +100,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     supers: [gear('super', Math.min(maxTier, 2 + Math.floor(lvl / 10)), r) ?? 's_supersoco'],
     passives: [gear('passive', Math.min(maxTier, 1 + Math.floor(lvl / 12)), r) ?? 'p_ferro'],
     belt: lvl >= 3 ? ['c_vida'] : [],
+    entrance: gear('entrance', Math.min(6, maxTier + 1), r) ?? 'e_classica',
   };
   const app = randomAppearance(r);
   if (o.champion) {
@@ -115,6 +116,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     supers: loadout.supers,
     passives: loadout.passives,
     belt: loadout.belt,
+    entrance: loadout.entrance,
     isPlayer: false,
     hpMul: o.champion ? 1 : S.life.fights < 6 ? 0.72 : li === 0 ? 0.9 : 1,
   };
@@ -151,6 +153,7 @@ export function playerSpec(): FighterSpec {
     supers: [...S.loadout.supers],
     passives: [...S.loadout.passives],
     belt,
+    entrance: S.loadout.entrance,
     isPlayer: true,
   };
 }

@@ -8,6 +8,23 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.2.0',
+    date: '2026-10-14',
+    title: 'Entradas, estamina e luta mais realista',
+    items: [
+      'NOVO: Entradas no ringue! Holofote, salto pelas cordas e pose de estrela antes de cada luta.',
+      '10 entradas para colecionar: Clássica, Dança, Fumo, Lasers, Pirotecnia, Fogo de Artifício, Tempestade, Real, Dragão e Portal Cósmico (nova aba "Entradas" na Loja).',
+      'Toca no ecrã para saltar as entradas.',
+      'Estamina: os golpes cansam. Lutadores cansados ficam mais lentos, batem menos e param para recuperar o fôlego.',
+      'Atordoamento: golpes acumulados na cabeça deixam o adversário a ver estrelas; um golpe forte nessa altura derruba-o.',
+      'Footwork de boxe, fintas e clinches quando os dois estão cansados.',
+      'Tag Team: corrigido o bug em que um lutador ficava preso dentro do ringue depois da troca.',
+      'Tag Team: os lutadores trocam muito antes de chegarem ao K.O. (cansados, magoados ou há muito tempo no ringue).',
+      'Gráficos: rastos nos golpes, onomatopeias BAM/POW, névoa de arena, LEDs no avental, tapete com textura e barras de cinema.',
+      'Nova barra de estamina azul no HUD.',
+    ],
+  },
+  {
     version: '1.1.2',
     date: '2026-10-14',
     title: 'Controlo de volume',

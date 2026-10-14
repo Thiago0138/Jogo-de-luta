@@ -15,6 +15,7 @@ const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
   { id: 'hair', name: 'Cabelo', kinds: ['hair', 'hairColor'] },
   { id: 'super', name: 'Supers', kinds: ['super'] },
   { id: 'passive', name: 'Passivas', kinds: ['passive'] },
+  { id: 'entrance', name: 'Entradas', kinds: ['entrance'] },
   { id: 'potion', name: 'Poções', kinds: ['potion'] },
 ];
 
