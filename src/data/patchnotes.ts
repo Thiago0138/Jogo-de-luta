@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.12.1',
+    date: '2026-10-14',
+    title: 'No more laser sounds',
+    items: [
+      'Removed every laser-like sound: signature moves and Supers now build up with a crowd swell and a deep rumble instead of a synth sweep.',
+      'Lightning Supers sound like a thunder crack instead of a sci-fi zap; healing is a soft shimmer instead of beeps.',
+      'Deep impact booms no longer slide in pitch, so they hit like a thud and never sound like a "pew".',
+      'Softer coin and level-up chimes.',
+    ],
+  },
+  {
     version: '1.12.0',
     date: '2026-10-14',
     title: 'Graphics overhaul',

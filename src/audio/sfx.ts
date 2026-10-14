@@ -779,7 +779,7 @@ export const sfx = {
     if (p >= 0.95) {
       // golpe pesado: chapada extra e um "bum" grave no peito
       shot('slap', 0.22, { rate: jit(0.8, 0.05), delay: 0.003 });
-      tone({ f: jit(68, 0.08), to: 36, dur: 0.2, peak: 0.45 });
+      tone({ f: jit(60, 0.08), to: 44, dur: 0.18, peak: 0.45 });
     }
   },
   hit(heavy = false) {
@@ -789,7 +789,7 @@ export const sfx = {
   stomp(power = 0.7) {
     const p = Math.max(0.3, Math.min(1.2, power));
     shot('stomp', 0.65 + p * 0.35, { rate: jit(1.04 - p * 0.08, 0.05), force: true });
-    if (p > 0.9) tone({ f: jit(62, 0.06), to: 32, dur: 0.25, peak: 0.35 });
+    if (p > 0.9) tone({ f: jit(56, 0.06), to: 42, dur: 0.2, peak: 0.35 });
   },
   /** O outro pé a bater no tapete para fazer barulho (como os lutadores a sério). */
   stamp() {
@@ -798,7 +798,7 @@ export const sfx = {
   /** Impacto de golpe de assinatura / super: estrondo grave, estalo e cauda. */
   impact(power = 1) {
     // sem camada de queda: as projeções já tocam o seu estrondo (senão ouviam-se dois)
-    tone({ f: jit(90, 0.05), to: 26, dur: 0.6 * power, peak: 0.55 * power });
+    tone({ f: jit(58, 0.05), to: 40, dur: 0.45 * power, peak: 0.55 * power });
     shot('slap', 0.3, { rate: jit(0.75, 0.05) });
   },
   /** Golpe defendido: luva/antebraço a travar, abafado. */
@@ -820,7 +820,7 @@ export const sfx = {
     if (p > 1.05) {
       // quedas enormes (finishers): segundo corpo do estrondo, mais grave
       shot('slam', 0.4 * (p - 0.9), { rate: jit(0.78, 0.03), lp: 900 });
-      tone({ f: jit(55, 0.05), to: 28, dur: 0.45, peak: 0.5 * (p - 0.8) });
+      tone({ f: jit(50, 0.05), to: 36, dur: 0.4, peak: 0.5 * (p - 0.8) });
     }
   },
   thud() {
@@ -857,31 +857,33 @@ export const sfx = {
     play(bank.oooh, 0.32 * Math.min(1.5, amount), jit(1, 0.05));
   },
   charge() {
-    tone({ f: 160, to: 900, dur: 0.9, peak: 0.12, type: 'sawtooth' });
-    noise({ dur: 0.9, freq: 300, to: 3000, q: 2, peak: 0.12, attack: 0.3 });
+    // sem tons sintéticos: o público a encher o pavilhão (ar a subir) e um ronco grave por baixo
+    noise({ dur: 0.9, freq: 250, to: 900, q: 0.7, peak: 0.16, attack: 0.35 });
+    noise({ dur: 0.8, freq: 120, type: 'lowpass', peak: 0.18, attack: 0.25 });
   },
   /** Explosão / impacto de finisher: estrondo do ringue reforçado com sub-grave. */
   boom() {
     shot('slam', 0.9, { rate: jit(0.72, 0.03), force: true });
-    tone({ f: 58, to: 26, dur: 1.1, peak: 0.8 });
+    tone({ f: 50, to: 34, dur: 0.9, peak: 0.8 });
     noise({ dur: 0.9, freq: 140, type: 'lowpass', peak: 0.6 });
     noise({ dur: 0.35, freq: 1400, q: 0.7, peak: 0.22 });
   },
   zap() {
-    noise({ dur: 0.3, freq: 3500, type: 'highpass', peak: 0.45 });
-    tone({ f: 1500, to: 180, dur: 0.22, peak: 0.12, type: 'sawtooth' });
-    for (let i = 0; i < 4; i++) noise({ dur: 0.015, freq: 5000, type: 'highpass', peak: 0.5, delay: Math.random() * 0.2 });
+    // relâmpago: estalo seco de trovão e ronco (nada de "pew" de laser)
+    noise({ dur: 0.18, freq: 2500, type: 'highpass', peak: 0.4 });
+    noise({ dur: 1.0, freq: 160, type: 'lowpass', peak: 0.45, attack: 0.02, delay: 0.03 });
+    for (let i = 0; i < 4; i++) noise({ dur: 0.012, freq: 3500, type: 'highpass', peak: 0.35, delay: Math.random() * 0.15 });
   },
   fire() {
     noise({ dur: 0.7, freq: 420, type: 'lowpass', peak: 0.55, attack: 0.05 });
     for (let i = 0; i < 7; i++) noise({ dur: 0.012, freq: jit(2600, 0.3), q: 3, peak: 0.25, delay: Math.random() * 0.6 });
   },
   heal() {
-    [660, 880, 1320].forEach((f, i) => tone({ f, dur: 0.3, peak: 0.2, delay: i * 0.07, bus: master! }));
+    noise({ dur: 0.6, freq: 1800, q: 0.8, peak: 0.12, attack: 0.2, bus: master! });
   },
   coin() {
-    tone({ f: 988, dur: 0.08, peak: 0.12, type: 'square', bus: master! });
-    tone({ f: 1319, dur: 0.25, peak: 0.12, type: 'square', delay: 0.07, bus: master! });
+    tone({ f: 988, dur: 0.08, peak: 0.12, type: 'triangle', bus: master! });
+    tone({ f: 1319, dur: 0.25, peak: 0.12, type: 'triangle', delay: 0.07, bus: master! });
   },
   click() {
     tone({ f: 660, to: 440, dur: 0.05, peak: 0.15, type: 'triangle', bus: master! });
@@ -897,7 +899,7 @@ export const sfx = {
     if (tier >= 4) noise({ dur: 1.0, freq: 3000, q: 0.3, peak: 0.12, type: 'highpass', delay: 0.1, bus: master! });
   },
   levelUp() {
-    [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ f, dur: 0.35, peak: 0.1, type: 'square', delay: i * 0.09, bus: master! }));
+    [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ f, dur: 0.35, peak: 0.14, type: 'triangle', delay: i * 0.09, bus: master! }));
   },
 };
 
