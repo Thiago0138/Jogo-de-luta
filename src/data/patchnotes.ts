@@ -8,6 +8,25 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.4.0',
+    date: '2026-10-14',
+    title: 'Golpes de assinatura, narrador e música!',
+    items: [
+      'NOVO: Golpes de assinatura! 13 golpes (Drop Kick, Spear, Superkick, DDT, Powerbomb, Moonsault, Chokeslam, Cutter…) desbloqueados por nível.',
+      'Treina golpes até 3 níveis mais cedo com moedas e equipa até 6 no ecrã do Lutador.',
+      'Estilos de golpe com gemas (Raio, Fogo, Ouro, Sismo, Cosmos, Inferno): só visuais, sem vantagem na luta.',
+      'Modo "Tudo desbloqueado" nas Definições (ligado por omissão).',
+      'Drop Kick refeito: salto com os dois pés no peito no ponto mais alto e kip-up para se levantar.',
+      'Ida às cordas refeita: o lutador corre, as cordas esticam e ele é projetado de volta com velocidade.',
+      'Menos quedas: os lutadores aguentam muito mais golpes antes de ir ao tapete e levantam-se mais depressa.',
+      'NOVO: Narrador com dezenas de frases para dar hype ao combate (voz + legendas; pode ser desligado).',
+      'Golpes especiais e supers mostram o nome do ataque em grande, colorido, com a imagem do lutador.',
+      'Público muito mais real: pessoas com cabelos, chapéus, cartazes, bandeiras e braços no ar que reagem ao combate.',
+      '10 entradas totalmente diferentes: moonwalk na bola de espelhos, fumo, grelha de lasers, colunas de fogo, foguetes, relâmpagos, passadeira real, asas de dragão e portal cósmico.',
+      'NOVO: Música nos menus e música acelerada durante as lutas (volume próprio nas Definições).',
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-10-14',
     title: 'Contacto perfeito e lutadores mais bonitos',

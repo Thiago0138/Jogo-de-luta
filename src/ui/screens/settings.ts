@@ -2,6 +2,7 @@ import { S, commit, markPatchSeen, resetSave } from '../../core/state';
 import { PATCH_NOTES, CURRENT_VERSION } from '../../data/patchnotes';
 import { RARITIES, RARITY_ORDER } from '../../data/rarity';
 import { setAmbient, setSound, setVolume, sfx } from '../../audio/sfx';
+import { music } from '../../audio/music';
 import { render } from '../app';
 import { el, esc, modal } from '../dom';
 
@@ -10,6 +11,10 @@ export function openSettings(): void {
   const s = S.settings;
   b.innerHTML = `
     <label class="set-row vol-row"><span>🔈 Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
+    <label class="set-row vol-row"><span>🎵 Música</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
+    <label class="set-row"><span>🎶 Música ligada</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
+    <label class="set-row"><span>🎙️ Narrador com voz</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
+    <label class="set-row"><span>🔓 Tudo desbloqueado (modo teste)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
     <label class="set-row"><span>🔊 Efeitos sonoros</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
     <label class="set-row"><span>👥 Som do público</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
     <label class="set-row"><span>✨ Qualidade gráfica alta</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
@@ -28,6 +33,14 @@ export function openSettings(): void {
     volN.textContent = vol.value + '%';
     setVolume(s.volume);
   };
+  const bgmv = b.querySelector('.bgmv') as HTMLInputElement;
+  const bgmN = b.querySelector('.bgm-n') as HTMLElement;
+  bgmv.oninput = () => {
+    s.bgmVol = Number(bgmv.value) / 100;
+    bgmN.textContent = bgmv.value + '%';
+    music.setVolume(s.bgmVol);
+  };
+  bgmv.onchange = () => commit();
   vol.onchange = () => {
     commit();
     sfx.click();
@@ -38,6 +51,15 @@ export function openSettings(): void {
       if (k === 'sound') {
         s.sound = inp.checked;
         setSound(s.sound);
+      } else if (k === 'bgm') {
+        s.bgm = inp.checked;
+        music.setEnabled(s.bgm);
+      } else if (k === 'announcer') {
+        s.announcer = inp.checked;
+      } else if (k === 'unlockAll') {
+        s.unlockAll = inp.checked;
+        commit();
+        render();
       } else if (k === 'music') {
         s.music = inp.checked;
         setAmbient(s.music);

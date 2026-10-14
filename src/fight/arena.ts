@@ -39,66 +39,216 @@ export function pushRope(r: RopeState, side: 0 | 1, amount: number): void {
 // ───────────────────────── Fundo pré-renderizado ─────────────────────────
 
 let backdrop: HTMLCanvasElement | null = null;
-let crowdA: HTMLCanvasElement | null = null;
-let crowdB: HTMLCanvasElement | null = null;
+let crowdLayers: HTMLCanvasElement[] = [];
+let crowdArms: HTMLCanvasElement | null = null;
+let phones: { x: number; y: number; p: number }[] = [];
 const BW = 2600;
 const BH = 760;
 
 const SHIRTS = ['#e63946', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6', '#ecf0f1', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
 const SKINS = ['#f6c9a4', '#e8b083', '#b9774c', '#6e3f28', '#d29466', '#94593a'];
 
-function makeCrowd(rowsOdd: boolean): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = BW;
-  c.height = BH;
-  const g = c.getContext('2d')!;
-  const rows = 7;
+const HAIRS = ['#1b1714', '#3a2a1a', '#5a3418', '#e2b44a', '#b8461b', '#8d8f95', '#101010'];
+const CROWD_GROUPS = 3;
+const CS = 0.5; // as camadas do público são desenhadas a meia resolução (poupança de memória)
+
+interface Spot {
+  x: number;
+  y: number;
+  s: number;
+  light: number;
+  g: number;
+  i: number;
+  r: number;
+}
+
+/** Posições de todos os espectadores (determinísticas). */
+function crowdSpots(): Spot[] {
+  const out: Spot[] = [];
+  const rows = 8;
   for (let r = 0; r < rows; r++) {
-    if ((r % 2 === 1) !== rowsOdd) continue;
-    const y = 240 + r * 64;
-    const light = 0.35 + (r / rows) * 0.65;
-    const step = 34 - r * 0.5;
-    for (let x = -10, i = 0; x < BW + 20; x += step + hash(r * 999 + i) * 10, i++) {
-      const h = hash(r * 77 + i * 13);
-      const jitter = (hash(i * 3 + r) - 0.5) * 10;
-      g.globalAlpha = light;
-      // ombros/camisola
-      g.fillStyle = SHIRTS[Math.floor(h * SHIRTS.length)];
+    const s = 0.62 + r * 0.06;
+    const y = 232 + r * 60;
+    const light = 0.42 + (r / rows) * 0.58;
+    let x = -20 + hash(r * 31) * 30;
+    let i = 0;
+    while (x < BW + 30) {
+      out.push({ x, y: y + (hash(r * 97 + i) - 0.5) * 8, s, light, g: Math.floor(hash(i * 13 + r * 7) * CROWD_GROUPS), i: i + r * 1000, r });
+      x += (30 + hash(r * 999 + i) * 14) * s * 1.25;
+      i++;
+    }
+  }
+  return out;
+}
+
+function personBody(g: CanvasRenderingContext2D, p: Spot): void {
+  const h = hash(p.i * 1.7);
+  const s = p.s;
+  const shirt = SHIRTS[Math.floor(hash(p.i * 3.1) * SHIRTS.length)];
+  const skin = SKINS[Math.floor(hash(p.i * 5.3) * SKINS.length)];
+  const hair = HAIRS[Math.floor(hash(p.i * 7.7) * HAIRS.length)];
+  const x = p.x;
+  const y = p.y;
+  const wide = 0.85 + hash(p.i * 2.3) * 0.4;
+  // tronco com ombros
+  g.fillStyle = shirt;
+  g.beginPath();
+  g.moveTo(x - 19 * s * wide, y + 60 * s);
+  g.quadraticCurveTo(x - 20 * s * wide, y + 24 * s, x - 9 * s, y + 20 * s);
+  g.lineTo(x + 9 * s, y + 20 * s);
+  g.quadraticCurveTo(x + 20 * s * wide, y + 24 * s, x + 19 * s * wide, y + 60 * s);
+  g.closePath();
+  g.fill();
+  // sombra na camisola
+  g.fillStyle = 'rgba(0,0,0,0.28)';
+  g.fillRect(x - 19 * s * wide, y + 42 * s, 38 * s * wide, 18 * s);
+  // pescoço e cabeça
+  g.fillStyle = skin;
+  g.fillRect(x - 4 * s, y + 13 * s, 8 * s, 9 * s);
+  g.beginPath();
+  g.ellipse(x, y + 4 * s, 10.5 * s, 12 * s, 0, 0, Math.PI * 2);
+  g.fill();
+  // cabelo / chapéus
+  const style = Math.floor(h * 7);
+  g.fillStyle = hair;
+  switch (style) {
+    case 0: // curto
       g.beginPath();
-      g.ellipse(x, y + 34 + jitter, 18, 22, 0, Math.PI, 0);
+      g.ellipse(x, y - 1 * s, 11 * s, 9 * s, 0, Math.PI, 0);
       g.fill();
-      // cabeça
-      g.fillStyle = SKINS[Math.floor(hash(i + r * 5) * SKINS.length)];
+      break;
+    case 1: // comprido
       g.beginPath();
-      g.arc(x, y + 6 + jitter, 10.5, 0, Math.PI * 2);
+      g.ellipse(x, y + 2 * s, 12.5 * s, 13 * s, 0, Math.PI * 0.95, Math.PI * 0.05);
       g.fill();
-      // cabelo / boné
-      g.fillStyle = h > 0.7 ? SHIRTS[Math.floor(hash(i * 7) * SHIRTS.length)] : '#1a1410';
+      g.fillRect(x - 12.5 * s, y + 2 * s, 5 * s, 17 * s);
+      g.fillRect(x + 7.5 * s, y + 2 * s, 5 * s, 17 * s);
+      break;
+    case 2: // boné
+      g.fillStyle = SHIRTS[Math.floor(hash(p.i * 11) * SHIRTS.length)];
       g.beginPath();
-      g.arc(x, y + 3 + jitter, 10.5, Math.PI, 0);
+      g.ellipse(x, y - 2 * s, 11 * s, 8 * s, 0, Math.PI, 0);
       g.fill();
-      // braços no ar para alguns
-      if (h > 0.82) {
-        g.strokeStyle = g.fillStyle;
-        g.lineWidth = 6;
-        g.lineCap = 'round';
-        g.beginPath();
-        g.moveTo(x - 14, y + 26 + jitter);
-        g.lineTo(x - 22, y - 16 + jitter);
-        g.moveTo(x + 14, y + 26 + jitter);
-        g.lineTo(x + 20, y - 18 + jitter);
-        g.stroke();
-      }
-      // cartazes
-      if (h < 0.035) {
-        g.globalAlpha = light;
-        g.fillStyle = '#fff';
-        g.fillRect(x - 26, y - 38 + jitter, 52, 30);
-        g.fillStyle = SHIRTS[i % SHIRTS.length];
-        g.font = 'bold 13px sans-serif';
-        g.textAlign = 'center';
-        g.fillText(['UAU!', 'KO!', '10/10', 'LENDA', 'FORÇA'][i % 5], x, y - 18 + jitter);
-      }
+      g.fillRect(x - 2 * s, y - 3 * s, 15 * s, 3.5 * s);
+      break;
+    case 3: // afro
+      g.beginPath();
+      g.arc(x, y - 3 * s, 14 * s, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = skin;
+      g.beginPath();
+      g.ellipse(x, y + 6 * s, 9 * s, 10 * s, 0, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 4: // gorro
+      g.fillStyle = SHIRTS[Math.floor(hash(p.i * 13) * SHIRTS.length)];
+      g.beginPath();
+      g.ellipse(x, y - 2 * s, 11.5 * s, 11 * s, 0, Math.PI, 0);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.arc(x, y - 13 * s, 3 * s, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 5: // careca com brilho
+      g.fillStyle = 'rgba(255,255,255,0.25)';
+      g.beginPath();
+      g.ellipse(x - 3 * s, y - 4 * s, 4 * s, 2.5 * s, -0.4, 0, Math.PI * 2);
+      g.fill();
+      break;
+    default: // apanhado
+      g.beginPath();
+      g.ellipse(x, y - 1 * s, 11 * s, 9 * s, 0, Math.PI, 0);
+      g.fill();
+      g.beginPath();
+      g.arc(x, y - 10 * s, 5 * s, 0, Math.PI * 2);
+      g.fill();
+  }
+  // óculos de vez em quando
+  if (hash(p.i * 17) > 0.85) {
+    g.fillStyle = '#111';
+    g.fillRect(x - 8 * s, y + 2 * s, 16 * s, 3 * s);
+  }
+}
+
+function personAccessory(g: CanvasRenderingContext2D, p: Spot, armsUp: boolean): void {
+  const s = p.s;
+  const x = p.x;
+  const y = p.y;
+  const shirt = SHIRTS[Math.floor(hash(p.i * 3.1) * SHIRTS.length)];
+  const skin = SKINS[Math.floor(hash(p.i * 5.3) * SKINS.length)];
+  const k = hash(p.i * 19);
+  g.lineCap = 'round';
+  if (armsUp) {
+    // braços no ar (aparecem mais quando o público está ao rubro)
+    g.strokeStyle = shirt;
+    g.lineWidth = 7 * s;
+    const sp = 6 + hash(p.i * 23) * 8;
+    g.beginPath();
+    g.moveTo(x - 14 * s, y + 26 * s);
+    g.lineTo(x - (18 + sp) * s, y - 22 * s);
+    g.moveTo(x + 14 * s, y + 26 * s);
+    g.lineTo(x + (18 + sp) * s, y - 24 * s);
+    g.stroke();
+    g.fillStyle = skin;
+    g.beginPath();
+    g.arc(x - (18 + sp) * s, y - 25 * s, 4.5 * s, 0, Math.PI * 2);
+    g.arc(x + (18 + sp) * s, y - 27 * s, 4.5 * s, 0, Math.PI * 2);
+    g.fill();
+    return;
+  }
+  if (k < 0.05) {
+    // cartaz
+    const words = ['UAU!', 'K.O.!', '10/10', 'LENDA', 'FORÇA', '♥ RINGUE', 'GO!', 'CAMPEÃO'];
+    g.fillStyle = '#ffffff';
+    g.fillRect(x - 28 * s, y - 44 * s, 56 * s, 30 * s);
+    g.strokeStyle = '#3a2a1a';
+    g.lineWidth = 3 * s;
+    g.beginPath();
+    g.moveTo(x, y - 14 * s);
+    g.lineTo(x, y + 20 * s);
+    g.stroke();
+    g.fillStyle = SHIRTS[p.i % SHIRTS.length];
+    g.font = `bold ${Math.round(12 * s)}px sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(words[p.i % words.length], x, y - 29 * s);
+  } else if (k < 0.09) {
+    // dedo de espuma
+    g.fillStyle = hash(p.i) > 0.5 ? '#ffd23d' : '#ff3d6e';
+    g.beginPath();
+    g.roundRect(x + 8 * s, y - 18 * s, 18 * s, 22 * s, 5 * s);
+    g.fill();
+    g.fillRect(x + 13 * s, y - 40 * s, 8 * s, 24 * s);
+  } else if (k < 0.13) {
+    // bandeira
+    g.strokeStyle = '#cfcfcf';
+    g.lineWidth = 2 * s;
+    g.beginPath();
+    g.moveTo(x - 12 * s, y + 20 * s);
+    g.lineTo(x - 12 * s, y - 40 * s);
+    g.stroke();
+    g.fillStyle = hash(p.i * 3) > 0.5 ? '#ff3b4e' : '#2f7bff';
+    g.fillRect(x - 12 * s, y - 40 * s, 26 * s, 16 * s);
+  }
+}
+
+/** Camada de um grupo do público (meia resolução). */
+function makeCrowdLayer(spots: Spot[], group: number, armsUp: boolean): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = Math.round(BW * CS);
+  c.height = Math.round(BH * CS);
+  const g = c.getContext('2d')!;
+  g.scale(CS, CS);
+  for (const p of spots) {
+    if (armsUp) {
+      if (hash(p.i * 29) > 0.45) continue;
+    } else if (p.g !== group) continue;
+    g.globalAlpha = p.light;
+    if (armsUp) personAccessory(g, p, true);
+    else {
+      personBody(g, p);
+      personAccessory(g, p, false);
     }
   }
   g.globalAlpha = 1;
@@ -180,8 +330,11 @@ function makeBackdrop(): HTMLCanvasElement {
 export function ensureArena(): void {
   if (backdrop) return;
   backdrop = makeBackdrop();
-  crowdA = makeCrowd(false);
-  crowdB = makeCrowd(true);
+  const spots = crowdSpots();
+  crowdLayers = [];
+  for (let gi = 0; gi < CROWD_GROUPS; gi++) crowdLayers.push(makeCrowdLayer(spots, gi, false));
+  crowdArms = makeCrowdLayer(spots, -1, true);
+  phones = spots.filter((p) => hash(p.i * 41) > 0.9).map((p) => ({ x: p.x + 10 * p.s, y: p.y - 6 * p.s, p: hash(p.i * 43) * 10 }));
 }
 
 /** Desenha o fundo (público, ecrã gigante, holofotes) em espaço de ecrã com paralaxe. */
@@ -205,9 +358,17 @@ export function drawBackdrop(
   ctx.fillStyle = '#07040f';
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(backdrop!, x, y, dw, dh);
-  const bounce = Math.abs(Math.sin(t * (4 + hype * 6))) * (2 + hype * 9) * s;
-  ctx.drawImage(crowdA!, x, y - bounce, dw, dh);
-  ctx.drawImage(crowdB!, x, y - (hype > 0.3 ? Math.abs(Math.sin(t * 7 + 1.5)) * hype * 10 * s : 0), dw, dh);
+  // cada grupo do público salta com o seu próprio ritmo; os braços sobem com o entusiasmo
+  const freq = 3.5 + hype * 6;
+  for (let gi = 0; gi < crowdLayers.length; gi++) {
+    const b = Math.max(0, Math.sin(t * freq + gi * 2.1)) * (1.5 + hype * 11) * s;
+    ctx.drawImage(crowdLayers[gi], x, y - b, dw, dh);
+  }
+  if (hype > 0.3 && crowdArms) {
+    ctx.globalAlpha = Math.min(1, (hype - 0.3) * 2.2);
+    ctx.drawImage(crowdArms, x, y - Math.abs(Math.sin(t * freq)) * hype * 9 * s, dw, dh);
+    ctx.globalAlpha = 1;
+  }
 
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
@@ -223,6 +384,15 @@ export function drawBackdrop(
     const r = 40 * s;
     ctx.drawImage(glowSprite('#ffffff'), fx - r, fy - r, r * 2, r * 2);
   }
+  // ecrãs de telemóveis no público
+  ctx.fillStyle = '#dff3ff';
+  for (const ph of phones) {
+    const a = 0.35 + 0.35 * Math.sin(t * 2 + ph.p);
+    if (a < 0.1) continue;
+    ctx.globalAlpha = a;
+    ctx.fillRect(x + ph.x * s, y + ph.y * s, 4 * s, 6 * s);
+  }
+  ctx.globalAlpha = 1;
   // holofotes
   if (!low) {
     const beams = 4;

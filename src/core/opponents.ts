@@ -5,7 +5,7 @@ import { POINTS_PER_LEVEL, STAT_CAP, STAT_IDS, baseStats, type StatId, type Stat
 import { leagueIndex } from '../data/leagues';
 import type { FighterSpec } from '../fight/fighter';
 import { resolveLook } from '../render/look';
-import { S, type Loadout } from './state';
+import { S, owns, type Loadout } from './state';
 import { pick, rint, seeded } from './rng';
 
 const FIRST = ['Rei', 'Touro', 'Lobo', 'Tigre', 'Furacão', 'Martelo', 'Dragão', 'Titã', 'Falcão', 'Vulcão', 'Corvo', 'Gigante', 'Trovão', 'Bisonte', 'Cobra', 'Leão', 'Tubarão', 'Cometa', 'Pantera', 'Rocha'];
@@ -76,6 +76,13 @@ function gear(kind: ItemDef['kind'], maxTier: number, r: () => number, chance = 
   return pool[Math.min(pool.length - 1, i)].id;
 }
 
+/** Golpes de assinatura de um lutador da IA: os desbloqueados até ao seu nível (máx. 6). */
+export function movesFor(lvl: number, r: () => number = Math.random): string[] {
+  const avail = ITEM_LIST.filter((d) => d.kind === 'move' && (d.unlockLevel ?? 1) <= lvl + 1);
+  avail.sort(() => r() - 0.5);
+  return avail.slice(0, 6).map((d) => d.id);
+}
+
 export interface OppOpts {
   levelDelta?: number;
   champion?: boolean;
@@ -101,6 +108,8 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     passives: [gear('passive', Math.min(maxTier, 1 + Math.floor(lvl / 12)), r) ?? 'p_ferro'],
     belt: lvl >= 3 ? ['c_vida'] : [],
     entrance: gear('entrance', Math.min(6, maxTier + 1), r) ?? 'e_classica',
+    moves: movesFor(lvl, r),
+    styles: [],
   };
   const app = randomAppearance(r);
   if (o.champion) {
@@ -119,6 +128,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     passives: loadout.passives,
     belt: loadout.belt,
     entrance: loadout.entrance,
+    moves: loadout.moves,
     isPlayer: false,
     hpMul: o.champion ? 1 : S.life.fights < 6 ? 0.72 : li === 0 ? 0.9 : 1,
   };
@@ -141,6 +151,7 @@ export function makePartner(): FighterSpec {
     supers: ['s_supersoco'],
     passives: ['p_ferro'],
     belt: [],
+    moves: movesFor(lvl, seeded(S.partnerSeed + 11)),
     isPlayer: false,
   };
 }
@@ -156,6 +167,8 @@ export function playerSpec(): FighterSpec {
     passives: [...S.loadout.passives],
     belt,
     entrance: S.loadout.entrance,
+    moves: S.loadout.moves.filter((id) => owns(id)),
+    styles: S.loadout.styles.filter((id) => owns(id)),
     isPlayer: true,
   };
 }

@@ -1,5 +1,5 @@
 import { S, commit, levelRewardChest, owns } from '../../core/state';
-import { ITEM_LIST, item, type ItemKind } from '../../data/items';
+import { ITEM_LIST, MOVE_SLOTS, item, type ItemKind } from '../../data/items';
 import { CHESTS } from '../../data/chests';
 import { RARITIES } from '../../data/rarity';
 import { MAX_LEVEL, STATS, STAT_CAP, STAT_START, maxHp, powerRating, xpToNext, type StatId } from '../../data/stats';
@@ -139,6 +139,11 @@ function gear(body: HTMLElement): void {
     for (const s of list) g.appendChild(slotEl(s));
     body.appendChild(g);
   };
+  const moves: Slot[] = [];
+  for (let i = 0; i < MOVE_SLOTS; i++) moves.push({ label: `Golpe ${i + 1}`, kind: 'move', id: L.moves[i] ?? null });
+  const styles: Slot[] = [{ label: 'Estilo de golpe', kind: 'moveStyle', id: L.styles[0] ?? null }];
+  section('Golpes de assinatura', moves, 'Os golpes especiais que o teu lutador usa no ringue. Desbloqueiam com o nível; podes treiná-los com moedas até 3 níveis antes.');
+  section('Estilos de golpe', styles, 'Efeitos visuais para os teus golpes (só aparência, mesmo dano).');
   section('Visual', slots);
   section('Habilidades', abil, 'Os supers são usados quando a barra de Super enche. As passivas estão sempre ativas.');
   section('Cinto de poções', belt, 'Cada poção do cinto é usada automaticamente uma vez por luta, quando é precisa.');
@@ -169,10 +174,11 @@ function slotEl(s: Slot): HTMLElement {
 }
 
 function picker(s: Slot): void {
-  const list = ITEM_LIST.filter((d) => d.kind === s.kind && owns(d.id)).sort((a, b) => RARITIES[b.rarity].tier - RARITIES[a.rarity].tier);
+  const list = ITEM_LIST.filter((d) => d.kind === s.kind && (owns(d.id) || d.kind === 'move'))
+    .sort((a, b) => (s.kind === 'move' ? (a.unlockLevel ?? 0) - (b.unlockLevel ?? 0) : RARITIES[b.rarity].tier - RARITIES[a.rarity].tier));
   const box = el('div', 'picker');
   let close: () => void = () => {};
-  if (s.id && ['mask', 'aura', 'super', 'passive', 'potion'].includes(s.kind)) {
+  if (s.id && ['mask', 'aura', 'super', 'passive', 'potion', 'move', 'moveStyle'].includes(s.kind)) {
     const rm = el('button', 'pick-row none', '✖ Remover deste espaço');
     rm.onclick = () => {
       toggleEquip(s.id!);
@@ -187,9 +193,19 @@ function picker(s: Slot): void {
     art.appendChild(itemThumb(d.id));
     r.appendChild(art);
     r.appendChild(el('div', 'pr-txt', `<b>${esc(d.name)}${d.kind === 'potion' ? ` ×${S.owned[d.id]}` : ''}</b><small>${esc(d.desc)}</small>`));
+    const locked = d.kind === 'move' && !owns(d.id);
+    if (locked) {
+      r.classList.add('locked');
+      r.appendChild(el('div', 'pr-lock', `🔒 Nv ${d.unlockLevel}`));
+    }
     r.onclick = () => {
-      if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'potion') {
-        const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : S.loadout.belt;
+      if (locked) {
+        close();
+        openItem(d.id, 'shop');
+        return;
+      }
+      if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'potion' || s.kind === 'move') {
+        const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : s.kind === 'move' ? S.loadout.moves : S.loadout.belt;
         if (arr.includes(d.id)) {
           close();
           return;

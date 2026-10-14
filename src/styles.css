@@ -2889,3 +2889,52 @@ span.rar-celestial,
     width: 100%;
   }
 }
+
+.pick-row.locked {
+  opacity: 0.55;
+}
+.pr-lock {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 900;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.fight-caption {
+  position: absolute;
+  left: 50%;
+  bottom: calc(76px + var(--safe-b));
+  transform: translate(-50%, 20px);
+  max-width: min(92vw, 640px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(10, 5, 20, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s, transform 0.25s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.fight-caption.on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.fight-caption b {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 17px;
+  letter-spacing: 0.4px;
+  text-align: center;
+}
+.fight-caption.hot {
+  border-color: var(--gold);
+  background: linear-gradient(90deg, rgba(255, 61, 110, 0.85), rgba(40, 10, 60, 0.9));
+}
+.fight-caption.hot b {
+  color: #fff6c2;
+  font-size: 19px;
+}

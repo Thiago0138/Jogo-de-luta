@@ -14,6 +14,7 @@ import { openItem } from './itemModal';
 const TABS: { id: string; name: string }[] = [
   { id: 'featured', name: '⭐ Destaques' },
   { id: 'skins', name: '👕 Skins' },
+  { id: 'moves', name: '🤼 Golpes' },
   { id: 'entrances', name: '🎆 Entradas' },
   { id: 'abilities', name: '⚡ Habilidades' },
   { id: 'potions', name: '🧪 Poções' },
@@ -80,6 +81,14 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
         body.appendChild(grid(list.map((d) => ({ id: d.id, discount: 0 }))));
       }
       break;
+    case 'moves': {
+      body.appendChild(el('p', 'muted small', 'Golpes de assinatura: desbloqueiam com o nível, mas podes treiná-los com moedas até 3 níveis antes. Os estilos com gemas só mudam o espetáculo — o dano é igual.'));
+      body.appendChild(el('h3', 'sec', 'Treino de golpes'));
+      body.appendChild(grid(ITEM_LIST.filter((d) => d.kind === 'move').map((d) => ({ id: d.id, discount: 0 }))));
+      body.appendChild(el('h3', 'sec', 'Estilos de golpe'));
+      body.appendChild(grid(shopItems(['moveStyle']).map((d) => ({ id: d.id, discount: 0 }))));
+      break;
+    }
     case 'entrances':
       body.appendChild(el('p', 'muted small', 'Entra no ringue em grande: danças, fumo, lasers, pirotecnia e fogo de artifício antes de cada luta.'));
       body.appendChild(grid(shopItems(['entrance']).map((d) => ({ id: d.id, discount: 0 }))));

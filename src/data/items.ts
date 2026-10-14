@@ -10,7 +10,9 @@ export type ItemKind =
   | 'super'
   | 'passive'
   | 'potion'
-  | 'entrance';
+  | 'entrance'
+  | 'move'
+  | 'moveStyle';
 
 export type ItemSource = 'start' | 'shop' | 'chest' | 'mission' | 'level';
 
@@ -52,6 +54,8 @@ export const KIND_NAMES: Record<ItemKind, string> = {
   passive: 'Habilidade passiva',
   potion: 'Poção',
   entrance: 'Entrada',
+  move: 'Golpe de assinatura',
+  moveStyle: 'Estilo de golpe',
 };
 
 const I: ItemDef[] = [
@@ -153,6 +157,29 @@ const I: ItemDef[] = [
   { id: 'p_fenix', kind: 'passive', name: 'Fénix', rarity: 'mitico', desc: 'Renasce uma vez com 35% de vida.', icon: '🐦‍🔥', source: 'chest', power: 0.35 },
   { id: 'p_bencao', kind: 'passive', name: 'Bênção Divina', rarity: 'celestial', desc: 'Começa com meio Super e regenera 1% de vida/s.', icon: '🕊️', source: 'mission', power: 0.01 },
 
+  // ───────────── Golpes de assinatura (desbloqueiam com o nível ou compram-se com moedas até 3 níveis antes) ─────────────
+  { id: 'm_stomp', kind: 'move', name: 'Pisões', rarity: 'comum', desc: 'Pisa o adversário caído no chão.', icon: '🦶', source: 'level', unlockLevel: 2, coins: 500, vis: { type: 'stomp' } },
+  { id: 'm_dropkick', kind: 'move', name: 'Dropkick', rarity: 'comum', desc: 'Salto com os dois pés ao peito do adversário.', icon: '🦵', source: 'level', unlockLevel: 3, coins: 700, vis: { type: 'dropkick' } },
+  { id: 'm_elbow', kind: 'move', name: 'Cotovelada Voadora', rarity: 'comum', desc: 'Salta e cai de cotovelo sobre quem está no chão.', icon: '💪', source: 'level', unlockLevel: 4, coins: 900, vis: { type: 'elbow' } },
+  { id: 'm_irish', kind: 'move', name: 'Mandar às Cordas', rarity: 'incomum', desc: 'Atira-o contra as cordas e recebe-o com uma clothesline ou big boot.', icon: '🪢', source: 'level', unlockLevel: 5, coins: 1100, vis: { type: 'irish' } },
+  { id: 'm_lariat', kind: 'move', name: 'Lariat das Cordas', rarity: 'incomum', desc: 'Ressalta nas cordas e volta com o braço esticado.', icon: '💨', source: 'level', unlockLevel: 6, coins: 1300, vis: { type: 'lariat' } },
+  { id: 'm_spear', kind: 'move', name: 'Spear', rarity: 'raro', desc: 'Placagem a correr, ombro ao abdómen.', icon: '🏈', source: 'level', unlockLevel: 7, coins: 1600, vis: { type: 'spear' } },
+  { id: 'm_superkick', kind: 'move', name: 'Superkick', rarity: 'raro', desc: 'Pontapé alto e seco ao queixo.', icon: '👟', source: 'level', unlockLevel: 9, coins: 1900, vis: { type: 'superkick' } },
+  { id: 'm_ddt', kind: 'move', name: 'DDT', rarity: 'raro', desc: 'Chave de cabeça e queda de cabeça no tapete.', icon: '🔻', source: 'level', unlockLevel: 12, coins: 2300, vis: { type: 'ddt' } },
+  { id: 'm_powerbomb', kind: 'move', name: 'Powerbomb', rarity: 'epico', desc: 'Levanta-o pelos ombros e esmaga-o de costas.', icon: '💣', source: 'level', unlockLevel: 15, coins: 2900, vis: { type: 'powerbomb' } },
+  { id: 'm_splash', kind: 'move', name: 'Splash da Corda de Cima', rarity: 'epico', desc: 'Sobe ao canto e cai de corpo inteiro sobre o adversário.', icon: '🪂', source: 'level', unlockLevel: 18, coins: 3400, vis: { type: 'splash' } },
+  { id: 'm_moonsault', kind: 'move', name: 'Moonsault', rarity: 'lendario', desc: 'Mortal para trás da corda de cima.', icon: '🌙', source: 'level', unlockLevel: 22, coins: 4200, vis: { type: 'moonsault' } },
+  { id: 'm_chokeslam', kind: 'move', name: 'Chokeslam', rarity: 'lendario', desc: 'Agarra pelo pescoço, levanta-o bem alto e atira-o ao chão.', icon: '✋', source: 'level', unlockLevel: 26, coins: 5000, vis: { type: 'chokeslam' } },
+  { id: 'm_cutter', kind: 'move', name: 'Cutter', rarity: 'mitico', desc: 'Salta, agarra a cabeça e cai de costas: vem do nada!', icon: '⚡', source: 'level', unlockLevel: 30, coins: 6000, vis: { type: 'cutter' } },
+
+  // ───────────── Estilos de golpe (só visual, mesmo dano) ─────────────
+  { id: 'ms_dropkick_raio', kind: 'moveStyle', name: 'Dropkick Elétrico', rarity: 'epico', desc: 'O Dropkick solta relâmpagos no impacto. Mesmo dano, mais espetáculo.', icon: '⚡', source: 'shop', gems: 200, vis: { type: 'dropkick', style: 'raio', c1: '#7ad7ff' } },
+  { id: 'ms_spear_fogo', kind: 'moveStyle', name: 'Spear em Chamas', rarity: 'epico', desc: 'Rasto de fogo e explosão no impacto do Spear.', icon: '🔥', source: 'shop', gems: 250, vis: { type: 'spear', style: 'fogo', c1: '#ff6a00' } },
+  { id: 'ms_superkick_ouro', kind: 'moveStyle', name: 'Superkick Dourado', rarity: 'lendario', desc: 'Rasto dourado e chuva de faíscas no Superkick.', icon: '🥇', source: 'shop', gems: 350, vis: { type: 'superkick', style: 'ouro', c1: '#ffd23d' } },
+  { id: 'ms_powerbomb_sismo', kind: 'moveStyle', name: 'Powerbomb Sísmico', rarity: 'lendario', desc: 'O ringue estala e a onda de choque varre a arena.', icon: '🌋', source: 'shop', gems: 400, vis: { type: 'powerbomb', style: 'sismo', c1: '#ff8a3d' } },
+  { id: 'ms_moonsault_cosmos', kind: 'moveStyle', name: 'Moonsault Cósmico', rarity: 'mitico', desc: 'Rasto de estrelas e explosão galáctica.', icon: '🌌', source: 'shop', gems: 600, vis: { type: 'moonsault', style: 'cosmos', c1: '#9b7aff' } },
+  { id: 'ms_chokeslam_inferno', kind: 'moveStyle', name: 'Chokeslam do Inferno', rarity: 'mitico', desc: 'Colunas de fogo rebentam do tapete.', icon: '😈', source: 'shop', gems: 650, vis: { type: 'chokeslam', style: 'inferno', c1: '#ff2e2e' } },
+
   // ───────────── Entradas no ringue ─────────────
   { id: 'e_classica', kind: 'entrance', name: 'Entrada Clássica', rarity: 'comum', desc: 'Holofote, punhos no ar e o público a aplaudir.', icon: '🔦', source: 'start', vis: { type: 'classica', style: 'victory' } },
   { id: 'e_danca', kind: 'entrance', name: 'Passo de Dança', rarity: 'incomum', desc: 'Entra a dançar com luzes de discoteca.', icon: '🕺', source: 'shop', coins: 1500, vis: { type: 'danca', style: 'dance' } },
@@ -192,5 +219,8 @@ export function itemsOfKind(kind: ItemKind): ItemDef[] {
 export function isTradeable(d: ItemDef): boolean {
   return d.source !== 'start';
 }
+
+export const MOVE_SLOTS = 6;
+export const MOVE_EARLY_LEVELS = 3;
 
 export const STARTER_ITEMS: string[] = I.filter((i) => i.source === 'start').map((i) => i.id);

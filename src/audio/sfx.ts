@@ -43,6 +43,14 @@ export function unlockAudio(): void {
   noiseBuf = ac.createBuffer(1, len, ac.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  for (const cb of unlockCbs) cb(ac, noiseBuf);
+}
+
+const unlockCbs: ((ac: AudioContext, noise: AudioBuffer) => void)[] = [];
+/** Regista código que precisa do AudioContext (corre logo se já existir). */
+export function onAudioReady(cb: (ac: AudioContext, noise: AudioBuffer) => void): void {
+  if (ac && noiseBuf) cb(ac, noiseBuf);
+  else unlockCbs.push(cb);
 }
 
 function ok(): boolean {

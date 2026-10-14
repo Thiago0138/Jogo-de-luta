@@ -17,6 +17,10 @@ export interface Loadout {
   passives: string[];
   belt: string[];
   entrance: string;
+  /** Golpes de assinatura equipados (máx. 6). */
+  moves: string[];
+  /** Estilos visuais de golpe ativos. */
+  styles: string[];
 }
 
 export interface MissionSet {
@@ -33,6 +37,13 @@ export interface Settings {
   music: boolean;
   speed: 1 | 2;
   quality: 'alta' | 'baixa';
+  /** Modo de teste: todos os itens desbloqueados. */
+  unlockAll: boolean;
+  /** Narrador com voz. */
+  announcer: boolean;
+  /** Música de fundo e volume (0–1). */
+  bgm: boolean;
+  bgmVol: number;
 }
 
 export interface Save {
@@ -89,6 +100,8 @@ function fresh(): Save {
       passives: ['p_ferro'],
       belt: ['c_vida'],
       entrance: 'e_classica',
+      moves: [],
+      styles: [],
     },
     level: 1,
     xp: 0,
@@ -108,7 +121,7 @@ function fresh(): Save {
     bestStreak: 0,
     losses: 0,
     redeemed: [],
-    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta' },
+    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta', unlockAll: true, announcer: true, bgm: true, bgmVol: 0.5 },
     seenPatch: '',
     freeChestAt: 0,
     partnerSeed: Math.floor(Math.random() * 1e9),
@@ -140,10 +153,23 @@ function load(): Save {
 
 export const S: Save = load();
 
-/** Tudo desbloqueado: todos os itens na coleção e poções com fartura. */
-for (const d of ITEM_LIST) {
-  if (d.kind === 'potion') S.owned[d.id] = Math.max(S.owned[d.id] ?? 0, 99);
-  else if (!S.owned[d.id]) S.owned[d.id] = 1;
+/** Modo "tudo desbloqueado" (teste): poções com fartura; o resto é tratado em owns(). */
+if (S.settings.unlockAll) {
+  for (const d of ITEM_LIST) if (d.kind === 'potion') S.owned[d.id] = Math.max(S.owned[d.id] ?? 0, 99);
+}
+// equipa automaticamente golpes de assinatura se ainda não houver nenhum
+if (!S.loadout.moves?.length) {
+  S.loadout.moves = ITEM_LIST.filter((d) => d.kind === 'move' && ownsItem(d.id))
+    .sort((a, b) => (b.unlockLevel ?? 0) - (a.unlockLevel ?? 0))
+    .slice(0, 6)
+    .map((d) => d.id);
+}
+if (!S.loadout.styles) S.loadout.styles = [];
+
+function ownsItem(id: string): boolean {
+  if ((S.owned[id] ?? 0) > 0) return true;
+  const d = ITEMS[id];
+  return !!d && S.settings.unlockAll && d.kind !== 'potion';
 }
 
 type Listener = () => void;
@@ -176,7 +202,12 @@ export function resetSave(): void {
 // ───────────────────────── Inventário ─────────────────────────
 
 export function owns(id: string): boolean {
-  return (S.owned[id] ?? 0) > 0;
+  return ownsItem(id);
+}
+
+/** Pode comprar um golpe de assinatura com moedas (até 3 níveis antes do desbloqueio). */
+export function canBuyEarly(d: ItemDef): boolean {
+  return d.kind === 'move' && d.unlockLevel != null && S.level >= d.unlockLevel - 3 && !owns(d.id);
 }
 
 export function count(id: string): number {
@@ -279,9 +310,10 @@ export function addXp(amount: number): LevelUp | null {
     S.statPoints += POINTS_PER_LEVEL;
     S.gems += 5;
     for (const d of ITEM_LIST) {
-      if (d.source === 'level' && d.unlockLevel === S.level && !owns(d.id)) {
-        grant(d.id);
+      if (d.source === 'level' && d.unlockLevel === S.level) {
+        if (!owns(d.id)) grant(d.id);
         unlocked.push(d.id);
+        if (d.kind === 'move' && S.loadout.moves.length < 6 && !S.loadout.moves.includes(d.id)) S.loadout.moves.push(d.id);
       }
     }
     const c = levelRewardChest(S.level);

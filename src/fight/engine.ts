@@ -124,6 +124,11 @@ export class Fight {
   bursts: { x: number; y: number; text: string; life: number; max: number; color: string; rot: number }[] = [];
   /** Show de lasers da entrada (segundos restantes) e cor. */
   lasersT = 0;
+  /** Faixa com retrato + nome do golpe de assinatura (não pára a luta). */
+  moveCall: { name: string; move: string; icon: string; color: string; team: 0 | 1; t: number; max: number } | null = null;
+  private lastCallT = -99;
+  /** Eventos para o narrador / música. */
+  onEvent: ((ev: string, a?: Fighter, b?: Fighter, extra?: string) => void) | null = null;
   /** Dano total que o super em curso ainda pode causar (-1 = sem super). */
   superBudget = -1;
   laserHue = 0;
@@ -233,13 +238,14 @@ export class Fight {
     this.beams = [];
     this.bolts = [];
     this.cosmic = 0;
+    this.stage = null;
+    this.lasersT = 0;
     this.endEntrances();
   }
 
   private *entrance(f: Fighter): Script {
     const d = ITEMS[f.spec.entrance ?? 'e_classica'] ?? ITEMS.e_classica;
     const type = d.vis?.type ?? 'classica';
-    const pose = (d.vis?.style ?? 'victory') as 'victory' | 'dance' | 'flex' | 'point';
     const side = f.team === 0 ? -1 : 1;
     f.noClamp = true;
     f.setState('act');
@@ -252,120 +258,61 @@ export class Fight {
     const beam: Beam = { x: f.x, w: 80, life: 99, max: 99, color: '#fff3d6' };
     this.entBeam = beam;
     this.beams.push(beam);
-    this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.icon} ${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.6, 0.75);
+    this.stage = { disco: 0, carpet: 0, portal: 0, scan: null, side, flicker: 0 };
+    this.emit('entrance', f, undefined, d.name);
+    this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.icon} ${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.8, 0.75);
     sfx.cheer(1);
     this.addHype(0.4);
-    // efeito de abertura no canto
-    if (type === 'fumo' || type === 'cosmica') this.smokeBurst(f.x, 50);
-    if (type === 'dragao') {
-      this.projs.push({ kind: 'dragon', x: -side * 1100, y: -420, vx: side * 1300, life: 1.9, dir: side, color: '#ff5a00' });
-      sfx.fire();
-    }
-    if (type === 'pirotecnia') this.pyro(side);
-    if (type === 'trovao') this.thunder(f.x);
-    yield 0.6;
-    // salta as cordas para dentro do ringue
-    f.play('tuck');
-    const tx = side * (RING - 80);
-    const T = 0.5;
-    f.vx = (tx - f.x) / T;
-    f.vz = (0.5 * GRAV * T * T) / T;
-    f.z = 1;
-    yield () => f.z <= 0;
-    f.vx = 0;
-    this.dust(f.x, 8);
-    sfx.thud();
-    // caminha até à sua marca
-    const mark = side * 210;
-    f.play('walk');
-    while (Math.abs(f.x - mark) > 6) {
-      f.vx = Math.sign(mark - f.x) * 230;
+    const follow = () => {
       beam.x = f.x;
-      yield FRAME;
-    }
-    f.vx = 0;
-    f.facing = -side as 1 | -1;
-    f.play(pose);
-    f.setExpr('happy', 3);
-    sfx.cheer(1.3);
-    this.addHype(0.5);
-    if (type === 'lasers') this.lasersT = 2.6;
-    if (type === 'cosmica') this.cosmic = 1;
-    let t = 0;
-    let tick = 0;
-    const COLORS = ['#ff3d6e', '#3aa0ff', '#ffd23d', '#4cd964', '#b45cff', '#7af7ff'];
-    while (t < 2.6) {
-      t += this.dt;
-      tick -= this.dt;
-      beam.x = f.x;
-      const fire = tick <= 0;
+    };
+    try {
       switch (type) {
-        case 'classica':
-          if (fire) {
-            tick = 0.6;
-            this.confetti(f.x, 40, COLORS);
-          }
-          break;
         case 'danca':
-          beam.color = COLORS[Math.floor(t * 4) % COLORS.length];
-          if (Math.random() < 0.6) this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 260, -60 - Math.random() * 240, 0, -30, 0.5, 10, COLORS[Math.floor(Math.random() * COLORS.length)], 0);
+          yield* this.entDanca(f, side, beam);
           break;
         case 'fumo':
-          if (Math.random() < 0.5) this.parts.spawn(PK.Smoke, (Math.random() - 0.5) * 900, -6, (Math.random() - 0.5) * 60, -20 - Math.random() * 30, 1.6, 40, '#c9c4d8', 0);
+          yield* this.entFumo(f, side, beam);
           break;
         case 'lasers':
-          if (fire) {
-            tick = 0.5;
-            this.sparks(f.x, -120, 10, COLORS[Math.floor(t * 2) % COLORS.length], 500, PK.Star);
-          }
+          yield* this.entLasers(f, side, beam);
           break;
         case 'pirotecnia':
-          if (fire) {
-            tick = 0.55;
-            this.pyro(Math.random() < 0.5 ? -1 : 1);
-          }
+          yield* this.entPyro(f, side, beam);
           break;
         case 'fogos':
-          if (fire) {
-            tick = 0.38;
-            this.firework(COLORS[Math.floor(Math.random() * COLORS.length)]);
-          }
-          for (let i = 0; i < 2; i++) this.parts.spawn(PK.Spark, (Math.random() - 0.5) * 2 * RING, FRONT_Y - ROPE_H[2], 0, 120 + Math.random() * 80, 0.6, 2, '#ffe27a', 500);
+          yield* this.entFogos(f, side, beam);
           break;
         case 'trovao':
-          if (fire) {
-            tick = 0.45;
-            this.thunder((Math.random() - 0.5) * 2 * RING);
-          }
+          yield* this.entTrovao(f, side, beam);
           break;
         case 'rei':
-          if (fire) {
-            tick = 0.25;
-            this.confetti(f.x, 30, ['#ffd23d', '#ffe680', '#fff6c2', '#e0a800']);
-          }
-          for (const sx of [-1, 1]) this.parts.spawn(PK.Ember, sx * (FRONT_X - 20), FRONT_Y - POST_H, sx * -40 + (Math.random() - 0.5) * 80, -500 - Math.random() * 200, 0.9, 18, '#ffd23d', 900);
+          yield* this.entRei(f, side, beam);
           break;
         case 'dragao':
-          if (fire) {
-            tick = 0.5;
-            this.sparks(f.x, -100, 14, '#ff7a1a', 600, PK.Ember);
-          }
+          yield* this.entDragao(f, side, beam);
           break;
         case 'cosmica':
-          if (Math.random() < 0.35) {
-            const mx = (Math.random() - 0.5) * 1600;
-            this.parts.spawn(PK.Ember, mx, -900, 500, 900, 1.2, 22, Math.random() < 0.5 ? '#9b7aff' : '#7af7ff', 0);
-          }
+          yield* this.entCosmica(f, side, beam);
           break;
+        default:
+          yield* this.entClassica(f, side, beam);
       }
-      yield FRAME;
+    } finally {
+      follow();
     }
     f.play('guard');
+    f.x = side * 210;
+    f.z = 0;
+    f.vx = f.vz = 0;
+    f.facing = -side as 1 | -1;
     beam.life = 0;
     this.entBeam = null;
+    this.stage = null;
+    this.lasersT = 0;
+    this.darkenTarget = 0.62;
     this.cosmic = Math.min(this.cosmic, 0.99);
     f.noClamp = false;
-    // o parceiro aparece no avental
     for (const p of this.teams[f.team]) {
       if (p !== f) {
         p.hidden = false;
@@ -375,45 +322,380 @@ export class Fight {
     yield 0.3;
   }
 
+  /** Estado visual da entrada em curso (desenhado pela cena). */
+  stage: { disco: number; carpet: number; portal: number; scan: number | null; side: number; flicker: number } | null = null;
+
+  /** Caminha até x com a animação dada, a seguir com o holofote. */
+  private *walkTo(f: Fighter, x: number, speed: number, beam: Beam | null, anim: AnimName | 'walk' | 'walkBack' | 'run' = 'walk'): Script {
+    f.play(anim);
+    let t = 0;
+    while (Math.abs(f.x - x) > 6 && t < 4) {
+      t += this.dt;
+      f.vx = Math.sign(x - f.x) * speed;
+      if (beam) beam.x = f.x;
+      yield FRAME;
+    }
+    f.vx = 0;
+    f.x = x;
+  }
+
+  /** Entra pelas cordas: passa por entre a corda do meio (sem salto). */
+  private *stepThrough(f: Fighter, side: number, beam: Beam | null): Script {
+    yield* this.walkTo(f, side * (FRONT_X + 10), 170, beam);
+    f.play('duck', 0.6);
+    yield* this.walkTo(f, side * (RING - 60), 120, beam, 'duck');
+    f.play('guard');
+  }
+
+  /** Salta por cima da corda de cima. */
+  private *jumpIn(f: Fighter, side: number, tx: number): Script {
+    f.play('tuck');
+    const T = 0.5;
+    f.vx = (tx - f.x) / T;
+    f.vz = 0.5 * GRAV * T;
+    f.z = 1;
+    yield () => f.z <= 0;
+    f.vx = 0;
+    f.x = tx;
+    this.dust(f.x, 8);
+    sfx.thud();
+  }
+
+  private *pose(f: Fighter, anim: AnimName, dur: number, every: number, fx: (t: number) => void, beam: Beam | null): Script {
+    f.play(anim);
+    f.setExpr('happy', dur);
+    let t = 0;
+    let k = 0;
+    while (t < dur) {
+      t += this.dt;
+      k -= this.dt;
+      if (beam) beam.x = f.x;
+      if (k <= 0) {
+        k = every;
+        fx(t);
+      }
+      yield FRAME;
+    }
+  }
+
+  // 1) Clássica: entra pelas cordas, aponta para o público, braços no ar
+  private *entClassica(f: Fighter, side: number, beam: Beam): Script {
+    yield 0.4;
+    yield* this.stepThrough(f, side, beam);
+    yield* this.walkTo(f, side * 210, 150, beam);
+    f.facing = -side as 1 | -1;
+    yield* this.pose(f, 'point', 1.1, 9, () => sfx.cheer(0.9), beam);
+    yield* this.pose(f, 'victory', 1.3, 0.45, () => this.confetti(f.x, 24, ['#ffffff', '#ffd23d', '#ff3d6e']), beam);
+  }
+
+  // 2) Dança: bola de espelhos desce, holofotes coloridos, moonwalk até ao centro
+  private *entDanca(f: Fighter, side: number, beam: Beam): Script {
+    const COLORS = ['#ff3d6e', '#3aa0ff', '#ffd23d', '#4cd964', '#b45cff', '#7af7ff'];
+    yield* this.jumpIn(f, side, side * (RING - 70));
+    // moonwalk: anda "para trás" mas avança
+    f.facing = side as 1 | -1;
+    f.play('walkBack');
+    let t = 0;
+    while (Math.abs(f.x - side * 210) > 6) {
+      t += this.dt;
+      f.vx = -side * 120;
+      if (this.stage) this.stage.disco = Math.min(1, t / 1.2);
+      beam.x = f.x;
+      beam.color = COLORS[Math.floor(t * 5) % COLORS.length];
+      yield FRAME;
+    }
+    f.vx = 0;
+    f.facing = -side as 1 | -1;
+    yield* this.pose(f, 'dance', 2.4, 0.12, (u) => {
+      beam.color = COLORS[Math.floor(u * 6) % COLORS.length];
+      if (this.stage) this.stage.disco = 1;
+      for (let i = 0; i < 3; i++) this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 500, -80 - Math.random() * 320, 0, -20, 0.5, 10, COLORS[Math.floor(Math.random() * COLORS.length)], 0);
+      if (Math.random() < 0.15) this.confetti(f.x, 10, COLORS);
+    }, beam);
+  }
+
+  // 3) Fumo: o ringue enche-se de nevoeiro e o lutador sai lá de dentro em silhueta
+  private *entFumo(f: Fighter, side: number, beam: Beam): Script {
+    f.hidden = true;
+    for (const sx of [-1, 1]) for (let i = 0; i < 30; i++) this.parts.spawn(PK.Smoke, sx * FRONT_X, -60, -sx * (200 + Math.random() * 300), -Math.random() * 60, 2.4, 44, i % 2 ? '#e8e4f2' : '#a9a2bd', 0);
+    sfx.whoosh();
+    sfx.whoosh();
+    let t = 0;
+    while (t < 1.2) {
+      t += this.dt;
+      if (Math.random() < 0.9) this.parts.spawn(PK.Smoke, (Math.random() - 0.5) * 900, -4, (Math.random() - 0.5) * 50, -15 - Math.random() * 25, 2.2, 48, '#cdc8dc', 0);
+      yield FRAME;
+    }
+    f.x = 0;
+    f.z = 0;
+    f.facing = -side as 1 | -1;
+    f.hidden = false;
+    f.glow = '#ffffff';
+    beam.x = 0;
+    beam.w = 120;
+    f.play('flex');
+    this.flash = 0.5;
+    this.flashColor = '#ffffff';
+    sfx.cheer(1.3);
+    yield* this.pose(f, 'flex', 1.2, 0.05, () => this.parts.spawn(PK.Smoke, (Math.random() - 0.5) * 700, -4, 0, -20, 1.8, 44, '#cdc8dc', 0), beam);
+    f.glow = null;
+    yield* this.walkTo(f, side * 210, 110, beam);
+    f.facing = -side as 1 | -1;
+    yield* this.pose(f, 'victory', 0.9, 0.3, () => {}, beam);
+  }
+
+  // 4) Lasers: apagão total, varrimento laser revela o lutador
+  private *entLasers(f: Fighter, side: number, beam: Beam): Script {
+    this.darkenTarget = 0.92;
+    beam.life = 0;
+    f.hidden = true;
+    f.x = side * 210;
+    f.facing = -side as 1 | -1;
+    this.lasersT = 4.6;
+    sfx.charge();
+    let t = 0;
+    while (t < 1.4) {
+      t += this.dt;
+      if (this.stage) this.stage.scan = -RING + (t / 1.4) * RING * 2;
+      if (this.stage && this.stage.scan != null && Math.abs(this.stage.scan - f.x) < 40) f.hidden = false;
+      yield FRAME;
+    }
+    if (this.stage) this.stage.scan = null;
+    f.hidden = false;
+    beam.life = 99;
+    beam.x = f.x;
+    beam.color = '#ff2e63';
+    this.flash = 0.6;
+    this.flashColor = '#ff2e63';
+    sfx.boom();
+    let beat = 0;
+    yield* this.pose(f, 'dance', 2.6, 0.32, () => {
+      beat++;
+      beam.color = beat % 2 ? '#2ef0ff' : '#ff2e63';
+      this.flash = 0.25;
+      this.flashColor = beam.color;
+      sfx.hit(true);
+    }, beam);
+  }
+
+  // 5) Pirotecnia: sobe ao canto e o fogo corre os quatro postes
+  private *entPyro(f: Fighter, side: number, beam: Beam): Script {
+    yield* this.jumpIn(f, side, side * (RING - 70));
+    yield* this.walkTo(f, side * (RING - 20), 160, beam);
+    f.facing = -side as 1 | -1;
+    f.play('perch');
+    let t = 0;
+    while (t < 0.45) {
+      t += this.dt;
+      f.z = (t / 0.45) * 115;
+      beam.x = f.x;
+      yield FRAME;
+    }
+    f.play('flex');
+    const order: [number, number][] = [[-FRONT_X, FRONT_Y - POST_H], [-BACK_X, BACK_Y - POST_H + 10], [BACK_X, BACK_Y - POST_H + 10], [FRONT_X, FRONT_Y - POST_H]];
+    for (const [px, py] of order) {
+      this.fireColumn(px, py, 1);
+      yield 0.28;
+    }
+    yield 0.2;
+    for (const [px, py] of order) this.fireColumn(px, py, 1.6);
+    this.shake(14, 0.5);
+    this.flash = 0.6;
+    this.flashColor = '#ffb070';
+    sfx.boom();
+    sfx.cheer(1.4);
+    yield* this.pose(f, 'flex', 1.2, 0.3, () => this.fireColumn(order[Math.floor(Math.random() * 4)][0], order[0][1], 0.7), beam);
+    // salta do canto para o meio
+    f.play('tuck');
+    const T = 0.55;
+    f.vx = (side * 210 - f.x) / T;
+    f.vz = (0.5 * GRAV * T * T - f.z) / T;
+    yield () => f.z <= 0;
+    f.vx = 0;
+    this.dust(f.x, 10);
+    sfx.thud();
+  }
+
+  private fireColumn(px: number, py: number, k: number): void {
+    for (let i = 0; i < 22 * k; i++) {
+      this.parts.spawn(PK.Ember, px + (Math.random() - 0.5) * 16, py, (Math.random() - 0.5) * 70, -650 * k - Math.random() * 400, 0.55 + Math.random() * 0.3, 30, i % 3 ? '#ff7a1a' : '#ffd000', 600);
+    }
+    sfx.fire();
+  }
+
+  // 6) Fogo de artifício: foguetes a partir do avental e cascata de faíscas das cordas
+  private *entFogos(f: Fighter, side: number, beam: Beam): Script {
+    const COLORS = ['#ff3d6e', '#3aa0ff', '#ffd23d', '#4cd964', '#b45cff', '#ffffff'];
+    yield* this.stepThrough(f, side, beam);
+    yield* this.walkTo(f, side * 210, 150, beam);
+    f.facing = -side as 1 | -1;
+    f.play('point');
+    for (let i = 0; i < 6; i++) {
+      this.rocket((i % 2 ? 1 : -1) * (FRONT_X - 40 - i * 60), COLORS[i % COLORS.length]);
+      yield 0.22;
+    }
+    yield* this.pose(f, 'point', 2.0, 0.035, (u) => {
+      // cascata dourada ao longo da corda de cima
+      for (let i = 0; i < 3; i++) this.parts.spawn(PK.Spark, (Math.random() - 0.5) * 2 * FRONT_X, FRONT_Y - ROPE_H[2], 0, 160 + Math.random() * 80, 0.7, 2.2, '#ffe27a', 600);
+      if (u % 0.5 < 0.04) this.rocket((Math.random() - 0.5) * 900, COLORS[Math.floor(Math.random() * COLORS.length)]);
+    }, beam);
+  }
+
+  /** Foguete com rasto que explode no ar passado pouco tempo. */
+  private rocket(x: number, color: string): void {
+    for (let i = 0; i < 10; i++) this.parts.spawn(PK.Spark, x, FRONT_Y - 20 - i * 30, 0, -900, 0.35 - i * 0.02, 2.5, '#fff6c2', 0);
+    sfx.whoosh();
+    const ex = x + (Math.random() - 0.5) * 120;
+    setTimeout(() => this.burstAt(ex, -380 - Math.random() * 140, color), 380);
+  }
+
+  private burstAt(x: number, y: number, color: string): void {
+    for (let i = 0; i < 40; i++) {
+      const a = (i / 40) * Math.PI * 2;
+      const v = 240 + Math.random() * 90;
+      this.parts.spawn(i % 2 ? PK.Ember : PK.Spark, x, y, Math.cos(a) * v, Math.sin(a) * v, 1 + Math.random() * 0.4, i % 2 ? 14 : 2.5, i % 4 ? color : '#ffffff', 160);
+    }
+    this.parts.spawn(PK.Star, x, y, 0, 0, 0.3, 80, '#ffffff', 0);
+    sfx.boom();
+  }
+
+  // 7) Tempestade: luzes a falhar, relâmpagos cada vez mais perto e o lutador aparece no último
+  private *entTrovao(f: Fighter, side: number, beam: Beam): Script {
+    f.hidden = true;
+    beam.life = 0;
+    this.darkenTarget = 0.85;
+    const xs = [side * 420, -side * 300, side * 120];
+    for (const x of xs) {
+      if (this.stage) this.stage.flicker = 0.4;
+      yield 0.35;
+      this.thunder(x);
+      yield 0.25;
+    }
+    f.x = side * 210;
+    f.z = 0;
+    f.facing = -side as 1 | -1;
+    this.bolts.push({ x: f.x, y0: -1400, y1: 0, life: 0.5, color: '#9be8ff', seed: Math.random() * 999, width: 22 });
+    this.flash = 1;
+    this.flashColor = '#cfefff';
+    this.shake(18, 0.5);
+    sfx.zap();
+    sfx.boom();
+    f.hidden = false;
+    beam.life = 99;
+    beam.color = '#9be8ff';
+    beam.x = f.x;
+    f.glow = '#9be8ff';
+    yield* this.pose(f, 'rise', 1.0, 0.06, () => this.sparks(f.x + (Math.random() - 0.5) * 80, -60 - Math.random() * 120, 3, '#9be8ff', 400), beam);
+    f.glow = null;
+    yield* this.pose(f, 'flex', 1.1, 0.4, () => this.thunder((Math.random() - 0.5) * 2 * RING), beam);
+  }
+
+  // 8) Real: passadeira vermelha, fanfarra, fontes de ouro e confettis dourados
+  private *entRei(f: Fighter, side: number, beam: Beam): Script {
+    const GOLD = ['#ffd23d', '#ffe680', '#fff6c2', '#e0a800'];
+    sfx.levelUp();
+    let t = 0;
+    while (t < 0.9) {
+      t += this.dt;
+      if (this.stage) this.stage.carpet = Math.min(1, t / 0.9);
+      yield FRAME;
+    }
+    yield* this.stepThrough(f, side, beam);
+    // caminha devagar pela passadeira
+    f.play('victory');
+    while (Math.abs(f.x - side * 210) > 6) {
+      f.vx = -side * 90;
+      beam.x = f.x;
+      if (Math.random() < 0.5) this.confetti(f.x, 3, GOLD);
+      yield FRAME;
+    }
+    f.vx = 0;
+    f.facing = -side as 1 | -1;
+    sfx.levelUp();
+    yield* this.pose(f, 'victory', 2.0, 0.05, () => {
+      for (const sx of [-1, 1]) this.parts.spawn(PK.Ember, sx * (FRONT_X - 20), FRONT_Y - POST_H, (Math.random() - 0.5) * 80, -520 - Math.random() * 180, 0.9, 18, '#ffd23d', 900);
+      if (Math.random() < 0.3) this.confetti(f.x, 8, GOLD);
+    }, beam);
+  }
+
+  // 9) Dragão: sobrevoa a arena duas vezes, cospe fogo no ringue e o lutador sai das chamas
+  private *entDragao(f: Fighter, side: number, beam: Beam): Script {
+    f.hidden = true;
+    beam.life = 0;
+    this.projs.push({ kind: 'dragon', x: -side * 1200, y: -460, vx: side * 1500, life: 1.6, dir: side, color: '#ff5a00' });
+    sfx.fire();
+    yield 1.1;
+    this.projs.push({ kind: 'dragon', x: side * 1200, y: -330, vx: -side * 1100, life: 1.9, dir: -side, color: '#ff5a00' });
+    sfx.fire();
+    let t = 0;
+    while (t < 1.4) {
+      t += this.dt;
+      // labaredas a cair sobre o centro
+      for (let i = 0; i < 4; i++) this.parts.spawn(PK.Ember, (Math.random() - 0.5) * 160, -320 + Math.random() * 40, (Math.random() - 0.5) * 200, 500 + Math.random() * 300, 0.6, 30, i % 2 ? '#ffd000' : '#ff5a00', 0);
+      yield FRAME;
+    }
+    f.x = 0;
+    f.facing = -side as 1 | -1;
+    f.hidden = false;
+    this.wave(0, 0, 500, '#ff5a00', 0.8);
+    this.flash = 0.6;
+    this.flashColor = '#ffb070';
+    sfx.boom();
+    beam.life = 99;
+    beam.color = '#ffb070';
+    beam.x = 0;
+    yield* this.pose(f, 'rise', 1.0, 0.04, () => this.parts.spawn(PK.Ember, (Math.random() - 0.5) * 200, -10, 0, -300, 0.6, 26, '#ff7a1a', 0), beam);
+    yield* this.walkTo(f, side * 210, 140, beam);
+    f.facing = -side as 1 | -1;
+    yield* this.pose(f, 'point', 0.8, 0.3, () => this.sparks(f.x, -100, 12, '#ff7a1a', 600, PK.Ember), beam);
+  }
+
+  // 10) Cósmica: a arena vira espaço, abre-se um portal e o lutador desce devagar
+  private *entCosmica(f: Fighter, side: number, beam: Beam): Script {
+    f.hidden = true;
+    this.cosmic = 1;
+    beam.color = '#b9a6ff';
+    let t = 0;
+    while (t < 1) {
+      t += this.dt;
+      if (this.stage) this.stage.portal = t;
+      yield FRAME;
+    }
+    f.x = 0;
+    f.z = 420;
+    f.facing = -side as 1 | -1;
+    f.hidden = false;
+    f.wings = true;
+    f.play('wings');
+    beam.x = 0;
+    sfx.charge();
+    t = 0;
+    while (f.z > 0) {
+      t += this.dt;
+      f.z = Math.max(0, 420 - t * 220);
+      f.vz = 0;
+      if (Math.random() < 0.7) this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 80, -f.z - 80, 0, 40, 0.8, 10, Math.random() < 0.5 ? '#ffffff' : '#9b7aff', 0);
+      if (Math.random() < 0.3) this.parts.spawn(PK.Ember, (Math.random() - 0.5) * 1600, -900, 500, 900, 1.2, 22, Math.random() < 0.5 ? '#9b7aff' : '#7af7ff', 0);
+      yield FRAME;
+    }
+    f.wings = false;
+    this.wave(0, 0, 600, '#9b7aff', 0.8);
+    this.flash = 0.7;
+    this.flashColor = '#d9ccff';
+    sfx.boom();
+    if (this.stage) this.stage.portal = 0;
+    yield* this.walkTo(f, side * 210, 130, beam);
+    f.facing = -side as 1 | -1;
+    yield* this.pose(f, 'flex', 1.2, 0.08, () => this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 200, -50 - Math.random() * 200, 0, -20, 0.6, 8, '#ffffff', 0), beam);
+  }
+
   private confetti(x: number, n: number, colors: string[]): void {
     for (let i = 0; i < n; i++) {
       this.parts.spawn(PK.Confetti, x + (Math.random() - 0.5) * 700, -700 - Math.random() * 200, (Math.random() - 0.5) * 160, Math.random() * 80, 3, 5, colors[i % colors.length], 140);
     }
   }
 
-  private smokeBurst(x: number, n: number): void {
-    for (let i = 0; i < n; i++) {
-      const a = Math.random() * Math.PI * 2;
-      this.parts.spawn(PK.Smoke, x + (Math.random() - 0.5) * 60, -40 - Math.random() * 80, Math.cos(a) * 260, Math.sin(a) * 120 - 40, 1.8, 46, i % 2 ? '#e8e4f2' : '#a9a2bd', 0);
-    }
-    sfx.whoosh();
-  }
 
-  /** Colunas de fogo nos postes de um lado (ou dos dois). */
-  private pyro(side: number): void {
-    for (const [px, py] of [[side * FRONT_X, FRONT_Y - POST_H], [side * BACK_X, BACK_Y - POST_H + 10]]) {
-      for (let i = 0; i < 26; i++) {
-        this.parts.spawn(PK.Ember, px + (Math.random() - 0.5) * 16, py, (Math.random() - 0.5) * 70, -700 - Math.random() * 500, 0.55 + Math.random() * 0.3, 30, i % 3 ? '#ff7a1a' : '#ffd000', 600);
-      }
-    }
-    this.flash = Math.max(this.flash, 0.25);
-    this.flashColor = '#ffb070';
-    this.shake(5, 0.2);
-    sfx.fire();
-  }
-
-  private firework(color: string): void {
-    const c = this.entCur ? this.entCur.x : 0;
-    const x = c + (Math.random() - 0.5) * 700;
-    const y = -330 - Math.random() * 170;
-    for (let i = 0; i < 36; i++) {
-      const a = (i / 36) * Math.PI * 2;
-      const v = 260 + Math.random() * 80;
-      this.parts.spawn(i % 2 ? PK.Ember : PK.Spark, x, y, Math.cos(a) * v, Math.sin(a) * v, 1 + Math.random() * 0.4, i % 2 ? 14 : 2.5, i % 4 ? color : '#ffffff', 160);
-    }
-    this.parts.spawn(PK.Star, x, y, 0, 0, 0.3, 70, '#ffffff', 0);
-    sfx.boom();
-  }
 
   private thunder(x: number): void {
     this.bolts.push({ x, y0: -1400, y1: 0, life: 0.3, color: '#9be8ff', seed: Math.random() * 999, width: 12 });
@@ -580,6 +862,7 @@ export class Fight {
       this.phase = 'fight';
       this.phaseT = 0;
       this.banner('LUTEM!', '', '#ffd23d', 1.0, 1.3);
+      this.emit('start', this.active[0], this.active[1]);
       sfx.bell();
       sfx.cheer(1);
       this.addHype(0.3);
@@ -609,7 +892,29 @@ export class Fight {
     this.updateCamFx(rawDt);
   }
 
+  emit(ev: string, a?: Fighter, b?: Fighter, extra?: string): void {
+    this.onEvent?.(ev, a, b, extra);
+  }
+
+  /** Anuncia um golpe de assinatura: faixa grande com retrato e nome. */
+  special(f: Fighter, moveId: string, force = false): void {
+    const d = ITEMS[moveId];
+    if (!d) return;
+    f.used(moveId, moveId === 'm_stomp' || moveId === 'm_elbow' ? 6 : 11);
+    this.emit('move', f, this.opp(f), d.name);
+    if (!force && this.t - this.lastCallT < 3.5) return;
+    this.lastCallT = this.t;
+    const COLORS: Record<string, string> = { comum: '#ffd23d', incomum: '#5ef08a', raro: '#4ab8ff', epico: '#c77dff', lendario: '#ffb31a', mitico: '#ff4f7b', celestial: '#7af7ff' };
+    this.moveCall = { name: f.spec.name, move: d.name, icon: d.icon, color: COLORS[d.rarity] ?? '#ffd23d', team: f.team, t: 0, max: 1.15 };
+    this.slowmo(0.55, 0.35);
+    this.addHype(0.08);
+  }
+
   private updateCamFx(rawDt: number): void {
+    if (this.moveCall) {
+      this.moveCall.t += rawDt;
+      if (this.moveCall.t >= this.moveCall.max) this.moveCall = null;
+    }
     if (this.shakeT > 0) {
       this.shakeT -= rawDt;
       if (this.shakeT <= 0) this.shakeAmp = 0;
@@ -658,6 +963,7 @@ export class Fight {
 
   private updateFighter(f: Fighter, dt: number): void {
     f.stateT += dt;
+    f.clockT = this.t;
     if (f.state === 'apron') {
       this.updateApron(f, dt);
       f.animate(dt, this.t);
@@ -874,7 +1180,8 @@ export class Fight {
     }
 
     if (o.state === 'down') {
-      if (o.downT > 1.4 && f.diveCd <= 0 && r < 0.4 + f.s.esq * 0.004) {
+      const canDive = f.can('m_splash') || f.can('m_moonsault');
+      if (canDive && o.downT > 1.2 && f.diveCd <= 0 && r < 0.45 + f.s.esq * 0.004) {
         f.run(this.topRopeDive(f, o));
         return;
       }
@@ -882,38 +1189,42 @@ export class Fight {
         f.run(this.taunt(f));
         return;
       }
-      if (dist < 100) {
-        f.run(Math.random() < 0.5 ? this.stomp(f, o) : this.elbowDrop(f, o));
+      if (dist < 100 && (f.can('m_stomp') || f.can('m_elbow'))) {
+        const elbow = f.can('m_elbow') && (!f.can('m_stomp') || Math.random() < 0.5);
+        f.run(elbow ? this.elbowDrop(f, o) : this.stomp(f, o));
         return;
       }
-      f.wantX = o.x - f.facing * 80;
+      f.wantX = o.x - f.facing * 95;
       return;
     }
 
     if (dist > 250) {
       const behind = f.facing === 1 ? f.x + RING : RING - f.x;
-      if (r < 0.2 && behind > 220) f.run(this.ropeRun(f, o));
-      else if (r < 0.32 && dist < 330) f.run(this.dropkick(f, o));
-      else f.wantX = o.x - f.facing * 80;
+      if (r < 0.2 && behind > 220 && f.can('m_lariat')) f.run(this.ropeRun(f, o));
+      else if (r < 0.26 && dist < 330 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
+      else f.wantX = o.x - f.facing * 95;
       return;
     }
-    if (dist > 100) {
-      if (r < 0.1 && dist < 260 && o.state === 'idle') f.run(this.spear(f, o));
-      else if (r < 0.2) f.run(this.dropkick(f, o));
-      else if (r < 0.28 && f.tauntCd <= 0 && f.s.car > 15) f.run(this.taunt(f));
-      else f.wantX = o.x - f.facing * (86 + Math.random() * 14);
+    if (dist > 110) {
+      if (r < 0.1 && dist < 260 && o.state === 'idle' && f.can('m_spear')) f.run(this.spear(f, o));
+      else if (r < 0.15 && dist > 130 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
+      else if (r < 0.26 && f.can('m_cutter') && o.state === 'idle') f.run(this.cutter(f, o));
+      else if (r < 0.32 && f.tauntCd <= 0 && f.s.car > 15) f.run(this.taunt(f));
+      else f.wantX = o.x - f.facing * (88 + Math.random() * 12);
       return;
     }
     // ao alcance
     const st = f.s;
     const stunned = o.state === 'hit';
+    const close = dist < 90;
     const opts: [number, () => Script][] = [
-      [3 + st.vel * 0.04, () => this.combo(f, o)],
+      [3.2 + st.vel * 0.04, () => this.combo(f, o)],
       [2 + st.for * 0.03 + (stunned ? 2 : 0), () => this.heavy(f, o)],
-      [dist < 85 ? 1.4 + st.agr * 0.05 + (stunned ? 1.5 : 0) : 0, () => this.grapple(f, o)],
-      [dist < 85 ? 0.6 + st.agr * 0.02 : 0, () => this.irishWhip(f, o)],
-      [0.7, () => this.stepBack(f)],
-      [0.6, () => this.feint(f, o)],
+      [close ? 0.55 + st.agr * 0.03 + (stunned ? 0.8 : 0) : 0, () => this.grapple(f, o)],
+      [close && f.can('m_irish') ? 0.35 + st.agr * 0.01 : 0, () => this.irishWhip(f, o)],
+      [f.can('m_cutter') && stunned ? 0.6 : 0, () => this.cutter(f, o)],
+      [0.8, () => this.stepBack(f)],
+      [0.7, () => this.feint(f, o)],
     ];
     let tot = 0;
     for (const [w] of opts) tot += w;
@@ -994,6 +1305,7 @@ export class Fight {
     f.face(o);
     if (f.spec.isPlayer) this.tally.counters++;
     this.pop('CONTRA!', f.x, this.jy(f, J_HEAD) - 40, '#7ad7ff', 30);
+    this.emit('counter', f, o);
     f.play('hook', 1.4);
     const cd = this.contactDist(f, o, 'hook', J_FH, false);
     yield* this.lungeTo(f, o, cd, 0.2);
@@ -1036,31 +1348,35 @@ export class Fight {
       this.telegraph(f, o, 'punch', true);
       const cd = hitWith('upper', J_FH, false);
       yield* this.lungeTo(f, o, cd, 0.27);
-      this.strike(f, o, { dmg: 22, reach: cd + 22, kind: 'punch', heavy: true, kd: st || Math.random() < 0.08, launch: 380, kb: 140, hitJ: J_FH });
+      this.strike(f, o, { dmg: 22, reach: cd + 22, kind: 'punch', heavy: true, kd: st && Math.random() < 0.4, launch: 380, kb: 140, hitJ: J_FH });
       yield 0.4;
     } else if (r < 0.46) {
       f.play('hook');
       this.telegraph(f, o, 'punch', true);
       const cd = hitWith('hook', J_FH, false);
       yield* this.lungeTo(f, o, cd, 0.23);
-      this.strike(f, o, { dmg: 17, reach: cd + 22, kind: 'punch', heavy: true, kb: 200, kd: st && Math.random() < 0.7, hitJ: J_FH });
+      this.strike(f, o, { dmg: 17, reach: cd + 22, kind: 'punch', heavy: true, kb: 200, kd: st && Math.random() < 0.45, hitJ: J_FH });
       yield 0.3;
     } else if (r < 0.64) {
       f.play('kick');
       this.telegraph(f, o, 'kick', false);
       const cd = hitWith('kick', J_FF, true);
       yield* this.lungeTo(f, o, cd, 0.26);
-      this.strike(f, o, { dmg: 19, reach: cd + 25, kind: 'kick', heavy: true, kb: 320, body: true, kd: st, hitJ: J_FF });
+      this.strike(f, o, { dmg: 19, reach: cd + 25, kind: 'kick', heavy: true, kb: 320, body: true, kd: st && Math.random() < 0.5, hitJ: J_FF });
       yield 0.38;
-    } else if (r < 0.8) {
+    } else if (r < 0.8 && f.can('m_superkick')) {
       // superkick: pontapé alto ao queixo
+      this.special(f, 'm_superkick');
       f.play('superkick');
       this.tire(f, 4);
       this.telegraph(f, o, 'kick', true);
       const cd = hitWith('superkick', J_FF, false);
       yield* this.lungeTo(f, o, cd, 0.24);
-      const ok = this.strike(f, o, { dmg: 21, reach: cd + 25, kind: 'kick', heavy: true, kb: 260, kd: st || Math.random() < 0.25, launch: 300, hitJ: J_FF });
-      if (ok) this.pop('SUPERKICK!', f.x, -250, '#ffd23d', 26);
+      const ok = this.strike(f, o, { dmg: 21, reach: cd + 25, kind: 'kick', heavy: true, kb: 260, kd: st && Math.random() < 0.6, launch: 300, hitJ: J_FF });
+      if (ok) {
+        this.pop('SUPERKICK!', f.x, -250, '#ffd23d', 26);
+        this.styleFx(f, 'superkick', this.jx(f, J_FF), this.jy(f, J_FF));
+      }
       yield 0.45;
     } else {
       f.play('body');
@@ -1072,7 +1388,7 @@ export class Fight {
       f.play('upper', 1.2);
       cd = hitWith('upper', J_FH, false);
       yield* this.lungeTo(f, o, cd, 0.22);
-      this.strike(f, o, { dmg: 18, reach: cd + 22, kind: 'punch', heavy: true, kd: st || Math.random() < 0.12, launch: 300, kb: 120, hitJ: J_FH });
+      this.strike(f, o, { dmg: 18, reach: cd + 22, kind: 'punch', heavy: true, kd: st && Math.random() < 0.4, launch: 300, kb: 120, hitJ: J_FH });
       yield 0.35;
     }
   }
@@ -1080,6 +1396,8 @@ export class Fight {
   /** Spear: placagem a correr, ombro ao abdómen, os dois caem. */
   private *spear(f: Fighter, o: Fighter): Script {
     this.tire(f, 12);
+    this.special(f, 'm_spear');
+    const sty = f.styleOf('spear');
     f.face(o);
     f.play('run');
     f.vx = f.facing * 300;
@@ -1090,6 +1408,7 @@ export class Fight {
     while (Math.abs(o.x - f.x) > 58 && t < 1.2) {
       t += this.dt;
       f.vx = f.facing * 640;
+      if (sty && Math.random() < 0.8) this.parts.spawn(PK.Ember, f.x - f.facing * 20, -60 - Math.random() * 50, -f.facing * 120, -40, 0.45, 26, sty.color, 0);
       yield FRAME;
     }
     f.vx = 0;
@@ -1103,6 +1422,7 @@ export class Fight {
     }
     this.strike(f, o, { dmg: 24, reach: 9999, kind: 'grapple', heavy: true, kd: true, kb: 380, launch: 160, unblockable: true, body: true, hitJ: J_NECK });
     this.pop('SPEAR!', f.x, -240, '#ff6a3d', 30);
+    this.styleFx(f, 'spear', o.x, -90);
     if (f.spec.isPlayer) this.tally.grapples++;
     f.vx = f.facing * 300;
     yield 0.18;
@@ -1217,10 +1537,12 @@ export class Fight {
     }
     if (f.spec.isPlayer) this.tally.grapples++;
     const type = Math.random();
-    if (type < 0.32) yield* this.suplex(f, o, 1, false);
-    else if (type < 0.58) yield* this.bodySlam(f, o, 1);
-    else if (type < 0.8) yield* this.powerbomb(f, o);
-    else yield* this.ddt(f, o);
+    const pool: (() => Script)[] = [() => this.suplex(f, o, 1, false), () => this.bodySlam(f, o, 1)];
+    if (f.can('m_ddt')) pool.push(() => this.ddt(f, o));
+    if (f.can('m_powerbomb')) pool.push(() => this.powerbomb(f, o), () => this.powerbomb(f, o));
+    if (f.can('m_chokeslam')) pool.push(() => this.chokeslam(f, o), () => this.chokeslam(f, o));
+    void type;
+    yield* pool[Math.floor(Math.random() * pool.length)]();
   }
 
   private *pushAway(f: Fighter, o: Fighter): Script {
@@ -1317,6 +1639,7 @@ export class Fight {
 
   /** Powerbomb: senta-o nos ombros e esmaga-o de costas à frente. */
   private *powerbomb(f: Fighter, o: Fighter): Script {
+    this.special(f, 'm_powerbomb');
     this.lock(f, o);
     o.play('hitBody');
     f.play('grab', 1.4);
@@ -1328,11 +1651,13 @@ export class Fight {
     yield* this.carry(f, o, 0.16, [4, -12, -2.75], [44, 40, -4.5], (t) => t * t);
     o.play('lieKO');
     this.land(o, f.x + f.facing * 80 * this.scale(f), f, 32, 'grapple', 2);
+    this.styleFx(f, 'powerbomb', o.x, 0);
     this.pop('POWERBOMB!', f.x, -240, '#ff3d6e', 32);
     yield 0.7;
   }
 
   private *ddt(f: Fighter, o: Fighter): Script {
+    this.special(f, 'm_ddt');
     this.lock(f, o);
     o.play('hitBody');
     f.play('grab', 1.4);
@@ -1349,6 +1674,7 @@ export class Fight {
 
   private *irishWhip(f: Fighter, o: Fighter): Script {
     this.tire(f, 8);
+    this.special(f, 'm_irish');
     f.play('grab');
     yield 0.14;
     if (Math.abs(o.x - f.x) > 95 || !this.canGrab(o)) {
@@ -1392,15 +1718,43 @@ export class Fight {
     }
   }
 
-  private *whipped(o: Fighter, dir: number): Script {
-    o.play('run');
-    o.facing = dir as 1 | -1;
-    o.vx = dir * 520;
-    yield () => Math.abs(o.x) >= RING - 12;
-    pushRope(this.ropes, o.x > 0 ? 1 : 0, dir * 600);
+  /**
+   * Corre contra as cordas na direção `dir`, afunda-se nelas (as cordas esticam a sério)
+   * e ressalta para o lado contrário com mais velocidade.
+   */
+  private *bounceRopes(f: Fighter, dir: number, speed: number): Script {
+    f.facing = dir as 1 | -1;
+    f.play('run');
+    f.vx = dir * speed;
+    yield () => Math.abs(f.x) >= RING - 16;
+    const side = (f.x > 0 ? 1 : 0) as 0 | 1;
+    // afunda nas cordas
+    f.noClamp = true;
+    f.play('ropes');
+    const x0 = f.x;
+    let t = 0;
+    while (t < 0.16) {
+      t += this.dt;
+      const u = t / 0.16;
+      const sink = Math.sin(u * Math.PI) * 34;
+      f.x = x0 + dir * sink;
+      this.ropes.bulge[side] = dir * sink * 1.25;
+      this.ropes.vel[side] = 0;
+      f.vx = 0;
+      yield FRAME;
+    }
+    f.x = x0;
+    pushRope(this.ropes, side, -dir * 500);
     sfx.whoosh();
-    o.facing = -dir as 1 | -1;
-    o.vx = -dir * 520;
+    f.noClamp = false;
+    f.facing = -dir as 1 | -1;
+    f.play('run');
+    f.vx = -dir * speed * 1.2;
+    this.addHype(0.05);
+  }
+
+  private *whipped(o: Fighter, dir: number): Script {
+    yield* this.bounceRopes(o, dir, 500);
     yield 1.4;
     o.vx = 0;
     o.play('guard');
@@ -1408,18 +1762,10 @@ export class Fight {
 
   private *ropeRun(f: Fighter, o: Fighter): Script {
     this.tire(f, 12);
-    const away = -f.facing;
-    f.facing = away as 1 | -1;
-    f.play('run');
-    f.vx = away * 480;
-    yield () => Math.abs(f.x) >= RING - 14;
-    pushRope(this.ropes, f.x > 0 ? 1 : 0, away * 700);
-    sfx.whoosh();
-    f.facing = -away as 1 | -1;
-    f.vx = -away * 560;
-    this.addHype(0.05);
+    this.special(f, 'm_lariat');
+    yield* this.bounceRopes(f, -f.facing, 470);
     let t = 0;
-    while (Math.abs(o.x - f.x) > 120 && t < 1.6) {
+    while (Math.abs(o.x - f.x) > this.contactDist(f, o, 'clothes', J_FH, true) + 10 && t < 1.6) {
       t += this.dt;
       yield FRAME;
     }
@@ -1429,44 +1775,155 @@ export class Fight {
     }
     f.play('clothes');
     this.telegraph(f, o, 'punch', true);
-    yield 0.05;
-    const landed = this.strike(f, o, { dmg: 26, reach: 120, kind: 'punch', heavy: true, kd: true, kb: 100 });
+    yield 0.04;
+    const landed = this.strike(f, o, { dmg: 26, reach: 140, kind: 'punch', heavy: true, kd: Math.random() < 0.5, kb: 300, hitJ: J_FH });
     if (landed) this.pop('LARIAT!', f.x, -230, '#ff6a3d', 28);
+    f.vx *= 0.4;
     yield 0.25;
     f.vx = 0;
     f.play('guard');
     yield 0.2;
   }
 
+  /** Dropkick: 2-3 passos, salto com os dois pés esticados ao peito no ponto mais alto. */
   private *dropkick(f: Fighter, o: Fighter): Script {
     this.tire(f, 14);
+    this.special(f, 'm_dropkick');
+    f.face(o);
     f.play('run');
-    f.vx = f.facing * 380;
-    while (Math.abs(o.x - f.x) > 210) yield FRAME;
+    // aproxima-se até à distância de salto
+    let t = 0;
+    while (Math.abs(o.x - f.x) > 190 && t < 1.2) {
+      t += this.dt;
+      f.vx = f.facing * 420;
+      yield FRAME;
+    }
+    f.face(o);
     f.play('dropkick');
-    f.vz = 560;
+    const apex = 0.3;
+    const reach = reachOf('dropkick', J_FF) * this.scale(f);
+    const travel = Math.max(0, Math.abs(o.x - f.x) - reach - 18 * this.scale(o));
+    f.vx = f.facing * (travel / apex);
+    f.vz = GRAV * apex;
     f.z = 1;
-    f.vx = f.facing * 460;
     this.telegraph(f, o, 'kick', true);
     sfx.whoosh();
-    let hit = false;
-    while (f.z > 0) {
-      if (!hit && Math.abs(o.x - f.x) < 95 && f.z > 10) {
-        hit = this.strike(f, o, { dmg: 22, reach: 100, kind: 'kick', heavy: true, kd: Math.random() < 0.7, kb: 380 });
-        if (hit) this.pop('DROPKICK!', f.x, -240, '#ffd23d', 28);
-        f.vx *= 0.2;
-        hit = true;
-      }
+    t = 0;
+    while (t < apex) {
+      t += this.dt;
+      yield FRAME;
+    }
+    // impacto no ponto mais alto
+    const hit = this.strike(f, o, { dmg: 22, reach: reach + 60, kind: 'kick', heavy: true, body: true, kd: Math.random() < 0.22, kb: 420, hitJ: J_FF });
+    if (hit) {
+      this.pop('DROPKICK!', f.x, -240, '#ffd23d', 28);
+      this.styleFx(f, 'dropkick', this.jx(f, J_FF), this.jy(f, J_FF));
+    }
+    // ressalta para trás e cai de costas
+    f.vx = -f.facing * 140;
+    yield () => f.z <= 0;
+    f.vx = 0;
+    this.dust(f.x, 6);
+    sfx.thud();
+    // levanta-se de um salto (kip-up)
+    f.play('kipup', 1.1);
+    yield 0.5;
+    f.play('guard');
+  }
+
+  /** Cutter: salta, agarra a cabeça e cai de costas a puxá-lo de cara para o tapete. */
+  private *cutter(f: Fighter, o: Fighter): Script {
+    this.tire(f, 12);
+    f.face(o);
+    f.play('run');
+    let t = 0;
+    while (Math.abs(o.x - f.x) > 70 && t < 1) {
+      t += this.dt;
+      f.vx = f.facing * 380;
       yield FRAME;
     }
     f.vx = 0;
+    if (!this.canGrab(o) || Math.abs(o.x - f.x) > 95) return;
+    this.special(f, 'm_cutter', true);
+    if (f.spec.isPlayer) this.tally.grapples++;
+    this.lock(f, o);
+    o.play('hitBody');
+    f.play('tuck');
+    f.vz = 420;
+    f.z = 1;
+    yield* this.carry(f, o, 0.18, [24, 40, 0], [26, 46, -0.6]);
+    f.play('fall');
+    yield* this.carry(f, o, 0.2, [26, 46, -0.6], [30, 70, -1.5], (k) => k * k);
+    o.play('lieKO');
+    this.land(o, f.x + f.facing * 60 * this.scale(f), f, 30, 'grapple', 2);
+    this.pop('CUTTER!', f.x, -250, '#ff4f7b', 34);
+    yield () => f.z <= 0;
     f.play('lie');
-    this.dust(f.x, 6);
-    sfx.thud();
-    this.selfDown(f, 0.45);
+    yield 0.35;
+    f.play('kipup', 1.1);
+    yield 0.5;
+  }
+
+  /** Chokeslam: agarra pelo pescoço, levanta-o bem alto e atira-o de costas. */
+  private *chokeslam(f: Fighter, o: Fighter): Script {
+    this.special(f, 'm_chokeslam');
+    this.lock(f, o);
+    o.play('hitHi');
+    f.play('reach', 1.3);
+    yield* this.carry(f, o, 0.15, [24, 40, 0], [22, 70, 0]);
+    f.play('rise', 0.8);
+    yield* this.carry(f, o, 0.4, [22, 70, 0], [16, 60, 0.15], (k) => k * k * (3 - 2 * k));
+    yield 0.2;
+    f.play('slam', 1.2);
+    yield* this.carry(f, o, 0.15, [16, 60, 0.15], [40, 60, 1.57], (k) => k * k);
+    o.play('lieKO');
+    this.land(o, f.x + f.facing * 70 * this.scale(f), f, 32, 'grapple', 2);
+    this.styleFx(f, 'chokeslam', o.x, 0);
+    this.pop('CHOKESLAM!', f.x, -260, '#ff3d6e', 32);
+    yield 0.7;
+  }
+
+  /** Efeitos extra dos estilos de golpe comprados (só visual). */
+  private styleFx(f: Fighter, type: string, x: number, y: number): void {
+    const s = f.styleOf(type);
+    if (!s) return;
+    switch (s.style) {
+      case 'raio':
+        this.bolts.push({ x, y0: y - 500, y1: y, life: 0.3, color: s.color, seed: Math.random() * 999, width: 9 });
+        this.flash = Math.max(this.flash, 0.4);
+        this.flashColor = '#cfefff';
+        sfx.zap();
+        break;
+      case 'fogo':
+      case 'inferno':
+        for (let i = 0; i < 40; i++) {
+          const a = -Math.random() * Math.PI;
+          this.parts.spawn(PK.Ember, x + (Math.random() - 0.5) * 60, y, Math.cos(a) * 420, Math.sin(a) * 520, 0.8, 30, i % 2 ? '#ffd000' : s.color, 500);
+        }
+        if (s.style === 'inferno') for (const dx of [-90, 0, 90]) this.sparks(x + dx, -10, 16, '#ff5a00', 900, PK.Ember);
+        sfx.fire();
+        break;
+      case 'ouro':
+        this.sparks(x, y, 40, s.color, 700, PK.Star);
+        break;
+      case 'sismo':
+        this.wave(x, 0, 520, s.color, 0.7);
+        this.wave(x, 0, 300, '#ffffff', 0.4);
+        this.shake(22, 0.5);
+        sfx.boom();
+        break;
+      case 'cosmos':
+        this.wave(x, -10, 400, s.color, 0.7);
+        for (let i = 0; i < 30; i++) {
+          const a = Math.random() * Math.PI * 2;
+          this.parts.spawn(PK.Star, x, -40, Math.cos(a) * 400, Math.sin(a) * 300, 0.9, 14, i % 2 ? '#ffffff' : s.color, 200);
+        }
+        break;
+    }
   }
 
   private *stomp(f: Fighter, o: Fighter): Script {
+    f.used('m_stomp', 5);
     f.face(o);
     while (Math.abs(o.x - f.x) > 60 && o.state === 'down') {
       f.vx = Math.sign(o.x - f.x) * 160;
@@ -1484,6 +1941,7 @@ export class Fight {
   }
 
   private *elbowDrop(f: Fighter, o: Fighter): Script {
+    this.special(f, 'm_elbow');
     f.face(o);
     f.play('tuck');
     f.vz = 650;
@@ -1535,6 +1993,7 @@ export class Fight {
     }
     f.z = 120;
     this.pop('À CORDA DE CIMA!', f.x, -330, '#ffffff', 22);
+    this.emit('climb', f);
     this.addHype(0.2);
     sfx.cheer(0.8);
     this.focus = f;
@@ -1550,7 +2009,9 @@ export class Fight {
     }
     // esquiva rolando?
     const roll = Math.random() < clamp(0.08 + o.s.esq * 0.004, 0.05, 0.35);
-    const moon = Math.random() < 0.5;
+    const moon = f.can('m_moonsault') && (!f.can('m_splash') || Math.random() < 0.55);
+    this.special(f, moon ? 'm_moonsault' : 'm_splash', true);
+    const msty = moon ? f.styleOf('moonsault') : null;
     const T = 0.7;
     const target = o.x;
     f.vx = (target - f.x) / T;
@@ -1562,6 +2023,7 @@ export class Fight {
     while (f.z > 0 || el < 0.1) {
       el += this.dt;
       if (moon) f.spinAng = -Math.min(1, el / T) * Math.PI * 2;
+      if (msty && Math.random() < 0.8) this.parts.spawn(PK.Star, f.x, -f.z - 80, 0, 0, 0.5, 10, msty.color, 0);
       yield FRAME;
     }
     f.spinAng = 0;
@@ -1571,6 +2033,7 @@ export class Fight {
       if (f.spec.isPlayer) this.tally.dives++;
       this.strike(f, o, { dmg: 40, reach: 999, kind: 'aerial', ground: true, heavy: true, kb: 0, unblockable: true });
       this.pop(moon ? 'MOONSAULT!' : 'SPLASH!', f.x, -240, '#ffd23d', 34);
+      if (moon) this.styleFx(f, 'moonsault', f.x, -20);
       this.shake(14, 0.4);
       this.slowmo(0.35, 0.35);
       this.addHype(0.35);
@@ -1614,6 +2077,7 @@ export class Fight {
 
   private *taunt(f: Fighter): Script {
     f.tauntCd = 6;
+    this.emit('taunt', f);
     f.play('taunt');
     f.setExpr('happy', 1.2);
     sfx.cheer(0.7);
@@ -1680,6 +2144,7 @@ export class Fight {
     const hx = f.x;
     const hy = this.jy(f, J_HEAD);
     this.pop(`${d.icon} ${d.name}`, hx, hy - 50, '#9be15d', 22);
+    this.emit('potion', f, undefined, d.name);
     sfx.heal();
     switch (id) {
       case 'c_vida':
@@ -1803,7 +2268,11 @@ export class Fight {
     def.setExpr('hurt', 0.5);
     att.combo++;
     att.comboT = 1.2;
-    if (att.combo >= 4 && att.combo % 2 === 0) this.pop(`${att.combo} HITS!`, att.x, -300, '#ff7ae0', 26);
+    if (att.combo >= 4 && att.combo % 2 === 0) {
+      this.pop(`${att.combo} HITS!`, att.x, -300, '#ff7ae0', 26);
+      this.emit('combo', att, def, String(att.combo));
+    }
+    if (def.hp > 0 && def.hp / def.maxHp < 0.25 && (def.hp + dmg) / def.maxHp >= 0.25) this.emit('lowhp', def, att);
 
     if (att.spec.isPlayer) {
       this.tally.damage += dmg;
@@ -1829,7 +2298,7 @@ export class Fight {
     this.shake(heavy ? 9 : 3.5, heavy ? 0.22 : 0.1);
     if (heavy) this.zoomPunch = 0.06;
     this.addHype(heavy ? 0.06 : 0.015);
-    if (o.kind !== 'super') this.gainMeter(att, dmg * 0.26 * (1 + att.s.car * 0.012) * (att.has('p_showman') ? 1.3 : 1));
+    if (o.kind !== 'super') this.gainMeter(att, dmg * 0.2 * (1 + att.s.car * 0.012) * (att.has('p_showman') ? 1.3 : 1));
     if (o.kind !== 'super') this.gainMeter(def, dmg * 0.16);
 
     // segundo fôlego
@@ -1845,10 +2314,10 @@ export class Fight {
     }
     // atordoamento acumulado: golpes na cabeça contam mais
     let kd = !!o.kd;
-    if (def.stunT > 0 && o.heavy && o.kind !== 'assist') kd = true;
+    if (def.stunT > 0 && o.heavy && o.kind !== 'assist' && o.kind !== 'super' && Math.random() < 0.3) kd = true;
     if (!kd && o.kind !== 'assist' && def.state !== 'down' && def.state !== 'thrown') {
       def.daze += dmg * (o.body ? 0.55 : 1.15) * (o.heavy ? 1.2 : 1);
-      if (def.daze >= 40 + def.s.res * 0.5 && !def.armor) {
+      if (def.daze >= 58 + def.s.res * 0.6 && !def.armor) {
         def.daze = 0;
         def.stop();
         def.evade = 'none';
@@ -1858,6 +2327,7 @@ export class Fight {
         def.vx = dir * 60;
         def.setExpr('hurt', def.stunT);
         this.pop('ATORDOADO!', def.x, this.jy(def, J_HEAD) - 70, '#ffe27a', 26);
+        this.emit('stun', def, att);
         this.addHype(0.12);
         sfx.cheer(0.6);
         return true;
@@ -1884,6 +2354,7 @@ export class Fight {
   }
 
   knockDown(f: Fighter, dir: number, kb: number, launch: number): void {
+    this.emit('down', f, f.lastHitBy ?? undefined);
     f.stop();
     f.stunT = 0;
     f.daze = 0;
@@ -1893,7 +2364,7 @@ export class Fight {
     f.vx = dir * kb;
     f.vz = launch;
     f.z = Math.max(f.z, 1);
-    f.downT = Math.max(0.45, 0.85 + Math.random() * 0.5 - f.s.res * 0.006);
+    f.downT = Math.max(0.35, 0.6 + Math.random() * 0.4 - f.s.res * 0.005);
     f.setExpr('hurt', 1.2);
     f.run(this.fallLand(f), false);
     f.state = 'down';
@@ -1954,10 +2425,12 @@ export class Fight {
     if (kind === 'super' && att.spec.isPlayer) this.superKO = true;
     if (next && this.phase === 'fight') {
       this.banner('ELIMINADO!', def.spec.name, '#ff5a5a', 1.6);
+      this.emit('elim', def, att);
       def.run(this.eliminate(def, next));
       def.state = 'ko';
     } else {
       this.banner('K.O.!', '', '#ff3d6e', 1.8, 1.5);
+      this.emit('ko', def, att);
       this.declareWinner(att.team, def);
     }
   }
@@ -1978,6 +2451,7 @@ export class Fight {
     sfx.fire();
     sfx.cheer(1.3);
     this.banner('RENASCEU!', 'Fénix', '#ffb31a', 1.4);
+    this.emit('revive', f);
     f.hp = f.maxHp * ratio;
     f.setExpr('power', 1.5);
     f.play('getup', 1.3);
@@ -2065,6 +2539,7 @@ export class Fight {
     yield 0.25;
     // TAG!
     this.banner('TAG!', p.spec.name + ' entra!', '#ffd23d', 1.0);
+    this.emit('tag', p, f);
     sfx.slap();
     sfx.cheer(0.9);
     this.addHype(0.25);
@@ -2132,6 +2607,7 @@ export class Fight {
     for (let n = 1; n <= 3; n++) {
       yield 0.65;
       this.banner(String(n), '', n === 3 ? '#ff3d6e' : '#ffffff', 0.6, 1.6);
+      this.emit('count', w, l, String(n));
       sfx.slap();
       this.shake(3, 0.1);
     }
@@ -2147,6 +2623,7 @@ export class Fight {
     this.phaseT = 0;
     const wt = w.team;
     this.banner(wt === 0 ? 'VITÓRIA!' : 'DERROTA', w.spec.name + ' vence!', wt === 0 ? '#ffd23d' : '#ff5a5a', 2.4, 1.3);
+    this.emit('win', w);
     sfx.cheer(1.6);
     for (let i = 0; i < 120; i++) {
       const colors = ['#ff3d6e', '#ffd23d', '#3aa0ff', '#4cd964', '#b45cff', '#ffffff'];
@@ -2207,7 +2684,8 @@ export class Fight {
     if (f.spec.isPlayer) this.tally.supers++;
     this.superBudget = o.maxHp * (0.1 + (power - 1) * 0.12);
     // cut-in cinematográfico
-    this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: d?.icon ?? '💥', color, team: f.team, t: 0, max: 1.05 };
+    this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: d?.icon ?? '💥', color, team: f.team, t: 0, max: 1.25 };
+    this.emit('super', f, o, d?.name);
     f.play('charge');
     f.glow = color;
     f.setExpr('power', 4);
@@ -2259,7 +2737,7 @@ export class Fight {
   }
 
   private superHit(f: Fighter, o: Fighter, dmg: number, color: string, extra: Partial<StrikeOpts> = {}): boolean {
-    return this.strike(f, o, { dmg, reach: 9999, kind: 'super', heavy: true, unblockable: true, kd: true, kb: 420, launch: 420, color, ...extra });
+    return this.strike(f, o, { dmg, reach: 9999, kind: 'super', heavy: true, unblockable: true, kd: Math.random() < 0.45, kb: 420, launch: 420, color, ...extra });
   }
 
   private *dashTo(f: Fighter, o: Fighter, speed: number, stopAt = 80): Generator<Yield, void, unknown> {

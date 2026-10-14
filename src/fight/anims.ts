@@ -90,6 +90,9 @@ const SKICK_W = P({ lean: -0.05, fl1: 1.1, fl2: -1.8, bl1: -0.1, bl2: -0.1, fa1:
 const SKICK = P({ lean: -0.7, head: 0.35, fl1: 2.2, fl2: -0.05, bl1: 0.15, bl2: -0.05, fa1: -0.4, fa2: 0.8, ba1: -0.9, ba2: 0.6, dy: 4 });
 const SPEAR = P({ lean: 1.25, head: 0.35, fa1: 1.05, fa2: 0.45, ba1: 0.95, ba2: 0.55, fl1: 0.65, fl2: -0.7, bl1: -0.95, bl2: -0.3, dy: 16 });
 
+const ROPES = P({ lean: -0.5, head: -0.25, fa1: -0.7, fa2: 1.3, ba1: -0.9, ba2: 1.1, fl1: 0.45, fl2: -0.6, bl1: -0.25, bl2: -0.2, dy: 4 });
+const KIPUP = P({ rot: -1.2, lean: 0.2, fl1: 1.9, fl2: -1.6, bl1: 1.7, bl2: -1.7, fa1: 2.7, fa2: 1.8, ba1: 2.6, ba2: 1.8, head: 0.3 });
+
 function A(keys: [number, Pose, ((t: number) => number)?][], loop = false): Anim {
   return { keys: keys.map(([t, p, e]) => ({ t, p, e })), loop };
 }
@@ -138,6 +141,8 @@ export const ANIMS = {
   lieKO: A([[0, LIE2], [10, LIE2]]),
   superkick: A([[0, GUARD], [0.14, SKICK_W], [0.24, SKICK, snap], [0.42, SKICK], [0.7, GUARD]]),
   spear: A([[0, SPEAR, snap], [10, SPEAR]]),
+  ropes: A([[0, ROPES, snap], [10, ROPES]]),
+  kipup: A([[0, P({ ...KIPUP, rot: -1.57 })], [0.12, KIPUP], [0.3, P({ dy: 18, lean: 0.3, fl1: 0.9, fl2: -1.4, bl1: -0.3, bl2: -1.3 })], [0.45, GUARD, easeOut]]),
   dance: A([[0, DANCE1], [0.3, DANCE3], [0.6, DANCE2], [0.9, DANCE3], [1.2, DANCE1]], true),
   flex: A([[0, GUARD], [0.25, FLEX, snap], [0.8, FLEX2], [1.3, FLEX]], true),
   point: A([[0, GUARD], [0.25, POINT, snap], [0.9, P({ ...POINT, head: -0.6, dy: -3 })], [1.5, POINT]], true),

@@ -1,5 +1,5 @@
-import { S, buy, canAfford, commit, count, owns, recycle } from '../../core/state';
-import { KIND_NAMES, isTradeable, item, type ItemDef } from '../../data/items';
+import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle } from '../../core/state';
+import { KIND_NAMES, MOVE_SLOTS, isTradeable, item, type ItemDef } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
@@ -37,6 +37,10 @@ export function isEquipped(id: string): boolean {
       return L.belt.includes(id);
     case 'entrance':
       return L.entrance === id;
+    case 'move':
+      return L.moves.includes(id);
+    case 'moveStyle':
+      return L.styles.includes(id);
   }
 }
 
@@ -87,6 +91,24 @@ export function toggleEquip(id: string): void {
       break;
     case 'entrance':
       L.entrance = id;
+      break;
+    case 'move':
+      if (on) L.moves.splice(L.moves.indexOf(id), 1);
+      else {
+        if (L.moves.length >= MOVE_SLOTS) {
+          toast(`Só podes ter ${MOVE_SLOTS} golpes equipados. Tira um primeiro.`, 'info');
+          return;
+        }
+        L.moves.push(id);
+      }
+      break;
+    case 'moveStyle':
+      if (on) L.styles.splice(L.styles.indexOf(id), 1);
+      else {
+        const tgt = d.vis?.type;
+        L.styles = L.styles.filter((x) => item(x).vis?.type !== tgt);
+        L.styles.push(id);
+      }
       break;
   }
   if (d.kind === 'hair' || d.kind === 'hairColor') clearThumbs();
@@ -152,6 +174,29 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
   body.appendChild(info);
 
   const actions: ModalAction[] = [];
+  if (d.kind === 'move' && !owns(id)) {
+    if (canBuyEarly(d)) {
+      actions.push({
+        label: `Treinar já 🪙 ${fmt(d.coins ?? 0)}`,
+        cls: 'btn-gold',
+        onClick: () => {
+          if (S.coins < (d.coins ?? 0)) {
+            toast('Moedas insuficientes.', 'err');
+            return false;
+          }
+          S.coins -= d.coins ?? 0;
+          grant(id);
+          if (S.loadout.moves.length < MOVE_SLOTS) S.loadout.moves.push(id);
+          commit();
+          sfx.coin();
+          toast(`${d.name} aprendido!`, 'ok');
+          render();
+        },
+      });
+    } else {
+      actions.push({ label: `Nível ${d.unlockLevel} (compra a partir do ${Math.max(1, (d.unlockLevel ?? 1) - 3)})`, cls: 'btn-ghost', onClick: () => false });
+    }
+  }
   if (ctx === 'shop' && (d.coins != null || d.gems != null) && d.source === 'shop') {
     const canStack = d.kind === 'potion';
     if (owns(id) && !canStack) {
@@ -177,7 +222,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
   }
   if (owns(id)) {
     const eq = isEquipped(id);
-    const removable = ['mask', 'aura', 'super', 'passive', 'potion'].includes(d.kind);
+    const removable = ['mask', 'aura', 'super', 'passive', 'potion', 'move', 'moveStyle'].includes(d.kind);
     if (!eq || removable) {
       actions.push({
         label: eq ? 'Desequipar' : d.kind === 'potion' ? 'Pôr no cinto' : 'Equipar',

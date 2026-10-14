@@ -2,6 +2,7 @@ import '@fontsource/luckiest-guy/400.css';
 import './styles.css';
 import { S } from './core/state';
 import { setAmbient, setSound, setVolume } from './audio/sfx';
+import { music } from './audio/music';
 import { mountApp } from './ui/app';
 import { openCreator } from './ui/screens/creator';
 import { modal } from './ui/dom';
@@ -9,6 +10,9 @@ import { modal } from './ui/dom';
 async function boot(): Promise<void> {
   setVolume(S.settings.volume);
   setSound(S.settings.sound);
+  music.setVolume(S.settings.bgmVol);
+  music.setEnabled(S.settings.bgm);
+  music.play('menu');
   setAmbient(S.settings.music);
   // A fonte é usada no canvas: espera por ela (com limite) para o primeiro desenho sair certo.
   try {

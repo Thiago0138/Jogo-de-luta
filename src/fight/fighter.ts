@@ -1,4 +1,5 @@
 import type { Stats } from '../data/stats';
+import { ITEMS } from '../data/items';
 import type { Look } from '../render/look';
 import { Skel, newPose, solve, type Pose } from '../render/pose';
 import type { Expr } from '../render/fighter';
@@ -20,6 +21,10 @@ export interface FighterSpec {
   hpMul?: number;
   /** Entrada no ringue (id do item). */
   entrance?: string;
+  /** Golpes de assinatura (ids de itens 'move'). */
+  moves?: string[];
+  /** Estilos visuais de golpe. */
+  styles?: string[];
 }
 
 export type FState =
@@ -126,6 +131,30 @@ export class Fighter {
 
   has(passive: string): boolean {
     return this.spec.passives.includes(passive);
+  }
+
+  /** Momento a partir do qual cada golpe de assinatura pode voltar a ser usado. */
+  cds = new Map<string, number>();
+  /** Relógio da luta (atualizado pelo motor) para os cooldowns. */
+  clockT = 0;
+
+  /** Sabe fazer o golpe de assinatura e já recuperou dele? */
+  can(move: string): boolean {
+    return !!this.spec.moves?.includes(move) && (this.cds.get(move) ?? 0) <= this.clockT;
+  }
+
+  /** Marca o golpe como usado (cooldown em segundos). */
+  used(move: string, cd = 9): void {
+    this.cds.set(move, this.clockT + cd);
+  }
+
+  /** Estilo visual ativo para um tipo de golpe (ex.: 'fogo' no spear). */
+  styleOf(type: string): { style: string; color: string } | null {
+    for (const id of this.spec.styles ?? []) {
+      const d = ITEMS[id];
+      if (d?.vis?.type === type) return { style: d.vis.style ?? '', color: d.vis.c1 ?? '#fff' };
+    }
+    return null;
   }
 
   play(a: AnimName | 'walk' | 'run' | 'walkBack', speed = 1, restart = true): void {
