@@ -1,4 +1,4 @@
-import { ITEMS } from '../data/items';
+import { ITEMS, ITEM_LIST } from '../data/items';
 import { emptyTally, type Tally } from '../data/missions';
 import { maxHp } from '../data/stats';
 import { sfx, crowdLevel } from '../audio/sfx';
@@ -24,6 +24,11 @@ export interface FightSetup {
    * faz a entrada; a outra equipa fica escondida e a luta nunca começa.
    */
   showcase?: boolean;
+  /**
+   * Demonstração de um item (golpe, estilo, super ou passiva) na pré-visualização dos menus:
+   * o lutador da equipa 0 repete-o em ciclo no adversário, sem K.O. nem relógio.
+   */
+  demo?: string;
 }
 
 export interface FightReport {
@@ -213,10 +218,15 @@ export class Fight {
   readonly showcase: boolean;
   /** Na montra: a entrada terminou. */
   showcaseDone = false;
+  /** Item em demonstração (ver FightSetup.demo). */
+  readonly demo: string | null;
+  /** Na demonstração de passivas os dois lutadores combatem sozinhos. */
+  private demoAI = false;
 
   constructor(setup: FightSetup) {
     this.mode = setup.mode;
-    this.showcase = !!setup.showcase;
+    this.demo = setup.demo ?? null;
+    this.showcase = !!setup.showcase && !this.demo;
     setup.teams.forEach((specs, ti) => {
       specs.forEach((spec, si) => {
         const hp = maxHp(spec.level, spec.stats.vit) * (setup.mode === 'tag' ? 0.5 : 1) * (spec.hpMul ?? 1);
@@ -225,7 +235,8 @@ export class Fight {
         if (si === 0) {
           f.x = side * (RING - 30);
           f.facing = ti === 0 ? 1 : -1;
-          if (setup.entrances === false) f.run(this.introWalk(f, side * 210));
+          if (this.demo) f.x = side * 150;
+          else if (setup.entrances === false) f.run(this.introWalk(f, side * 210));
           else f.hidden = true;
         } else {
           if (setup.entrances !== false) f.hidden = true;
@@ -241,7 +252,13 @@ export class Fight {
     });
     this.active = [this.teams[0][0], this.teams[1][0]];
     if (this.mode === 'tag') this.clock = 180;
-    if (this.showcase) {
+    if (this.demo) {
+      this.phase = 'fight';
+      const [a, b] = this.active;
+      const d = ITEMS[this.demo];
+      this.demoAI = d?.kind === 'passive';
+      a.run(this.demoLoop(a, b, this.demo));
+    } else if (this.showcase) {
       this.phase = 'entrance';
       this.entQueue = [this.teams[0][0]];
       // a equipa adversária fica fora de cena durante toda a montra
@@ -995,7 +1012,7 @@ export class Fight {
         f.thinkT = 0.2 + Math.random() * 0.4;
       }
     }
-    if (this.phase === 'fight') {
+    if (this.phase === 'fight' && !this.demo) {
       this.clock -= dt;
       if (this.clock <= 0) this.timeUp();
     }
@@ -1131,7 +1148,7 @@ export class Fight {
         case 'idle':
         case 'act':
           if (f.state === 'act') f.setState('idle');
-          this.think(f, dt);
+          if (!this.demo || this.demoAI) this.think(f, dt);
           break;
         case 'hit':
           if (f.stateT > Math.max(0.32, f.stunT)) {
@@ -1499,21 +1516,7 @@ export class Fight {
       this.strike(f, o, { dmg: 19, reach: Math.max(cd, this.lastLunge) + 25, kind: 'kick', heavy: true, kb: 320, body: true, kd: st && Math.random() < 0.5, hitJ: J_FF });
       yield 0.38;
     } else if (r < 0.8 && f.can('m_superkick')) {
-      // superkick: pontapé alto ao queixo
-      this.special(f, 'm_superkick');
-      f.play('superkick');
-      this.tire(f, 4);
-      this.telegraph(f, o, 'kick', true);
-      const cd = hitWith('superkick', J_FF, false);
-      yield* this.lungeTo(f, o, cd, 0.15);
-      this.cinematic((f.x + o.x) / 2, -170, 0.3, 0.8);
-      yield* this.lungeTo(f, o, cd, 0.09);
-      const ok = this.strike(f, o, { dmg: 21, reach: Math.max(cd, this.lastLunge) + 25, kind: 'kick', heavy: true, kb: 260, kd: st && Math.random() < 0.6, launch: 300, hitJ: J_FF });
-      if (ok) {
-        this.pop('SUPERKICK!', f.x, -250, '#ffd23d', 26);
-        this.styleFx(f, 'superkick', this.jx(f, J_FF), this.jy(f, J_FF));
-      }
-      yield 0.45;
+      yield* this.superkick(f, o);
     } else {
       f.play('body');
       this.telegraph(f, o, 'punch', false);
@@ -1526,6 +1529,156 @@ export class Fight {
       yield* this.lungeTo(f, o, cd, 0.22);
       this.strike(f, o, { dmg: 18, reach: Math.max(cd, this.lastLunge) + 22, kind: 'punch', heavy: true, kd: st && Math.random() < 0.4, launch: 300, kb: 120, hitJ: J_FH });
       yield 0.35;
+    }
+  }
+
+  /** Superkick: pontapé alto ao queixo. */
+  private *superkick(f: Fighter, o: Fighter): Script {
+    const st = o.stunT > 0;
+    const hitWith = (anim: AnimName, joint: number, body: boolean) => this.contactDist(f, o, anim, joint, body);
+    this.special(f, 'm_superkick');
+    f.play('superkick');
+    this.tire(f, 4);
+    this.telegraph(f, o, 'kick', true);
+    const cd = hitWith('superkick', J_FF, false);
+    yield* this.lungeTo(f, o, cd, 0.15);
+    this.cinematic((f.x + o.x) / 2, -170, 0.3, 0.8);
+    yield* this.lungeTo(f, o, cd, 0.09);
+    const ok = this.strike(f, o, { dmg: 21, reach: Math.max(cd, this.lastLunge) + 25, kind: 'kick', heavy: true, kb: 260, kd: st && Math.random() < 0.6, launch: 300, hitJ: J_FF });
+    if (ok) {
+      this.pop('SUPERKICK!', f.x, -250, '#ffd23d', 26);
+      this.styleFx(f, 'superkick', this.jx(f, J_FF), this.jy(f, J_FF));
+    }
+    yield 0.45;
+  }
+
+  // ───────────────────────── Demonstração nos menus ─────────────────────────
+
+  /** Repete o item em demonstração: repõe os dois lutadores e executa o golpe/super/passiva. */
+  private *demoLoop(a: Fighter, b: Fighter, id: string): Script {
+    const d = ITEMS[id];
+    if (!d) return;
+    const move = d.kind === 'moveStyle' ? ITEM_LIST.find((m) => m.kind === 'move' && m.vis?.type === d.vis?.type)?.id ?? 'm_dropkick' : id;
+    for (;;) {
+      // repor
+      for (const f of [a, b]) {
+        f.hp = f.maxHp;
+        f.z = 0;
+        f.vx = 0;
+        f.vz = 0;
+        f.spinAng = 0;
+        f.noClamp = false;
+        f.perchSide = -1;
+        f.stunT = 0;
+        f.daze = 0;
+        f.holding = null;
+        f.cds.clear();
+        f.usedFenix = false;
+        f.usedFolego = false;
+      }
+      b.stop();
+      b.setState('idle');
+      b.play('guard');
+      a.play('guard');
+      a.x = -170;
+      b.x = 150;
+      a.facing = 1;
+      b.facing = -1;
+      yield 0.7;
+      if (d.kind === 'super') {
+        a.meter = 100;
+        b.x = a.x + 130;
+        yield* this.superMove(a, b, id);
+      } else if (d.kind === 'passive') {
+        // combate livre: a passiva faz efeito naturalmente
+        if (id === 'p_folego' || id === 'p_fenix' || id === 'p_furia') a.hp = Math.round(a.maxHp * 0.24);
+        if (id === 'p_showman') a.meter = 0;
+        let t = 0;
+        while (t < 7) {
+          t += this.dt;
+          if (b.hp < b.maxHp * 0.35) b.hp = b.maxHp;
+          yield FRAME;
+        }
+        continue;
+      } else yield* this.demoMove(a, b, move);
+      // espera que assente
+      let w = 0;
+      while (w < 3 && (b.state === 'thrown' || b.z > 0 || a.z > 0)) {
+        w += this.dt;
+        yield FRAME;
+      }
+      yield 1.5;
+    }
+  }
+
+  private *demoMove(a: Fighter, b: Fighter, move: string): Script {
+    const near = (gap: number) => {
+      b.x = a.x + gap;
+      a.facing = 1;
+      b.facing = -1;
+    };
+    const down = () => {
+      this.selfDown(b, 6);
+    };
+    switch (move) {
+      case 'm_stomp':
+        near(95);
+        down();
+        yield 0.3;
+        yield* this.stomp(a, b);
+        break;
+      case 'm_elbow':
+        near(120);
+        down();
+        yield 0.3;
+        yield* this.elbowDrop(a, b);
+        break;
+      case 'm_irish':
+        near(80);
+        yield* this.irishWhip(a, b);
+        break;
+      case 'm_lariat':
+        a.x = 60;
+        b.x = 260;
+        a.facing = 1;
+        b.facing = -1;
+        yield* this.ropeRun(a, b);
+        break;
+      case 'm_dropkick':
+        near(250);
+        yield* this.dropkick(a, b);
+        break;
+      case 'm_spear':
+        near(240);
+        yield* this.spear(a, b);
+        break;
+      case 'm_superkick':
+        near(150);
+        yield* this.superkick(a, b);
+        break;
+      case 'm_ddt':
+      case 'm_powerbomb':
+      case 'm_chokeslam':
+        near(78);
+        a.play('grab');
+        yield 0.2;
+        if (move === 'm_ddt') yield* this.ddt(a, b);
+        else if (move === 'm_powerbomb') yield* this.powerbomb(a, b);
+        else yield* this.chokeslam(a, b);
+        break;
+      case 'm_cutter':
+        near(170);
+        yield* this.cutter(a, b);
+        break;
+      case 'm_splash':
+      case 'm_moonsault':
+        a.x = -140;
+        b.x = 120;
+        down();
+        yield 0.3;
+        a.diveCd = 0;
+        yield* this.topRopeDive(a, b);
+        break;
     }
   }
 
@@ -2567,6 +2720,7 @@ export class Fight {
       this.pop('SEGUNDO FÔLEGO!', def.x, this.jy(def, J_HEAD) - 80, '#7dff8a', 22);
     }
 
+    if (def.hp <= 0 && this.demo && !(def.has('p_fenix') && !def.usedFenix)) def.hp = Math.round(def.maxHp * 0.3);
     if (def.hp <= 0) {
       this.handleZero(def, att, o.kind);
       return true;

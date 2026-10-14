@@ -6,7 +6,7 @@ import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
 import { render } from '../app';
 import { el, esc, fmt, modal, rarityTag, toast, type ModalAction } from '../dom';
-import { EntrancePreview } from '../entrancePreview';
+import { EntrancePreview, ItemDemo } from '../entrancePreview';
 import { Preview, itemThumb } from '../preview';
 import { clearThumbs } from '../preview';
 import { openTrade } from './trade';
@@ -161,7 +161,11 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     art.appendChild(new EntrancePreview(id).el);
     art.appendChild(el('div', 'id-badge', ico('entrance')));
   } else {
-    {
+    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'passive') {
+      // demonstração ao vivo, tal como acontece no ringue
+      art.classList.add('id-ent');
+      art.appendChild(new ItemDemo(id).el);
+    } else {
       const th = itemThumb(id);
       th.classList.add('id-thumb');
       art.appendChild(th);

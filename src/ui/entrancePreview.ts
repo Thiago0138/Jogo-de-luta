@@ -1,5 +1,6 @@
 import { S } from '../core/state';
-import { playerSpec } from '../core/opponents';
+import { makeOpponent, playerSpec } from '../core/opponents';
+import { ITEMS, ITEM_LIST } from '../data/items';
 import { FightScene } from '../fight/scene';
 import type { FighterSpec } from '../fight/fighter';
 import { el } from './dom';
@@ -23,6 +24,43 @@ export class EntrancePreview {
     requestAnimationFrame(() => {
       if (!this.el.isConnected) return;
       this.scene = new FightScene(this.el, { mode: 'solo', teams: [[me], [ghost]], showcase: true }, {
+        speed: 1,
+        quality: S.settings.quality,
+        onEnd: () => {},
+      });
+    });
+  }
+
+  destroy(): void {
+    this.scene?.destroy();
+    this.scene = null;
+  }
+}
+
+/**
+ * Demonstração ao vivo de um golpe, estilo de golpe, super ou passiva: o teu lutador faz o item
+ * num adversário, em ciclo, dentro da própria cena de luta (sem HUD, narrador nem K.O.).
+ */
+export class ItemDemo {
+  readonly el: HTMLElement;
+  private scene: FightScene | null = null;
+
+  constructor(id: string) {
+    this.el = el('div', 'ent-preview');
+    const d = ITEMS[id];
+    const base = playerSpec();
+    const me: FighterSpec = { ...base, entrance: undefined };
+    if (d.kind === 'move') me.moves = [id];
+    else if (d.kind === 'moveStyle') {
+      const mv = ITEM_LIST.find((m) => m.kind === 'move' && m.vis?.type === d.vis?.type);
+      me.moves = mv ? [mv.id] : [];
+      me.styles = [id];
+    } else if (d.kind === 'super') me.supers = [id];
+    else if (d.kind === 'passive') me.passives = [id];
+    const opp: FighterSpec = { ...makeOpponent({ seed: 7, levelDelta: 0 }), hpMul: 1 };
+    requestAnimationFrame(() => {
+      if (!this.el.isConnected) return;
+      this.scene = new FightScene(this.el, { mode: 'solo', teams: [[me], [opp]], showcase: true, demo: id, entrances: false }, {
         speed: 1,
         quality: S.settings.quality,
         onEnd: () => {},
