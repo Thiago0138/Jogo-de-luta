@@ -3284,9 +3284,12 @@ span.rar-celestial,
   .lg-bar {
     width: 130px;
   }
+  /* Novidades desce para o canto inferior esquerdo: em cima colidia com a liga */
   .news-btn {
-    top: 10px;
-    right: 10px;
+    top: auto;
+    bottom: 10px;
+    left: 10px;
+    right: auto;
     padding: 6px 10px;
   }
   .hero-stats {
@@ -3416,11 +3419,11 @@ span.rar-celestial,
 
   /* Modais: ocupam a altura disponível e fazem scroll por dentro */
   .modal-back {
-    padding: 8px calc(12px + var(--safe-r)) 8px calc(12px + var(--safe-l));
+    padding: calc(8px + var(--safe-t)) calc(12px + var(--safe-r)) calc(8px + var(--safe-b)) calc(12px + var(--safe-l));
   }
   .modal {
     width: min(520px, 100%);
-    max-height: calc(100dvh - 16px);
+    max-height: calc(100dvh - 16px - var(--safe-t) - var(--safe-b));
   }
   .modal-head {
     padding: 10px 14px 6px;
@@ -3452,8 +3455,11 @@ span.rar-celestial,
     height: min(260px, calc(100dvh - 140px));
     min-height: 150px;
   }
+  /* demos ao vivo (entradas, golpes, supers, passivas): 16:10 sem passar a altura disponível */
   .item-modal .id-art.id-ent {
     height: auto;
+    min-height: 0;
+    flex-basis: min(54%, calc((100dvh - 150px) * 1.6));
   }
   .item-modal .id-info {
     flex: 1;
@@ -3469,6 +3475,11 @@ span.rar-celestial,
   }
   .settings > :not(.set-row) {
     grid-column: 1 / -1;
+  }
+  .settings .set-row {
+    padding-top: 7px;
+    padding-bottom: 7px;
+    font-size: 14px;
   }
   .modal.trade-modal,
   .modal.picker-modal {
@@ -3671,8 +3682,12 @@ span.rar-celestial,
     grid-area: grid;
     align-self: end;
   }
+  .res-grid {
+    grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
+    gap: 6px;
+  }
   .res-item {
-    padding: 6px;
+    padding: 6px 4px;
   }
   .res-item b {
     font-size: 22px;
@@ -3784,6 +3799,75 @@ span.rar-celestial,
   }
   .chest-summary .btn {
     flex: none;
+  }
+}
+
+/* Telemóveis pequenos na horizontal (ex.: 667×375, 740×360 com margens do notch) */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 780px) {
+  .play-btn:not(.solo) .pb-ico {
+    display: none;
+  }
+  .play-btn:not(.solo) .pb-txt b {
+    font-size: 16px;
+  }
+  .play-btn.solo {
+    padding: 8px 14px;
+  }
+  .play-btn.solo .pb-txt b {
+    font-size: 24px;
+  }
+  .chest-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .chest-row {
+    gap: 5px;
+  }
+  .chest-slot {
+    gap: 0;
+    padding: 3px 2px;
+  }
+  .chest-slot .cs-art {
+    width: 30px;
+    height: 26px;
+  }
+  .chest-slot b {
+    font-size: 11px;
+  }
+  .chests-card {
+    padding: 8px 10px;
+  }
+  .chests-card .card-head .muted {
+    display: none;
+  }
+  .page-home .play {
+    margin-bottom: 8px;
+  }
+  .news-btn {
+    font-size: 0;
+    padding: 6px;
+  }
+  .news-btn .ic {
+    width: 22px;
+    height: 22px;
+  }
+  .cr-logo {
+    font-size: 22px;
+  }
+  .cr-head p {
+    font-size: 12px;
+  }
+  .page-fighter {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+  .seg button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .fight-vol input {
+    width: 54px;
+  }
+  .fight-ctrl .btn-ghost {
+    padding: 0 10px;
   }
 }
 

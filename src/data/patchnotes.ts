@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.7.0',
+    date: '2026-10-14',
+    title: 'Cordas reais, pré-visualizações ao vivo e modo horizontal',
+    items: [
+      'Cordas com física real: esticam à volta do corpo de quem bate nelas, vibram com ondas até aos postes e estremecem nas quedas fortes.',
+      'Ressalto nas cordas refeito: o lutador encosta-se mesmo às cordas, afunda nelas e é devolvido com força.',
+      'Subida à corda de cima degrau a degrau (corda de baixo, do meio e de cima), com a corda a ceder e a balançar debaixo dos pés antes do mergulho.',
+      'Ao sair pelas cordas, a do meio é empurrada para baixo e a de cima levantada.',
+      'Pré-visualização ao vivo de todos os golpes, estilos de golpe, supers e passivas: vês o teu lutador a fazê-los no ringue, tal como na luta.',
+      'Telemóvel só em horizontal: menus com barra lateral, ecrãs em duas colunas e janelas que cabem sempre no ecrã.',
+      'iPhone: corrigido o zoom dos menus e o conteúdo tapado pela câmara e pela barra inferior.',
+    ],
+  },
+  {
     version: '1.6.1',
     date: '2026-10-14',
     title: 'Som no telemóvel',
