@@ -8,6 +8,12 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.2.1',
+    date: '2026-10-14',
+    title: 'Botão de recarregar',
+    items: ['Novo botão 🔄 no topo do ecrã para recarregar o jogo (e procurar atualizações).'],
+  },
+  {
     version: '1.2.0',
     date: '2026-10-14',
     title: 'Entradas, estamina e luta mais realista',

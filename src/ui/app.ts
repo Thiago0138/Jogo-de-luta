@@ -55,6 +55,7 @@ function buildTopbar(): void {
     <div class="tb-cur">
       <button class="pill coins" aria-label="Moedas">🪙 <b></b></button>
       <button class="pill gems" aria-label="Gemas">💎 <b></b></button>
+      <button class="icon-btn refresh" aria-label="Recarregar página" title="Recarregar">🔄</button>
       <button class="icon-btn gear" aria-label="Definições">⚙️</button>
     </div>`;
   avatar = new Preview(resolveLook(S.appearance, S.loadout), { stage: false, focusHead: true, zoom: 1.05 });
@@ -62,6 +63,16 @@ function buildTopbar(): void {
   (topbar.querySelector('.tb-me') as HTMLElement).onclick = () => go('fighter');
   (topbar.querySelector('.coins') as HTMLElement).onclick = () => go('shop');
   (topbar.querySelector('.gems') as HTMLElement).onclick = () => go('shop', 'gems');
+  (topbar.querySelector('.refresh') as HTMLElement).onclick = () => {
+    sfx.click();
+    save();
+    // procura uma versão nova do jogo antes de recarregar
+    const reg = navigator.serviceWorker?.getRegistration?.();
+    Promise.resolve(reg)
+      .then((r) => r?.update())
+      .catch(() => {})
+      .finally(() => setTimeout(() => location.reload(), 150));
+  };
   (topbar.querySelector('.gear') as HTMLElement).onclick = () => {
     sfx.click();
     openSettings();
@@ -88,13 +99,13 @@ export function refreshChrome(): void {
   (topbar.querySelector('.tb-xp i') as HTMLElement).style.transform = `scaleX(${Math.min(1, S.xp / xpToNext(S.level))})`;
   if (S.coins !== lastCoins) {
     const b = topbar.querySelector('.coins b') as HTMLElement;
-    b.textContent = fmt(S.coins);
+    b.textContent = short(S.coins);
     if (lastCoins >= 0) bump(b.parentElement!);
     lastCoins = S.coins;
   }
   if (S.gems !== lastGems) {
     const b = topbar.querySelector('.gems b') as HTMLElement;
-    b.textContent = fmt(S.gems);
+    b.textContent = short(S.gems);
     if (lastGems >= 0) bump(b.parentElement!);
     lastGems = S.gems;
   }
@@ -114,6 +125,13 @@ export function refreshChrome(): void {
     i.textContent = n > 0 ? (n > 9 ? '9+' : String(n)) : '';
     i.style.display = n > 0 ? '' : 'none';
   });
+}
+
+/** Números compactos para a barra de topo (ex.: 100K, 1,2M). */
+function short(n: number): string {
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
+  if (n >= 1e4) return Math.floor(n / 1e3) + 'K';
+  return fmt(n);
 }
 
 function bump(e: HTMLElement): void {

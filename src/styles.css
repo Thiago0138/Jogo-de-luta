@@ -2862,3 +2862,30 @@ span.rar-celestial,
   font-size: 40px;
   filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.5));
 }
+
+.tb-me {
+  flex: 1;
+}
+.tb-xp {
+  max-width: 100%;
+}
+@media (max-width: 420px) {
+  .topbar {
+    gap: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .tb-cur {
+    gap: 4px;
+  }
+  .pill {
+    padding: 0 9px 0 6px;
+    gap: 3px;
+  }
+  .icon-btn {
+    width: 34px;
+  }
+  .tb-xp {
+    width: 100%;
+  }
+}
