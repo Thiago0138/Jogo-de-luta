@@ -8,6 +8,18 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.1.0',
+    date: '2026-10-14',
+    title: 'Lutadores renovados',
+    items: [
+      'Novo corpo musculado: braços, coxas e gémeos com forma, tronco em V com peitorais e abdominais.',
+      'Sombreamento cel-shading e brilhos em todo o corpo.',
+      'Cabeça com maxilar, nariz cartoon e brilho na testa.',
+      'Calções justos, joelheiras, botas com sola e atacadores, luvas de boxe com volume.',
+      'Holofotes iluminam os lutadores no tapete e a câmara aproxima-se mais no telemóvel.',
+    ],
+  },
+  {
     version: '1.0.1',
     date: '2026-10-14',
     title: 'Tudo desbloqueado!',

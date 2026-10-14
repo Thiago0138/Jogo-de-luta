@@ -25,19 +25,6 @@ const TAU = Math.PI * 2;
 let F = false; // flash ativo neste desenho
 const C = (c: string) => (F ? '#ffffff' : c);
 
-function seg2(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, w: number, color: string) {
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
-  ctx.lineTo(x3, y3);
-  ctx.lineWidth = w + OW;
-  ctx.strokeStyle = OUT;
-  ctx.stroke();
-  ctx.lineWidth = w;
-  ctx.strokeStyle = C(color);
-  ctx.stroke();
-}
-
 function seg(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, w: number, color: string, outline = true) {
   ctx.beginPath();
   ctx.moveTo(x1, y1);
@@ -75,6 +62,97 @@ function hairColors(hc: Vis, t: number): [string, string] {
 function outfitC1(o: Vis, t: number): string {
   if (o.anim === 'cosmic') return `hsl(${250 + Math.sin(t * 1.3) * 25} 70% 16%)`;
   return o.c1 ?? '#d22';
+}
+
+
+// ───────────────────────── Membros musculados ─────────────────────────
+
+type Prof = readonly [number, number, number];
+const ARM_U: Prof = [10.5, 11.8, 7.6];
+const ARM_L: Prof = [7.8, 9.2, 6.4];
+const LEG_U: Prof = [13.5, 13.8, 9.2];
+const LEG_L: Prof = [9.4, 10.8, 6.6];
+const PTS = 6;
+
+function profR(p: Prof, t: number): number {
+  const base = p[0] + (p[2] - p[0]) * t;
+  return base + (p[1] - (p[0] + (p[2] - p[0]) * 0.42)) * Math.sin(Math.PI * Math.min(1, t * 1.1));
+}
+
+/** Cápsula afunilada com bojo muscular, de (x1,y1) a (x2,y2). */
+function capsule(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, p: Prof, k = 1, ox = 0, oy = 0) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len;
+  const ny = dx / len;
+  const a = Math.atan2(dy, dx);
+  x1 += ox;
+  y1 += oy;
+  x2 += ox;
+  y2 += oy;
+  ctx.moveTo(x1 + nx * p[0] * k, y1 + ny * p[0] * k);
+  for (let i = 1; i < PTS; i++) {
+    const t = i / PTS;
+    const r = profR(p, t) * k;
+    ctx.lineTo(x1 + dx * t + nx * r, y1 + dy * t + ny * r);
+  }
+  ctx.arc(x2, y2, p[2] * k, a + Math.PI / 2, a - Math.PI / 2, true);
+  for (let i = PTS - 1; i >= 1; i--) {
+    const t = i / PTS;
+    const r = profR(p, t) * k;
+    ctx.lineTo(x1 + dx * t - nx * r, y1 + dy * t - ny * r);
+  }
+  ctx.arc(x1, y1, p[0] * k, a - Math.PI / 2, a - Math.PI * 1.5, true);
+  ctx.closePath();
+}
+
+/** Lado em sombra de um segmento (para baixo / para trás). */
+function shadeSide(dx: number, dy: number): [number, number] {
+  const len = Math.hypot(dx, dy) || 1;
+  let nx = -dy / len;
+  let ny = dx / len;
+  if (ny < -0.25 || (Math.abs(ny) <= 0.25 && nx > 0)) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return [nx, ny];
+}
+
+/** Membro de dois segmentos com contorno, sombra cel e brilho. */
+function limb(
+  ctx: CanvasRenderingContext2D,
+  ax: number, ay: number, bx: number, by: number, cx: number, cy: number,
+  pu: Prof, pl: Prof, color: string, dark: string,
+) {
+  ctx.beginPath();
+  capsule(ctx, ax, ay, bx, by, pu);
+  capsule(ctx, bx, by, cx, cy, pl);
+  ctx.lineWidth = OW;
+  ctx.strokeStyle = OUT;
+  ctx.stroke();
+  ctx.fillStyle = C(color);
+  ctx.fill();
+  if (F) return;
+  // sombra (interior, do lado afastado da luz)
+  ctx.fillStyle = dark;
+  ctx.globalAlpha = 0.55;
+  ctx.beginPath();
+  let [snx, sny] = shadeSide(bx - ax, by - ay);
+  capsule(ctx, ax, ay, bx, by, pu, 0.5, snx * pu[1] * 0.42, sny * pu[1] * 0.42);
+  [snx, sny] = shadeSide(cx - bx, cy - by);
+  capsule(ctx, bx, by, cx, cy, pl, 0.5, snx * pl[1] * 0.42, sny * pl[1] * 0.42);
+  ctx.fill();
+  // brilho
+  ctx.globalAlpha = 0.32;
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  [snx, sny] = shadeSide(bx - ax, by - ay);
+  ctx.moveTo(ax + (bx - ax) * 0.2 - snx * pu[1] * 0.55, ay + (by - ay) * 0.2 - sny * pu[1] * 0.55);
+  ctx.lineTo(ax + (bx - ax) * 0.6 - snx * pu[1] * 0.6, ay + (by - ay) * 0.6 - sny * pu[1] * 0.6);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
 }
 
 // ───────────────────────── Glow sprites (cache) ─────────────────────────
@@ -609,13 +687,22 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
   ctx.globalAlpha = 1;
   // nariz
   ctx.beginPath();
-  ctx.moveTo(25, -2);
-  ctx.quadraticCurveTo(33, 4, 25, 7);
+  ctx.moveTo(24, -4);
+  ctx.quadraticCurveTo(35, 3, 31, 8);
+  ctx.quadraticCurveTo(28, 11, 23, 8);
   ctx.fillStyle = skin;
   ctx.fill();
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 2.2;
   ctx.strokeStyle = OUT;
   ctx.stroke();
+  if (!F) {
+    ctx.fillStyle = '#ffffff';
+    ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    ctx.arc(29, 2, 1.8, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
   const blink = expr === 'normal' && t % 3.7 < 0.11;
   if (blink) {
@@ -899,6 +986,16 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
   }
 }
 
+function headPath(ctx: CanvasRenderingContext2D) {
+  ctx.beginPath();
+  ctx.moveTo(-12, 23);
+  ctx.arc(0, 0, HEAD_R, 2.05, Math.PI * 2 - 0.25);
+  ctx.bezierCurveTo(29, 0, 29, 18, 21, 26);
+  ctx.quadraticCurveTo(14, 32, 4, 30);
+  ctx.quadraticCurveTo(-6, 29, -12, 23);
+  ctx.closePath();
+}
+
 function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number) {
   const hc = L.hairColor;
   const [c1, c2] = hairColors(hc, t);
@@ -907,14 +1004,36 @@ function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number)
   if (!masked || style === 'longo' || style === 'rabo' || style === 'trancas' || style === 'cometa' || style === 'chamas') {
     hairBack(ctx, style, c1, c2, t);
   }
-  circle(ctx, 0, 0, HEAD_R, L.skin);
-  // sombra do maxilar
-  ctx.globalAlpha = 0.18;
-  ctx.fillStyle = C(L.skinShade);
-  ctx.beginPath();
-  ctx.arc(0, 0, HEAD_R - 1.5, 0.3, Math.PI * 0.9);
+  headPath(ctx);
+  ctx.lineWidth = OW;
+  ctx.strokeStyle = OUT;
+  ctx.stroke();
+  ctx.fillStyle = C(L.skin);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  if (!F) {
+    // sombra do maxilar e da nuca
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = L.skinShade;
+    ctx.beginPath();
+    ctx.moveTo(-24, 10);
+    ctx.quadraticCurveTo(-14, 28, 6, 29);
+    ctx.quadraticCurveTo(16, 29, 22, 22);
+    ctx.quadraticCurveTo(8, 24, -4, 18);
+    ctx.quadraticCurveTo(-16, 12, -24, 10);
+    ctx.fill();
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, HEAD_R - 1, Math.PI * 0.62, Math.PI * 1.15);
+    ctx.quadraticCurveTo(-16, 0, -18, 16);
+    ctx.fill();
+    // brilho na testa
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(12, -16, 7, 3.5, -0.4, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
   drawFace(ctx, L, expr, t, C(c1));
   if (L.mask) drawMask(ctx, L.mask, L, expr, t);
   if (!masked) hairFront(ctx, style, c1, c2, t, hc);
@@ -976,14 +1095,31 @@ function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: number, 
     }
     default: {
       // boxe
-      seg(ctx, x - dx * 10, y - dy * 10, x - dx * 2, y - dy * 2, 15, c2);
-      circle(ctx, x + dx * 4, y + dy * 4, 12.5, c1);
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = '#fff';
+      seg(ctx, x - dx * 11, y - dy * 11, x - dx * 2, y - dy * 2, 16, c2);
+      const gx = x + dx * 5;
+      const gy = y + dy * 5;
       ctx.beginPath();
-      ctx.arc(x + dx * 4 - 4, y + dy * 4 - 4, 4, 0, TAU);
+      ctx.ellipse(gx, gy, 13.5, 12, ang - Math.PI / 2, 0, TAU);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = OUT;
+      ctx.fillStyle = C(c1);
       ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.stroke();
+      // polegar
+      circle(ctx, gx - dy * 8 - dx * 3, gy + dx * 8 - dy * 3, 5, c1);
+      if (!F) {
+        ctx.globalAlpha = 0.4;
+        ctx.fillStyle = '#000';
+        ctx.beginPath();
+        ctx.ellipse(gx + 2, gy + 4, 10, 6.5, ang - Math.PI / 2, 0, Math.PI);
+        ctx.fill();
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(gx - 4, gy - 5, 4.5, 2.6, -0.6, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
     }
   }
 }
@@ -992,10 +1128,28 @@ function drawBoot(ctx: CanvasRenderingContext2D, kx: number, ky: number, fx: num
   // cano da bota sobre a parte de baixo da canela
   const bx = kx + (fx - kx) * 0.45;
   const by = ky + (fy - ky) * 0.45;
-  seg(ctx, bx, by, fx, fy, 19, color);
-  const tx = fx + Math.cos(ang) * 15;
-  const ty = fy - Math.sin(ang) * 15;
-  seg(ctx, fx - Math.cos(ang) * 3, fy + Math.sin(ang) * 3, tx, ty, 13, color);
+  seg(ctx, bx, by, fx, fy, 20, color);
+  const tx = fx + Math.cos(ang) * 16;
+  const ty = fy - Math.sin(ang) * 16;
+  seg(ctx, fx - Math.cos(ang) * 4, fy + Math.sin(ang) * 4, tx, ty, 14, color);
+  // sola
+  const sx = Math.sin(ang) * 6;
+  const sy = Math.cos(ang) * 6;
+  seg(ctx, fx - Math.cos(ang) * 6 + sx, fy + Math.sin(ang) * 6 + sy, tx + sx * 0.6, ty + sy * 0.6, 4, '#e8e4dc', false);
+  // atacadores
+  if (!F) {
+    ctx.strokeStyle = shade(color, 0.45);
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const u = 0.25 + i * 0.22;
+      const lx = bx + (fx - bx) * u;
+      const ly = by + (fy - by) * u;
+      ctx.moveTo(lx + Math.cos(ang) * 3, ly - Math.sin(ang) * 3);
+      ctx.lineTo(lx + Math.cos(ang) * 9, ly - Math.sin(ang) * 9);
+    }
+    ctx.stroke();
+  }
   // detalhe do cano
   ctx.lineCap = 'butt';
   seg(ctx, bx, by, bx + (fx - bx) * 0.14, by + (fy - by) * 0.14, 19, shade(color, 0.3), false);
@@ -1012,15 +1166,35 @@ function torsoPath(ctx: CanvasRenderingContext2D, s: Skel, hw: number, sw: numbe
   const uy = -Math.cos(a);
   const hx = s.x[J_HIP];
   const hy = s.y[J_HIP];
-  const sx = s.x[J_SH] + ux * 4;
-  const sy = s.y[J_SH] + uy * 4;
+  const sx = s.x[J_SH] + ux * 3;
+  const sy = s.y[J_SH] + uy * 3;
+  const P = (u: number, n: number): [number, number] => [hx + ux * u + nx * n, hy + uy * u + ny * n];
+  const S = (u: number, n: number): [number, number] => [sx + ux * u + nx * n, sy + uy * u + ny * n];
   ctx.beginPath();
-  ctx.moveTo(hx - nx * hw, hy - ny * hw);
-  ctx.quadraticCurveTo(hx - nx * (hw + 4) + ux * 30, hy - ny * (hw + 4) + uy * 30, sx - nx * sw, sy - ny * sw);
-  ctx.quadraticCurveTo(sx + ux * 10, sy + uy * 10, sx + nx * sw, sy + ny * sw);
-  // peito (frente)
-  ctx.quadraticCurveTo(hx + nx * (hw + 9) + ux * 34, hy + ny * (hw + 9) + uy * 34, hx + nx * hw, hy + ny * hw);
-  ctx.quadraticCurveTo(hx - ux * 8, hy - uy * 8, hx - nx * hw, hy - ny * hw);
+  let p = P(2, -hw);
+  ctx.moveTo(p[0], p[1]);
+  // costas (dorsais)
+  let c = P(30, -hw - 7);
+  p = S(-6, -sw + 2);
+  ctx.quadraticCurveTo(c[0], c[1], p[0], p[1]);
+  // ombro de trás → trapézio → ombro da frente
+  c = S(6, -sw + 2);
+  p = S(9, -6);
+  ctx.quadraticCurveTo(c[0], c[1], p[0], p[1]);
+  c = S(10, 6);
+  p = S(4, sw - 4);
+  ctx.quadraticCurveTo(c[0], c[1], p[0], p[1]);
+  // peitoral
+  c = S(-10, sw + 8);
+  p = P(38, hw + 8);
+  ctx.quadraticCurveTo(c[0], c[1], p[0], p[1]);
+  // barriga até à cintura
+  c = P(18, hw + 1);
+  p = P(2, hw);
+  ctx.quadraticCurveTo(c[0], c[1], p[0], p[1]);
+  c = P(-6, 0);
+  p = P(2, -hw);
+  ctx.quadraticCurveTo(c[0], c[1], p[0], p[1]);
   ctx.closePath();
 }
 
@@ -1058,23 +1232,52 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   const hy = s.y[J_HIP];
 
   const covered = style === 'gi' || style === 'armor' || style === 'jacket';
-  torsoPath(ctx, s, 21, 27);
+  torsoPath(ctx, s, 19, 30);
   fillOut(ctx, covered ? c1 : L.skin);
+  if (!F) {
+    // sombra das costas (cel shading)
+    ctx.globalAlpha = covered ? 0.3 : 0.5;
+    ctx.fillStyle = covered ? shade(c1, -0.35) : L.skinShade;
+    ctx.beginPath();
+    const b0x = hx - nx * 17 + ux * 4, b0y = hy - ny * 17 + uy * 4;
+    const b1x = s.x[J_SH] - nx * 24, b1y = s.y[J_SH] - ny * 24;
+    ctx.moveTo(b0x, b0y);
+    ctx.quadraticCurveTo(hx - nx * 25 + ux * 30, hy - ny * 25 + uy * 30, b1x, b1y);
+    ctx.quadraticCurveTo(hx - nx * 6 + ux * 34, hy - ny * 6 + uy * 34, hx - nx * 6 + ux * 4, hy - ny * 6 + uy * 4);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
 
-  if (!covered) {
-    // detalhe muscular
-    ctx.globalAlpha = 0.25;
-    ctx.strokeStyle = C(L.skinShade);
-    ctx.lineWidth = 2.5;
+  if (!covered && !F) {
+    // peitorais e abdominais
+    ctx.strokeStyle = L.skinShade;
+    ctx.lineWidth = 2.6;
+    ctx.globalAlpha = 0.85;
+    const px = hx + ux * 40 + nx * 2;
+    const py = hy + uy * 40 + ny * 2;
     ctx.beginPath();
-    const px = hx + ux * 40 + nx * 4;
-    const py = hy + uy * 40 + ny * 4;
     ctx.moveTo(px, py);
-    ctx.quadraticCurveTo(px + nx * 14 - ux * 8, py + ny * 14 - uy * 8, px + nx * 22, py + ny * 22);
+    ctx.quadraticCurveTo(px + nx * 14 - ux * 9, py + ny * 14 - uy * 9, px + nx * 27 + ux * 2, py + ny * 27 + uy * 2);
     ctx.stroke();
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.55;
     ctx.beginPath();
-    ctx.moveTo(hx + ux * 26 + nx * 8, hy + uy * 26 + ny * 8);
-    ctx.lineTo(hx + ux * 12 + nx * 10, hy + uy * 12 + ny * 10);
+    for (let i = 0; i < 2; i++) {
+      const u = 27 - i * 10;
+      ctx.moveTo(hx + ux * u + nx * 9, hy + uy * u + ny * 9);
+      ctx.lineTo(hx + ux * u + nx * 19, hy + uy * u + ny * 19);
+    }
+    ctx.moveTo(hx + ux * 32 + nx * 13, hy + uy * 32 + ny * 13);
+    ctx.lineTo(hx + ux * 9 + nx * 15, hy + uy * 9 + ny * 15);
+    ctx.stroke();
+    // brilho no peito
+    ctx.globalAlpha = 0.35;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(hx + ux * 48 + nx * 10, hy + uy * 48 + ny * 10);
+    ctx.quadraticCurveTo(hx + ux * 47 + nx * 20, hy + uy * 47 + ny * 20, hx + ux * 42 + nx * 25, hy + uy * 42 + ny * 25);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
@@ -1234,27 +1437,44 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     const fky = s.y[J_FK];
     const bkx = s.x[J_BK];
     const bky = s.y[J_BK];
-    const fk = 0.36;
+    const fk = 0.42;
     const tw = 22;
     ctx.lineCap = 'round';
     const fxk = hx + (fkx - hx) * fk;
     const fyk = hy + (fky - hy) * fk;
     const bxk = hx + (bkx - hx) * fk;
     const byk = hy + (bky - hy) * fk;
-    // contorno
-    ctx.strokeStyle = OUT;
-    ctx.lineWidth = tw + OW;
+    // calções justos que seguem a forma das coxas
+    const TR: Prof = [LEG_U[0] + 2.5, LEG_U[1] + 2.5, LEG_U[1] + 1.5];
     ctx.beginPath();
-    ctx.moveTo(hx, hy);
-    ctx.lineTo(bxk, byk);
-    ctx.moveTo(hx, hy);
-    ctx.lineTo(fxk, fyk);
-    ctx.moveTo(hx - nx * 18 + ux * 9, hy - ny * 18 + uy * 9);
-    ctx.lineTo(hx + nx * 18 + ux * 9, hy + ny * 18 + uy * 9);
+    capsule(ctx, hx - 3, hy, bxk, byk, TR);
+    capsule(ctx, hx + 3, hy, fxk, fyk, TR);
+    ctx.moveTo(hx - nx * 20 + ux * 14, hy - ny * 20 + uy * 14);
+    ctx.lineTo(hx + nx * 20 + ux * 14, hy + ny * 20 + uy * 14);
+    ctx.lineTo(hx + nx * 21 - ux * 4, hy + ny * 21 - uy * 4);
+    ctx.lineTo(hx - nx * 21 - ux * 4, hy - ny * 21 - uy * 4);
+    ctx.closePath();
+    ctx.lineWidth = OW;
+    ctx.strokeStyle = OUT;
     ctx.stroke();
-    ctx.strokeStyle = C(tc);
-    ctx.lineWidth = tw;
-    ctx.stroke();
+    ctx.fillStyle = C(tc);
+    ctx.fill();
+    if (!F) {
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = shade(tc, -0.45);
+      ctx.beginPath();
+      capsule(ctx, hx - 3, hy, bxk, byk, TR, 0.75);
+      ctx.fill();
+      ctx.globalAlpha = 0.3;
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(hx + nx * 4 + ux * 8, hy + ny * 4 + uy * 8);
+      ctx.lineTo(hx + nx * 14 + ux * 6, hy + ny * 14 + uy * 6);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    void tw;
     // cós
     seg(ctx, hx - nx * 20 + ux * 14, hy - ny * 20 + uy * 14, hx + nx * 20 + ux * 14, hy + ny * 20 + uy * 14, 6, style === 'armor' ? c3 : c2);
     if (o.pattern === 'stripe' && style === 'trunks') {
@@ -1310,20 +1530,30 @@ export function drawFighter(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: 
   const sleeve = style === 'gi' ? outfitC1(out, t) : null;
 
   // braço de trás
-  seg2(ctx, X[J_SH], Y[J_SH], X[J_BE], Y[J_BE], X[J_BH], Y[J_BH], 15, skinB);
-  if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_BE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_BE] - Y[J_SH]) * 0.8, 19, shade(sleeve, -0.15));
+  limb(ctx, X[J_SH], Y[J_SH], X[J_BE], Y[J_BE], X[J_BH], Y[J_BH], ARM_U, ARM_L, skinB, shade(L.skinShade, -0.15));
+  if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_BE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_BE] - Y[J_SH]) * 0.8, 23, shade(sleeve, -0.15));
   drawGlove(ctx, L.gloves, X[J_BH], Y[J_BH], s.baL, t, skinB, true);
 
   // perna de trás
-  seg2(ctx, X[J_HIP] - 3, Y[J_HIP], X[J_BK], Y[J_BK], X[J_BF], Y[J_BF], 20, legB);
+  limb(ctx, X[J_HIP] - 3, Y[J_HIP], X[J_BK], Y[J_BK], X[J_BF], Y[J_BF], LEG_U, LEG_L, legB, shade(legB, -0.3));
   drawBoot(ctx, X[J_BK], Y[J_BK], X[J_BF], Y[J_BF], s.blL, shade(boots, -0.15));
   // perna da frente
-  seg2(ctx, X[J_HIP] + 3, Y[J_HIP], X[J_FK], Y[J_FK], X[J_FF], Y[J_FF], 20, legC);
-  if (style === 'trunks' || style === 'singlet') circle(ctx, X[J_FK], Y[J_FK], 6.5, out.c2 ?? '#fff');
+  limb(ctx, X[J_HIP] + 3, Y[J_HIP], X[J_FK], Y[J_FK], X[J_FF], Y[J_FF], LEG_U, LEG_L, legC, legC === L.skin ? L.skinShade : shade(legC, -0.3));
+  if (style === 'trunks' || style === 'singlet') {
+    // joelheira
+    const kx = X[J_FK], ky = Y[J_FK];
+    ctx.beginPath();
+    capsule(ctx, kx + (X[J_HIP] - kx) * 0.18, ky + (Y[J_HIP] - ky) * 0.18, kx + (X[J_FF] - kx) * 0.2, ky + (Y[J_FF] - ky) * 0.2, [10.5, 11, 10]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = OUT;
+    ctx.stroke();
+    ctx.fillStyle = C(out.c2 ?? '#fff');
+    ctx.fill();
+  }
   drawBoot(ctx, X[J_FK], Y[J_FK], X[J_FF], Y[J_FF], s.flL, boots);
 
   // pescoço
-  seg(ctx, X[J_SH], Y[J_SH], X[J_HEAD] * 0.5 + X[J_NECK] * 0.5, Y[J_HEAD] * 0.5 + Y[J_NECK] * 0.5, 15, L.skin);
+  seg(ctx, X[J_SH], Y[J_SH], X[J_HEAD] * 0.45 + X[J_NECK] * 0.55, Y[J_HEAD] * 0.45 + Y[J_NECK] * 0.55, 19, L.skin);
   drawTorso(ctx, L, s, t);
 
   // cabeça
@@ -1334,8 +1564,8 @@ export function drawFighter(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: 
   ctx.restore();
 
   // braço da frente
-  seg2(ctx, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], X[J_FH], Y[J_FH], 16, L.skin);
-  if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_FE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_FE] - Y[J_SH]) * 0.8, 20, sleeve);
+  limb(ctx, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], X[J_FH], Y[J_FH], ARM_U, ARM_L, L.skin, L.skinShade);
+  if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_FE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_FE] - Y[J_SH]) * 0.8, 24, sleeve);
   if (style === 'armor') circle(ctx, X[J_SH], Y[J_SH], 13, out.c3 ?? out.c2 ?? '#aaa');
   drawGlove(ctx, L.gloves, X[J_FH], Y[J_FH], s.faL, t, L.skin, false);
   F = false;

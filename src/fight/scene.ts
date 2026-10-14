@@ -243,14 +243,14 @@ export class FightScene {
     const portrait = this.H > this.W;
     if (F.focus) {
       tx = F.focus.x;
-      desired = portrait ? 440 : 680;
+      desired = portrait ? 390 : 680;
     } else {
       tx = (a.x + b.x) / 2;
       const d = Math.abs(a.x - b.x);
-      desired = portrait ? Math.min(1000, Math.max(470, d + 300)) : Math.min(1300, Math.max(780, d + 520));
+      desired = portrait ? Math.min(900, Math.max(410, d + 260)) : Math.min(1300, Math.max(780, d + 520));
     }
     const zx = this.W / desired;
-    const zy = this.H / (portrait ? 900 : 640);
+    const zy = this.H / (portrait ? 820 : 640);
     const z = Math.min(zx, zy) * (1 + F.zoomPunch);
     const k = 1 - Math.pow(0.002, dt);
     this.zoom += (z - this.zoom) * k;
@@ -279,6 +279,9 @@ export class FightScene {
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     drawBackdrop(ctx, W, H, this.camX, z, floorY + BACK_Y * z + shy, F.t, F.hype, this.low);
 
+    // profundidade: o público fica ligeiramente mais escuro que a ação
+    ctx.fillStyle = 'rgba(8,4,18,0.28)';
+    ctx.fillRect(0, 0, W, H);
     if (F.cosmic > 0.01) this.drawCosmic(ctx, F.cosmic, F.t);
     if (F.darken > 0.01) {
       ctx.fillStyle = `rgba(5,2,12,${F.darken})`;
@@ -289,6 +292,16 @@ export class FightScene {
     ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, this.dpr * (W / 2 - this.camX * z + shx), this.dpr * (floorY + shy));
     drawFloor(ctx);
     drawRingBack(ctx, F.ropes);
+
+    // poças de luz dos holofotes sobre os lutadores
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.22 + F.hype * 0.12;
+    for (const f of F.active) {
+      const hx = F.hipX(f);
+      ctx.drawImage(glowSprite('#fff1cf'), hx - 170, -60, 340, 110);
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
 
     // sombras
     ctx.fillStyle = 'rgba(0,0,0,0.28)';
