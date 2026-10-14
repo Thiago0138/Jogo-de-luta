@@ -10,16 +10,17 @@ import { el, esc, toast } from '../dom';
 import { Preview, clearThumbs } from '../preview';
 import { sourceText } from './itemModal';
 import { render } from '../app';
+import { ico } from '../icons';
 
 const TABS = [
-  { id: 'skin', name: 'Pele', icon: '🎨' },
-  { id: 'hair', name: 'Cabelo', icon: '💇' },
-  { id: 'hairColor', name: 'Cor', icon: '🌈' },
-  { id: 'eyes', name: 'Olhos', icon: '👀' },
-  { id: 'brows', name: 'Sobrancelhas', icon: '〰️' },
-  { id: 'mouth', name: 'Boca', icon: '👄' },
-  { id: 'beard', name: 'Barba', icon: '🧔' },
-  { id: 'body', name: 'Altura', icon: '📏' },
+  { id: 'skin', name: 'Pele', icon: 'skin' },
+  { id: 'hair', name: 'Cabelo', icon: 'hair' },
+  { id: 'hairColor', name: 'Cor', icon: 'palette' },
+  { id: 'eyes', name: 'Olhos', icon: 'eye' },
+  { id: 'brows', name: 'Sobrancelhas', icon: 'brows' },
+  { id: 'mouth', name: 'Boca', icon: 'lips' },
+  { id: 'beard', name: 'Barba', icon: 'beard' },
+  { id: 'body', name: 'Altura', icon: 'height' },
 ];
 
 /** Criador de personagem (primeira vez ou edição). */
@@ -32,18 +33,18 @@ export function openCreator(first: boolean, onDone?: () => void): void {
     <div class="cr-head">
       ${first ? '<div class="cr-logo">REIS DO <span>RINGUE</span></div><p>Cria o teu lutador</p>' : '<h2>Aparência</h2>'}
     </div>
-    <div class="cr-stage"><button class="cr-dice" aria-label="Aleatório">🎲</button></div>
+    <div class="cr-stage"><button class="cr-dice" aria-label="Aleatório">${ico('dice')}</button></div>
     <div class="cr-panel">
       <div class="cr-tabs"></div>
       <div class="cr-opts"></div>
-      <div class="cr-name"><input maxlength="16" placeholder="Nome do lutador" value="${esc(name)}"/><button class="cr-rn" aria-label="Nome aleatório">🔀</button></div>
+      <div class="cr-name"><input maxlength="16" placeholder="Nome do lutador" value="${esc(name)}"/><button class="cr-rn" aria-label="Nome aleatório">${ico('shuffle')}</button></div>
       <div class="cr-actions">${first ? '' : '<button class="btn btn-ghost cancel">Cancelar</button>'}<button class="btn btn-gold ok">${first ? 'Entrar no ringue!' : 'Guardar'}</button></div>
     </div>`;
   document.body.appendChild(root);
 
   // sem capacetes nem capuzes, para se ver bem a cara e o cabelo que se está a escolher
   const lo = () => ({ ...S.loadout, outfit: coversHead(S.loadout.outfit) ? 'o_classico' : S.loadout.outfit });
-  const prev = new Preview(resolveLook(app, lo()), { zoom: 1.05, turn: true });
+  const prev = new Preview(resolveLook(app, lo()), { zoom: 1.05, turn: true, key: 'creator' });
   const stage = root.querySelector('.cr-stage')!;
   stage.appendChild(prev.canvas);
   stage.appendChild(el('div', 'cr-rot', '↔ Arrasta para rodar 360°'));
@@ -80,7 +81,7 @@ export function openCreator(first: boolean, onDone?: () => void): void {
         for (const d of itemsOfKind(k)) {
           const have = owns(d.id);
           const on = app[k] === d.id;
-          const label = k === 'hairColor' ? '' : `${d.icon} ${esc(d.name)}`;
+          const label = k === 'hairColor' ? '' : esc(d.name);
           const style = k === 'hairColor' ? `--sw:${d.vis?.anim === 'rainbow' ? 'conic-gradient(red,orange,yellow,lime,cyan,blue,magenta,red)' : `linear-gradient(135deg,${d.vis?.c1},${d.vis?.c2})`}` : '';
           const b = chip(label, on, () => {
             if (!have) {
@@ -124,7 +125,7 @@ export function openCreator(first: boolean, onDone?: () => void): void {
   };
 
   for (const t of TABS) {
-    const b = el('button', '', `<span>${t.icon}</span>${t.name}`);
+    const b = el('button', '', `<span>${ico(t.icon)}</span>${t.name}`);
     b.dataset.t = t.id;
     b.onclick = () => {
       sfx.click();

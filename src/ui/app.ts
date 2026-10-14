@@ -11,15 +11,16 @@ import { renderCollection } from './screens/collection';
 import { renderMissions } from './screens/missions';
 import { renderFighter } from './screens/fighter';
 import { openSettings } from './screens/settings';
+import { ico, leagueBadge } from './icons';
 
 export type Tab = 'home' | 'shop' | 'collection' | 'missions' | 'fighter';
 
 const TABS: { id: Tab; icon: string; name: string }[] = [
-  { id: 'home', icon: '🏟️', name: 'Ringue' },
-  { id: 'shop', icon: '🛒', name: 'Loja' },
-  { id: 'collection', icon: '🎒', name: 'Coleção' },
-  { id: 'missions', icon: '📜', name: 'Missões' },
-  { id: 'fighter', icon: '💪', name: 'Lutador' },
+  { id: 'home', icon: 'ring', name: 'Ringue' },
+  { id: 'shop', icon: 'shop', name: 'Loja' },
+  { id: 'collection', icon: 'collection', name: 'Coleção' },
+  { id: 'missions', icon: 'missions', name: 'Missões' },
+  { id: 'fighter', icon: 'fighter', name: 'Lutador' },
 ];
 
 let current: Tab = 'home';
@@ -53,10 +54,10 @@ function buildTopbar(): void {
       <span class="tb-lvl"></span>
     </button>
     <div class="tb-cur">
-      <button class="pill coins" aria-label="Moedas">🪙 <b></b></button>
-      <button class="pill gems" aria-label="Gemas">💎 <b></b></button>
-      <button class="icon-btn refresh" aria-label="Recarregar página" title="Recarregar">🔄</button>
-      <button class="icon-btn gear" aria-label="Definições">⚙️</button>
+      <button class="pill coins" aria-label="Moedas">${ico('coin')}<b></b></button>
+      <button class="pill gems" aria-label="Gemas">${ico('gem')}<b></b></button>
+      <button class="icon-btn refresh" aria-label="Recarregar página" title="Recarregar">${ico('refresh')}</button>
+      <button class="icon-btn gear" aria-label="Definições">${ico('gear')}</button>
     </div>`;
   avatar = new Preview(resolveLook(S.appearance, S.loadout), { stage: false, focusHead: true, zoom: 1.05 });
   topbar.querySelector('.tb-avatar')!.appendChild(avatar.canvas);
@@ -81,7 +82,7 @@ function buildTopbar(): void {
 }
 
 function buildTabbar(): void {
-  tabbar.innerHTML = TABS.map((t) => `<button data-tab="${t.id}"><span class="ti">${t.icon}</span><span class="tn">${t.name}</span><i class="badge"></i></button>`).join('');
+  tabbar.innerHTML = TABS.map((t) => `<button data-tab="${t.id}"><span class="ti">${ico(t.icon)}</span><span class="tn">${t.name}</span><i class="badge"></i></button>`).join('');
   tabbar.querySelectorAll('button').forEach((b) => {
     b.onclick = () => {
       sfx.click();
@@ -146,10 +147,19 @@ export function go(tab: Tab, subTab?: string): void {
   render();
 }
 
+let rendered = '';
+
+/** Os ecrãs chamam isto quando mudam de separador interno, para o redesenho manter o separador. */
+export function rememberSub(s: string): void {
+  sub = s;
+  rendered = `${current}|${s}`;
+}
+
 export function render(): void {
   if (!view) return;
+  // redesenhar o mesmo ecrã (ex.: depois de equipar um traje) mantém a posição do scroll
+  const keep = `${current}|${sub ?? ''}` === rendered ? view.scrollTop : 0;
   view.innerHTML = '';
-  view.scrollTop = 0;
   const page = el('div', `page page-${current}`);
   view.appendChild(page);
   switch (current) {
@@ -169,6 +179,8 @@ export function render(): void {
       renderFighter(page, sub);
       break;
   }
+  rendered = `${current}|${sub ?? ''}`;
+  view.scrollTop = keep;
   refreshChrome();
 }
 
@@ -178,7 +190,7 @@ export function currentTab(): Tab {
 
 export function leagueChip(): string {
   const L = leagueOf(S.trophies);
-  return `<span class="league" style="--lc:${L.color}">${L.icon} ${esc(L.name)}</span>`;
+  return `<span class="league" style="--lc:${L.color}">${leagueBadge(L.id, L.color)} ${esc(L.name)}</span>`;
 }
 
 export function save(): void {

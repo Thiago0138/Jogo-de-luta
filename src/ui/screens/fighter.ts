@@ -5,32 +5,34 @@ import { RARITIES } from '../../data/rarity';
 import { MAX_LEVEL, STATS, STAT_CAP, STAT_START, maxHp, powerRating, xpToNext, type StatId } from '../../data/stats';
 import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
-import { render } from '../app';
+import { render, rememberSub } from '../app';
 import { el, esc, fmt, modal, toast } from '../dom';
 import { Preview, itemThumb } from '../preview';
 import { openCreator } from './creator';
 import { isEquipped, openItem, passiveSlots, superSlots, toggleEquip } from './itemModal';
+import { ico } from '../icons';
 
 const TABS = [
-  { id: 'stats', name: '📊 Atributos' },
-  { id: 'gear', name: '🎽 Equipamento' },
-  { id: 'road', name: '🛣️ Progressão' },
+  { id: 'stats', name: `${ico('chart')} Atributos` },
+  { id: 'gear', name: `${ico('shirt')} Equipamento` },
+  { id: 'road', name: `${ico('road')} Progressão` },
 ];
 
 export function renderFighter(page: HTMLElement, sub = 'stats'): void {
+  rememberSub(sub);
   page.innerHTML = `
     <div class="fighter-top">
       <div class="ft-stage"></div>
       <div class="ft-info">
         <h1>${esc(S.name)}</h1>
         <div class="ft-lvl">Nível <b>${S.level}</b>${S.level < MAX_LEVEL ? ` · ${fmt(S.xp)}/${fmt(xpToNext(S.level))} XP` : ' · MÁX'}</div>
-        <div class="ft-row"><span>❤️ ${fmt(maxHp(S.level, S.stats.vit))} vida</span><span>⚡ ${fmt(powerRating(S.level, S.stats))} poder</span></div>
-        <button class="btn btn-ghost sm edit">✏️ Editar aparência</button>
+        <div class="ft-row"><span>${ico('heart')} ${fmt(maxHp(S.level, S.stats.vit))} vida</span><span>${ico('bolt')} ${fmt(powerRating(S.level, S.stats))} poder</span></div>
+        <button class="btn btn-ghost sm edit">${ico('edit')} Editar aparência</button>
       </div>
     </div>
     <div class="seg"></div>
     <div class="f-body"></div>`;
-  const p = new Preview(resolveLook(S.appearance, S.loadout), { turn: true });
+  const p = new Preview(resolveLook(S.appearance, S.loadout), { turn: true, key: 'fighter' });
   page.querySelector('.ft-stage')!.appendChild(p.canvas);
   (page.querySelector('.edit') as HTMLElement).onclick = () => {
     sfx.click();
@@ -58,7 +60,7 @@ function stats(body: HTMLElement): void {
     const v = S.stats[st.id];
     const r = el('div', 'stat');
     r.style.setProperty('--sc', st.color);
-    r.innerHTML = `<span class="st-ico">${st.icon}</span>
+    r.innerHTML = `<span class="st-ico">${ico(st.icon)}</span>
       <div class="st-main"><div class="st-top"><b>${st.name}</b><span class="st-v">${v}</span></div>
       <div class="st-bar"><i style="transform:scaleX(${v / STAT_CAP})"></i></div>
       <small>${st.desc}</small></div>`;
@@ -71,9 +73,9 @@ function stats(body: HTMLElement): void {
   body.appendChild(list);
   const spent = Object.values(S.stats).reduce((a, b) => a + b - STAT_START, 0);
   if (spent > 0) {
-    const reset = el('button', 'btn btn-ghost wide', '↺ Redistribuir pontos (💎 50)');
+    const reset = el('button', 'btn btn-ghost wide', `↺ Redistribuir pontos (${ico('gem')} 50)`);
     reset.onclick = () => {
-      modal('Redistribuir pontos', '<p>Todos os pontos gastos voltam a ficar disponíveis. Custa 💎 50.</p>', [
+      modal('Redistribuir pontos', `<p>Todos os pontos gastos voltam a ficar disponíveis. Custa ${ico('gem')} 50.</p>`, [
         { label: 'Cancelar' },
         {
           label: 'Redistribuir',
@@ -148,7 +150,7 @@ function gear(body: HTMLElement): void {
 function slotEl(s: Slot): HTMLElement {
   const b = el('button', `slot ${s.locked ? 'locked' : ''} ${s.id ? 'r-' + item(s.id).rarity : ''}`);
   const art = el('div', 'slot-art');
-  if (s.locked) art.textContent = '🔒';
+  if (s.locked) art.innerHTML = ico('lock', 'ic-big');
   else if (s.id) art.appendChild(itemThumb(s.id));
   else art.textContent = '+';
   b.appendChild(art);
@@ -174,7 +176,7 @@ function picker(s: Slot): void {
   const box = el('div', 'picker');
   let close: () => void = () => {};
   if (s.id && ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(s.kind)) {
-    const rm = el('button', 'pick-row none', '✖ Remover deste espaço');
+    const rm = el('button', 'pick-row none', `${ico('close')} Remover deste espaço`);
     rm.onclick = () => {
       toggleEquip(s.id!);
       close();
@@ -191,7 +193,7 @@ function picker(s: Slot): void {
     const locked = d.kind === 'move' && !owns(d.id);
     if (locked) {
       r.classList.add('locked');
-      r.appendChild(el('div', 'pr-lock', `🔒 Nv ${d.unlockLevel}`));
+      r.appendChild(el('div', 'pr-lock', `${ico('lock')} Nv ${d.unlockLevel}`));
     }
     r.onclick = () => {
       if (locked) {
@@ -228,17 +230,17 @@ function road(body: HTMLElement): void {
   body.appendChild(el('p', 'muted small', 'A cada nível ganhas 3 pontos de atributo, 5 gemas e mais vida. Alguns níveis desbloqueiam habilidades, espaços e skins.'));
   const list = el('div', 'road');
   const unlocks = new Map<number, string[]>();
-  for (const d of ITEM_LIST) if (d.source === 'level' && d.unlockLevel) unlocks.set(d.unlockLevel, [...(unlocks.get(d.unlockLevel) ?? []), `${d.icon} ${d.name}`]);
-  const slotsAt: Record<number, string> = { 6: '✨ 2.ª passiva', 8: '⚡ 2.º super' };
+  for (const d of ITEM_LIST) if (d.source === 'level' && d.unlockLevel) unlocks.set(d.unlockLevel, [...(unlocks.get(d.unlockLevel) ?? []), esc(d.name)]);
+  const slotsAt: Record<number, string> = { 6: `${ico('abilities')} 2.ª passiva`, 8: `${ico('bolt')} 2.º super` };
   for (let lv = 2; lv <= Math.min(MAX_LEVEL, Math.max(S.level + 12, 32)); lv++) {
     const rewards: string[] = [];
     for (const u of unlocks.get(lv) ?? []) rewards.push(u);
     if (slotsAt[lv]) rewards.push(slotsAt[lv]);
     const c = levelRewardChest(lv);
-    if (c) rewards.push(`🎁 ${CHESTS[c].name}`);
+    if (c) rewards.push(`${ico('chest')} ${esc(CHESTS[c].name)}`);
     if (!rewards.length) continue;
     const r = el('div', `road-step ${S.level >= lv ? 'got' : ''} ${S.level + 1 === lv ? 'next' : ''}`);
-    r.innerHTML = `<span class="rs-lv">${lv}</span><div class="rs-r">${rewards.map((x) => `<span>${esc(x)}</span>`).join('')}</div>${S.level >= lv ? '<span class="rs-ok">✓</span>' : ''}`;
+    r.innerHTML = `<span class="rs-lv">${lv}</span><div class="rs-r">${rewards.map((x) => `<span>${x}</span>`).join('')}</div>${S.level >= lv ? `<span class="rs-ok">${ico('check')}</span>` : ''}`;
     list.appendChild(r);
   }
   body.appendChild(list);

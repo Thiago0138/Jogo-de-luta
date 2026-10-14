@@ -1,3 +1,4 @@
+import { rememberSub } from '../app';
 import { S, collectibleTotal, collectionCount, owns } from '../../core/state';
 import { ITEM_LIST, type ItemKind } from '../../data/items';
 import { RARITIES, RARITY_ORDER } from '../../data/rarity';
@@ -6,6 +7,7 @@ import { el } from '../dom';
 import { itemCard } from './cards';
 import { openItem } from './itemModal';
 import { openTrade } from './trade';
+import { ico } from '../icons';
 
 const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
   { id: 'all', name: 'Tudo', kinds: [] },
@@ -22,11 +24,12 @@ const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
 let onlyOwned = false;
 
 export function renderCollection(page: HTMLElement, sub = 'all'): void {
+  rememberSub(sub);
   const f = FILTERS.find((x) => x.id === sub) ?? FILTERS[0];
   const have = collectionCount();
   const total = collectibleTotal();
   page.innerHTML = `
-    <div class="page-head"><h1>Coleção</h1><button class="btn btn-blue sm trade-btn">🔁 Trocas</button></div>
+    <div class="page-head"><h1>Coleção</h1><button class="btn btn-blue sm trade-btn">${ico('swap')} Trocas</button></div>
     <div class="card coll-head">
       <div class="ch-top"><b>${have}</b><span>/ ${total} itens colecionados</span></div>
       <div class="ch-bar"><i style="transform:scaleX(${have / total})"></i></div>

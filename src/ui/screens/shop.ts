@@ -4,21 +4,22 @@ import { CHESTS, CHEST_ORDER } from '../../data/chests';
 import { ITEM_LIST, type ItemKind } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { sfx } from '../../audio/sfx';
-import { render } from '../app';
+import { render, rememberSub } from '../app';
 import { openChest } from '../chest';
 import { el, esc, fmt, modal, timeLeft, toast } from '../dom';
 import { itemCard } from './cards';
 import { chestSvg } from './home';
 import { openItem } from './itemModal';
+import { ico } from '../icons';
 
 const TABS: { id: string; name: string }[] = [
-  { id: 'featured', name: '⭐ Destaques' },
-  { id: 'skins', name: '👕 Skins' },
-  { id: 'moves', name: '🤼 Golpes' },
-  { id: 'entrances', name: '🎆 Entradas' },
-  { id: 'abilities', name: '⚡ Habilidades' },
-  { id: 'chests', name: '🎁 Baús' },
-  { id: 'gems', name: '💎 Gemas' },
+  { id: 'featured', name: `${ico('star')} Destaques` },
+  { id: 'skins', name: `${ico('shirt')} Skins` },
+  { id: 'moves', name: `${ico('moves')} Golpes` },
+  { id: 'entrances', name: `${ico('entrance')} Entradas` },
+  { id: 'abilities', name: `${ico('abilities')} Habilidades` },
+  { id: 'chests', name: `${ico('chest')} Baús` },
+  { id: 'gems', name: `${ico('gem')} Gemas` },
 ];
 
 const SKIN_KINDS: ItemKind[] = ['outfit', 'gloves', 'mask', 'aura', 'hair', 'hairColor'];
@@ -38,6 +39,7 @@ export function featured(): { id: string; discount: number }[] {
 }
 
 export function renderShop(page: HTMLElement, sub = 'featured'): void {
+  rememberSub(sub);
   if (!TABS.some((t) => t.id === sub)) sub = 'featured';
   page.innerHTML = `<div class="page-head"><h1>Loja</h1></div><div class="seg"></div><div class="shop-body"></div>`;
   const seg = page.querySelector('.seg') as HTMLElement;
@@ -67,7 +69,7 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
     case 'featured': {
       const midnight = new Date();
       midnight.setHours(24, 0, 0, 0);
-      body.appendChild(el('div', 'banner-info', `🔄 Nova seleção em <b>${timeLeft(midnight.getTime() - Date.now())}</b>`));
+      body.appendChild(el('div', 'banner-info', `${ico('clock')} Nova seleção em <b>${timeLeft(midnight.getTime() - Date.now())}</b>`));
       body.appendChild(dailyGift());
       body.appendChild(grid(featured()));
       break;
@@ -106,7 +108,7 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
         if (c.coinPrice == null && c.gemPrice == null) continue;
         const card = el('div', 'chest-offer');
         card.style.setProperty('--cg', c.glow);
-        const price = c.gemPrice != null ? `💎 ${fmt(c.gemPrice)}` : `🪙 ${fmt(c.coinPrice!)}`;
+        const price = c.gemPrice != null ? `${ico('gem')} ${fmt(c.gemPrice)}` : `${ico('coin')} ${fmt(c.coinPrice!)}`;
         card.innerHTML = `<div class="co-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name)}</b><span class="muted small">${esc(c.desc)}</span><div class="odds"></div><button class="btn btn-gold sm">${price}</button>`;
         const odds = card.querySelector('.odds') as HTMLElement;
         const tot = Object.values(c.weights).reduce((a, b) => a + (b ?? 0), 0);
@@ -136,7 +138,7 @@ function dailyGift(): HTMLElement {
   const today = dayKey();
   const claimed = S.giftDay === today;
   const box = el('div', `gift ${claimed ? 'done' : ''}`);
-  box.innerHTML = `<span class="gift-ico">🎁</span><div><b>Presente diário</b><span>150 moedas + 5 gemas</span></div><button class="btn ${claimed ? 'btn-ghost' : 'btn-gold'} sm">${claimed ? 'Amanhã há mais' : 'Recolher'}</button>`;
+  box.innerHTML = `<span class="gift-ico">${ico('gift')}</span><div><b>Presente diário</b><span>150 moedas + 5 gemas</span></div><button class="btn ${claimed ? 'btn-ghost' : 'btn-gold'} sm">${claimed ? 'Amanhã há mais' : 'Recolher'}</button>`;
   (box.querySelector('button') as HTMLElement).onclick = () => {
     if (S.giftDay === today) return;
     S.giftDay = today;
@@ -144,7 +146,7 @@ function dailyGift(): HTMLElement {
     S.gems += 5;
     commit();
     sfx.coin();
-    toast('+150 🪙  +5 💎', 'ok');
+    toast('+150 moedas  ·  +5 gemas', 'ok');
     render();
   };
   return box;
@@ -165,7 +167,7 @@ function gemsTab(): HTMLElement {
   const g = el('div', 'gem-grid');
   PACKS.forEach((p, i) => {
     const b = el('button', 'gem-pack');
-    b.innerHTML = `${p.bonus ? `<span class="gp-bonus">${p.bonus}</span>` : ''}<div class="gp-ico">${'💎'.repeat(Math.min(3, 1 + Math.floor(i / 2)))}</div><b>${fmt(p.gems)}</b><span class="gp-price">${p.price}</span>`;
+    b.innerHTML = `${p.bonus ? `<span class="gp-bonus">${p.bonus}</span>` : ''}<div class="gp-ico">${ico('gem').repeat(Math.min(3, 1 + Math.floor(i / 2)))}</div><b>${fmt(p.gems)}</b><span class="gp-price">${p.price}</span>`;
     b.onclick = () => {
       sfx.click();
       modal(

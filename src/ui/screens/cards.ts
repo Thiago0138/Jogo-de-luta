@@ -4,6 +4,7 @@ import { RARITIES } from '../../data/rarity';
 import { el, esc } from '../dom';
 import { itemThumb } from '../preview';
 import { isEquipped, priceHtml } from './itemModal';
+import { ico } from '../icons';
 
 export interface CardOpts {
   shop?: boolean;
@@ -21,12 +22,12 @@ export function itemCard(id: string, o: CardOpts = {}): HTMLElement {
   const art = el('div', 'ic-art');
   art.appendChild(itemThumb(id));
   c.appendChild(art);
-  if (locked) c.appendChild(el('div', 'ic-lock', '🔒'));
+  if (locked) c.appendChild(el('div', 'ic-lock', ico('lock')));
   const name = el('div', 'ic-name', esc(d.name));
   c.appendChild(name);
   const foot = el('div', 'ic-foot');
   if (o.shop) {
-    if (have) foot.innerHTML = '<span class="ic-owned">Tens ✓</span>';
+    if (have) foot.innerHTML = `<span class="ic-owned">Tens ${ico('check')}</span>`;
     else {
       const old = o.discount ? `<s>${priceHtml(d)}</s>` : '';
       foot.innerHTML = `${old}<span class="ic-price">${priceHtml(d, o.discount ?? 0)}</span>`;

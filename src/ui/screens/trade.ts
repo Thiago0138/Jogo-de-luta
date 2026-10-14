@@ -4,6 +4,7 @@ import { RARITIES } from '../../data/rarity';
 import { sfx } from '../../audio/sfx';
 import { render } from '../app';
 import { el, esc, modal, toast } from '../dom';
+import { ico, KIND_ICON } from '../icons';
 
 /** Trocas entre jogadores através de códigos de transferência. */
 export function openTrade(preselect?: string): void {
@@ -28,7 +29,7 @@ export function openTrade(preselect?: string): void {
     for (const d of list) {
       const row = el('label', `trade-row r-${d.rarity}`);
       const n = selected.get(d.id) ?? 0;
-      row.innerHTML = `<input type="checkbox" ${n ? 'checked' : ''}/><span class="tr-ico">${d.icon}</span><span class="tr-name">${esc(d.name)}<small class="rar rar-${d.rarity}">${RARITIES[d.rarity].name}</small></span><span class="tr-n">×${count(d.id)}</span>`;
+      row.innerHTML = `<input type="checkbox" ${n ? 'checked' : ''}/><span class="tr-ico">${ico(KIND_ICON[d.kind] ?? 'star')}</span><span class="tr-name">${esc(d.name)}<small class="rar rar-${d.rarity}">${RARITIES[d.rarity].name}</small></span><span class="tr-n">×${count(d.id)}</span>`;
       const cb = row.querySelector('input') as HTMLInputElement;
       cb.onchange = () => {
         if (cb.checked) selected.set(d.id, 1);
@@ -125,5 +126,5 @@ export function openTrade(preselect?: string): void {
     };
   });
   send();
-  modal('🔁 Trocas', body, [], 'trade-modal');
+  modal(`${ico('swap')} Trocas`, body, [], 'trade-modal');
 }

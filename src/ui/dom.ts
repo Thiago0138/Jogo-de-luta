@@ -1,5 +1,6 @@
 import { RARITIES, type Rarity } from '../data/rarity';
 import { sfx } from '../audio/sfx';
+import { ico } from './icons';
 
 export function esc(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -42,7 +43,7 @@ export interface ModalAction {
 export function modal(title: string, body: HTMLElement | string, actions: ModalAction[] = [{ label: 'Fechar' }], cls = ''): () => void {
   const back = el('div', 'modal-back');
   const box = el('div', `modal ${cls}`);
-  box.innerHTML = `<div class="modal-head"><h3>${title}</h3><button class="x" aria-label="Fechar">✕</button></div>`;
+  box.innerHTML = `<div class="modal-head"><h3>${title}</h3><button class="x" aria-label="Fechar">${ico('close')}</button></div>`;
   const content = el('div', 'modal-body');
   if (typeof body === 'string') content.innerHTML = body;
   else content.appendChild(body);

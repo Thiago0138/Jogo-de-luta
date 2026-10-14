@@ -11,6 +11,7 @@ import { el, esc, fmt, timeLeft, toast } from '../dom';
 import { Preview } from '../preview';
 import { startMatch } from '../play';
 import { openPatchNotes } from './settings';
+import { ico, leagueBadge } from '../icons';
 
 export function renderHome(page: HTMLElement): void {
   const li = leagueIndex(S.trophies);
@@ -24,30 +25,30 @@ export function renderHome(page: HTMLElement): void {
       <div class="hero-stage"></div>
       <div class="hero-info">
         <div class="hero-league" style="--lc:${L.color}">
-          <span class="lg-icon">${L.icon}</span>
-          <div class="lg-txt"><b>Liga ${esc(L.name)}</b><span>🏆 ${fmt(S.trophies)}${next ? ` / ${fmt(next.min)}` : ''}</span></div>
+          <span class="lg-icon">${leagueBadge(L.id, L.color)}</span>
+          <div class="lg-txt"><b>Liga ${esc(L.name)}</b><span>${ico('trophy')} ${fmt(S.trophies)}${next ? ` / ${fmt(next.min)}` : ''}</span></div>
         </div>
         <div class="lg-bar"><i style="transform:scaleX(${Math.min(1, prog)})"></i></div>
         <h1 class="hero-name">${esc(S.name)}</h1>
         <div class="hero-stats">
-          <span>⚡ Poder <b>${fmt(powerRating(S.level, S.stats))}</b></span>
-          <span>🔥 Série <b>${S.streak}</b></span>
-          <span>🥇 Vitórias <b>${fmt(S.life.wins)}</b></span>
+          <span>${ico('bolt')} Poder <b>${fmt(powerRating(S.level, S.stats))}</b></span>
+          <span>${ico('fire')} Série <b>${S.streak}</b></span>
+          <span>${ico('medal')} Vitórias <b>${fmt(S.life.wins)}</b></span>
         </div>
       </div>
-      <button class="news-btn ${unseen ? 'dot' : ''}">📰 Novidades</button>
+      <button class="news-btn ${unseen ? 'dot' : ''}">${ico('news')} Novidades</button>
     </section>
     <section class="play">
-      <button class="play-btn solo"><span class="pb-ico">🥊</span><span class="pb-txt"><b>LUTAR</b><small>1 contra 1</small></span></button>
-      <button class="play-btn tag"><span class="pb-ico">🤝</span><span class="pb-txt"><b>TAG TEAM</b><small>2 contra 2</small></span></button>
-      <button class="play-btn champ"><span class="pb-ico">👑</span><span class="pb-txt"><b>CAMPEÃO</b><small>Desafio difícil · prémios maiores</small></span></button>
+      <button class="play-btn solo"><span class="pb-ico">${ico('glove')}</span><span class="pb-txt"><b>LUTAR</b><small>1 contra 1</small></span></button>
+      <button class="play-btn tag"><span class="pb-ico">${ico('tag')}</span><span class="pb-txt"><b>TAG TEAM</b><small>2 contra 2</small></span></button>
+      <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CAMPEÃO</b><small>Desafio difícil · prémios maiores</small></span></button>
     </section>
     <section class="card chests-card">
       <div class="card-head"><h2>Baús</h2><span class="muted">Abre-os no centro do ringue</span></div>
       <div class="chest-row"></div>
     </section>`;
 
-  const prev = new Preview(resolveLook(S.appearance, S.loadout), { turn: true });
+  const prev = new Preview(resolveLook(S.appearance, S.loadout), { turn: true, key: 'home' });
   page.querySelector('.hero-stage')!.appendChild(prev.canvas);
   prev.canvas.onclick = () => {
     sfx.click();

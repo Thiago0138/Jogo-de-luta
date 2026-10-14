@@ -7,9 +7,10 @@ import { sfx } from '../../audio/sfx';
 import { render } from '../app';
 import { el, esc, fmt, modal, rarityTag, toast, type ModalAction } from '../dom';
 import { EntrancePreview } from '../entrancePreview';
-import { Preview } from '../preview';
+import { Preview, itemThumb } from '../preview';
 import { clearThumbs } from '../preview';
 import { openTrade } from './trade';
+import { ico } from '../icons';
 
 export const superSlots = () => 2;
 export const passiveSlots = () => 2;
@@ -127,8 +128,8 @@ export function sourceText(d: ItemDef): string {
 }
 
 export function priceHtml(d: ItemDef, discount = 0): string {
-  if (d.gems != null) return `💎 ${fmt(Math.round(d.gems * (1 - discount)))}`;
-  if (d.coins != null) return `🪙 ${fmt(Math.round(d.coins * (1 - discount)))}`;
+  if (d.gems != null) return `${ico('gem')} ${fmt(Math.round(d.gems * (1 - discount)))}`;
+  if (d.coins != null) return `${ico('coin')} ${fmt(Math.round(d.coins * (1 - discount)))}`;
   return '';
 }
 
@@ -158,9 +159,13 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     // a entrada completa, em ciclo, com o teu lutador (pára sozinha ao fechar o modal)
     art.classList.add('id-ent');
     art.appendChild(new EntrancePreview(id).el);
-    art.appendChild(el('div', 'id-badge', d.icon));
+    art.appendChild(el('div', 'id-badge', ico('entrance')));
   } else {
-    art.appendChild(el('div', 'id-icon', d.icon));
+    {
+      const th = itemThumb(id);
+      th.classList.add('id-thumb');
+      art.appendChild(th);
+    }
   }
   const n = count(id);
   const info = el('div', 'id-info');
@@ -175,7 +180,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
   if (d.kind === 'move' && !owns(id)) {
     if (canBuyEarly(d)) {
       actions.push({
-        label: `Treinar já 🪙 ${fmt(d.coins ?? 0)}`,
+        label: `Treinar já ${ico('coin')} ${fmt(d.coins ?? 0)}`,
         cls: 'btn-gold',
         onClick: () => {
           if (S.coins < (d.coins ?? 0)) {
@@ -197,7 +202,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
   }
   if (ctx === 'shop' && (d.coins != null || d.gems != null) && d.source === 'shop') {
     if (owns(id)) {
-      actions.push({ label: 'Já tens ✓', cls: 'btn-ghost', onClick: () => false });
+      actions.push({ label: `Já tens ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
     } else {
       actions.push({
         label: `Comprar ${priceHtml(d, discount)}`,
@@ -230,12 +235,12 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
           render();
         },
       });
-    } else actions.push({ label: 'Equipado ✓', cls: 'btn-ghost', onClick: () => false });
+    } else actions.push({ label: `Equipado ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
     if (ctx === 'collection') {
       if (n >= 2) {
         const v = r.recycle;
         actions.push({
-          label: `Reciclar +🪙${fmt(v)}`,
+          label: `Reciclar +${ico('coin')}${fmt(v)}`,
           cls: 'btn-ghost',
           onClick: () => {
             const got = recycle(id);
@@ -249,7 +254,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
       }
       if (isTradeable(d)) {
         actions.push({
-          label: '🔁 Trocar',
+          label: `${ico('swap')} Trocar`,
           cls: 'btn-ghost',
           onClick: () => {
             openTrade(id);
@@ -259,5 +264,5 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     }
   }
   if (!actions.length) actions.push({ label: 'Fechar' });
-  modal(`${d.icon} ${esc(d.name)}`, body, actions, 'item-modal');
+  modal(esc(d.name), body, actions, 'item-modal');
 }

@@ -10,16 +10,16 @@ export interface StatDef {
 }
 
 export const STATS: StatDef[] = [
-  { id: 'for', name: 'Força', short: 'FOR', icon: '👊', desc: 'Dano de socos e pontapés.', color: '#ff5a5a' },
-  { id: 'agr', name: 'Agarrão', short: 'AGR', icon: '🤼', desc: 'Dano e frequência de projeções e suplexes.', color: '#ff8a3d' },
-  { id: 'vel', name: 'Velocidade', short: 'VEL', icon: '⚡', desc: 'Rapidez dos ataques e do movimento.', color: '#ffd23d' },
-  { id: 'esq', name: 'Esquiva', short: 'ESQ', icon: '💨', desc: 'Probabilidade de desviar de golpes.', color: '#5ef0c0' },
-  { id: 'def', name: 'Defesa', short: 'DEF', icon: '🛡️', desc: 'Reduz o dano recebido e bloqueia mais.', color: '#4aa8ff' },
-  { id: 'vit', name: 'Vitalidade', short: 'VIT', icon: '❤️', desc: 'Aumenta a vida máxima.', color: '#ff4f8b' },
-  { id: 'res', name: 'Resistência', short: 'RES', icon: '🔋', desc: 'Levanta-se mais depressa e aguenta mais.', color: '#9be15d' },
-  { id: 'pre', name: 'Precisão', short: 'PRE', icon: '🎯', desc: 'Probabilidade de golpe crítico.', color: '#c77dff' },
-  { id: 'car', name: 'Carisma', short: 'CAR', icon: '🎤', desc: 'O público vibra: carrega o Super mais rápido.', color: '#ff7ae0' },
-  { id: 'ctr', name: 'Contra-ataque', short: 'CTR', icon: '🔄', desc: 'Responde com um contra-golpe após esquivar ou bloquear.', color: '#7ad7ff' },
+  { id: 'for', name: 'Força', short: 'FOR', icon: 'fist', desc: 'Dano de socos e pontapés.', color: '#ff5a5a' },
+  { id: 'agr', name: 'Agarrão', short: 'AGR', icon: 'grapple', desc: 'Dano e frequência de projeções e suplexes.', color: '#ff8a3d' },
+  { id: 'vel', name: 'Velocidade', short: 'VEL', icon: 'speed', desc: 'Rapidez dos ataques e do movimento.', color: '#ffd23d' },
+  { id: 'esq', name: 'Esquiva', short: 'ESQ', icon: 'dodge', desc: 'Probabilidade de desviar de golpes.', color: '#5ef0c0' },
+  { id: 'def', name: 'Defesa', short: 'DEF', icon: 'shield', desc: 'Reduz o dano recebido e bloqueia mais.', color: '#4aa8ff' },
+  { id: 'vit', name: 'Vitalidade', short: 'VIT', icon: 'vitality', desc: 'Aumenta a vida máxima.', color: '#ff4f8b' },
+  { id: 'res', name: 'Resistência', short: 'RES', icon: 'stamina', desc: 'Levanta-se mais depressa e aguenta mais.', color: '#9be15d' },
+  { id: 'pre', name: 'Precisão', short: 'PRE', icon: 'target', desc: 'Probabilidade de golpe crítico.', color: '#c77dff' },
+  { id: 'car', name: 'Carisma', short: 'CAR', icon: 'charisma', desc: 'O público vibra: carrega o Super mais rápido.', color: '#ff7ae0' },
+  { id: 'ctr', name: 'Contra-ataque', short: 'CTR', icon: 'counter', desc: 'Responde com um contra-golpe após esquivar ou bloquear.', color: '#7ad7ff' },
 ];
 
 export type Stats = Record<StatId, number>;

@@ -6,6 +6,7 @@ import { music } from './audio/music';
 import { mountApp } from './ui/app';
 import { openCreator } from './ui/screens/creator';
 import { modal } from './ui/dom';
+import { ico } from './ui/icons';
 
 async function boot(): Promise<void> {
   setVolume(S.settings.volume);
@@ -28,7 +29,7 @@ async function boot(): Promise<void> {
       modal(
         'Bem-vindo ao ringue!',
         `<p>As lutas são <b>automáticas</b>: tu preparas o lutador, o público vibra e tu assistes ao espetáculo.</p>
-         <ul class="tips"><li>🥊 Ganha lutas para subir de liga e ganhar baús.</li><li>📊 Usa os pontos de nível nos atributos.</li><li>🎁 Tens já dois baús à tua espera no Ringue!</li></ul>`,
+         <ul class="tips"><li>${ico('glove')} Ganha lutas para subir de liga e ganhar baús.</li><li>${ico('chart')} Usa os pontos de nível nos atributos.</li><li>${ico('chest')} Tens já dois baús à tua espera no Ringue!</li></ul>`,
         [{ label: 'Bora lutar!', cls: 'btn-gold' }],
       );
     });

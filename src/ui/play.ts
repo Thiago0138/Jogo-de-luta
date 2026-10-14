@@ -13,6 +13,7 @@ import { openChest } from './chest';
 import { countUp, el, esc, fmt, modal } from './dom';
 import { Preview } from './preview';
 import { chestSvg } from './screens/home';
+import { ico, leagueBadge } from './icons';
 
 let busy = false;
 
@@ -46,7 +47,7 @@ function versus(mode: Mode, teams: [FighterSpec[], FighterSpec[]], go: () => voi
       const info = el(
         'div',
         'vs-info',
-        `<b>${esc(sp.name)}</b><span>Nv ${sp.level}${sp.title ? ` · ${esc(sp.title)}` : ''}</span><span class="vs-pow">⚡ ${fmt(powerRating(sp.level, sp.stats))}</span>`,
+        `<b>${esc(sp.name)}</b><span>Nv ${sp.level}${sp.title ? ` · ${esc(sp.title)}` : ''}</span><span class="vs-pow">${ico('bolt')} ${fmt(powerRating(sp.level, sp.stats))}</span>`,
       );
       box.appendChild(info);
       s.appendChild(box);
@@ -160,21 +161,21 @@ function results(mode: Mode, teams: [FighterSpec[], FighterSpec[]], r: FightRepo
     <p class="res-sub">${r.decision ? 'Decisão dos juízes' : r.won ? (r.superKO ? 'K.O. com Super!' : 'Contagem até 3!') : 'Treina mais e volta mais forte!'}</p>
     <div class="res-stage"></div>
     <div class="res-grid">
-      <div class="res-item"><span>⭐ XP</span><b>+${fmt(rw.xp)}</b></div>
-      <div class="res-item"><span>🪙 Moedas</span><b>+<span class="rc">${fmt(rw.coins)}</span></b></div>
-      <div class="res-item"><span>🏆 Troféus</span><b class="${rw.trophies < 0 ? 'neg' : ''}">${rw.trophies >= 0 ? '+' : ''}${rw.trophies}</b></div>
-      ${rw.gems ? `<div class="res-item"><span>💎 Gemas</span><b>+${rw.gems}</b></div>` : ''}
+      <div class="res-item"><span>${ico('xp')} XP</span><b>+${fmt(rw.xp)}</b></div>
+      <div class="res-item"><span>${ico('coin')} Moedas</span><b>+<span class="rc">${fmt(rw.coins)}</span></b></div>
+      <div class="res-item"><span>${ico('trophy')} Troféus</span><b class="${rw.trophies < 0 ? 'neg' : ''}">${rw.trophies >= 0 ? '+' : ''}${rw.trophies}</b></div>
+      ${rw.gems ? `<div class="res-item"><span>${ico('gem')} Gemas</span><b>+${rw.gems}</b></div>` : ''}
     </div>
     <div class="res-xp"><div class="rx-head"><span>Nível <b class="rx-lvl">${lvlBefore}</b></span><span class="rx-num"></span></div><div class="rx-bar"><i></i></div></div>
     <div class="res-stats">
-      <span>👊 ${r.tally.punches} socos</span><span>🤼 ${r.tally.grapples} projeções</span><span>💨 ${r.tally.dodges} esquivas</span><span>⚡ ${r.tally.supers} supers</span>
+      <span>${ico('fist')} ${r.tally.punches} socos</span><span>${ico('grapple')} ${r.tally.grapples} projeções</span><span>${ico('dodge')} ${r.tally.dodges} esquivas</span><span>${ico('bolt')} ${r.tally.supers} supers</span>
     </div>
     <div class="res-chest"></div>
     <div class="res-actions">
       <button class="btn btn-ghost menu">Menu</button>
       <button class="btn btn-gold again">Lutar outra vez</button>
     </div>
-    <div class="res-league" style="--lc:${L.color}">${L.icon} Liga ${esc(L.name)} · 🏆 ${fmt(S.trophies)}</div>`;
+    <div class="res-league" style="--lc:${L.color}">${leagueBadge(L.id, L.color)} Liga ${esc(L.name)} · ${ico('trophy')} ${fmt(S.trophies)}</div>`;
 
   const me = teams[0][0];
   const p = new Preview(me.look);
@@ -245,8 +246,8 @@ function showLevelUp(lu: LevelUp): void {
   const body = el('div', 'lvlup-body');
   const gained = lu.to - lu.from;
   body.innerHTML = `<div class="lu-big">${lu.to}</div>
-    <p>Subiste ${gained > 1 ? `${gained} níveis` : 'de nível'}! Ganhaste <b>${gained * 3} pontos de atributo</b>, <b>${gained * 5} 💎</b> e mais vida.</p>
-    ${lu.unlocked.length ? `<p>Desbloqueado: ${lu.unlocked.map((id) => `<b>${ITEMS[id].icon} ${esc(ITEMS[id].name)}</b>`).join(', ')}</p>` : ''}
+    <p>Subiste ${gained > 1 ? `${gained} níveis` : 'de nível'}! Ganhaste <b>${gained * 3} pontos de atributo</b>, <b>${gained * 5} ${ico('gem')}</b> e mais vida.</p>
+    ${lu.unlocked.length ? `<p>Desbloqueado: ${lu.unlocked.map((id) => `<b>${esc(ITEMS[id].name)}</b>`).join(', ')}</p>` : ''}
     ${lu.chests.length ? `<p>Recompensa: ${lu.chests.map((c) => esc(CHESTS[c].name)).join(', ')}</p>` : ''}`;
   modal('Subiste de nível!', body, [
     { label: 'Depois' },

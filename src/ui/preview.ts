@@ -8,6 +8,8 @@ import { item } from '../data/items';
 import { RARITIES } from '../data/rarity';
 import { S } from '../core/state';
 import { resolveLook } from '../render/look';
+import { specialThumb } from './thumbs';
+import { KIND_ICON, hasIcon, ico } from './icons';
 
 /**
  * Pré-visualização animada de um lutador. Todas as instâncias partilham um único
@@ -37,13 +39,14 @@ export class Preview {
   private lastX = 0;
   private lastMove = 0;
   private tapT = 0;
+  private key: string | null = null;
   private pose = newPose();
   private skel = new Skel();
   private ctx: CanvasRenderingContext2D;
   private obs: IntersectionObserver;
   private idleT = 0;
 
-  constructor(look: Look, opts: { stage?: boolean; focusHead?: boolean; zoom?: number; turn?: boolean; spin?: boolean } = {}) {
+  constructor(look: Look, opts: { stage?: boolean; focusHead?: boolean; zoom?: number; turn?: boolean; spin?: boolean; key?: string } = {}) {
     this.look = look;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'preview';
@@ -53,6 +56,9 @@ export class Preview {
     this.zoom = opts.zoom ?? 1;
     this.turn = opts.turn ?? false;
     this.spin = opts.spin ?? false;
+    // a rotação fica guardada entre redesenhos do mesmo ecrã
+    this.key = opts.key ?? null;
+    if (this.key) this.yaw = yawMem.get(this.key) ?? YAW0;
     if (this.turn) this.bindDrag();
     this.obs = new IntersectionObserver((es) => {
       for (const e of es) this.visible = e.isIntersecting;
@@ -154,6 +160,7 @@ export class Preview {
         this.pose.ba2 = 1.15;
       }
     }
+    if (this.key) yawMem.set(this.key, this.yaw);
     if (this.turn && !this.dragging) {
       if (Math.abs(this.vel) > 0.02) {
         this.yaw += this.vel * dt;
@@ -189,6 +196,7 @@ export class Preview {
 
 const active = new Set<Preview>();
 const YAW0 = 0.85;
+const yawMem = new Map<string, number>();
 let running = false;
 let lastT = 0;
 
@@ -219,9 +227,18 @@ export function itemThumb(id: string): HTMLElement {
   const d = item(id);
   const visual = ['hair', 'hairColor', 'outfit', 'gloves', 'mask', 'aura'].includes(d.kind);
   if (!visual) {
+    const art = specialThumb(id, TS);
+    if (art) {
+      const c = document.createElement('canvas');
+      c.width = TS;
+      c.height = TS;
+      c.className = 'thumb';
+      c.getContext('2d')!.drawImage(art, 0, 0);
+      return c;
+    }
     const span = document.createElement('div');
     span.className = 'thumb-icon';
-    span.textContent = d.icon;
+    span.innerHTML = ico(hasIcon(d.id) ? d.id : KIND_ICON[d.kind] ?? 'star');
     return span;
   }
   const key = `${id}|${S.appearance.skin}|${S.appearance.hair}|${S.appearance.hairColor}|${S.appearance.eyes}|${S.appearance.beard}`;

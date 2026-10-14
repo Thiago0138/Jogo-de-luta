@@ -8,6 +8,7 @@ import { PK, Particles } from '../fight/fx';
 import { glowSprite } from '../render/fighter';
 import { el, esc, fmt, rarityTag } from './dom';
 import { itemThumb } from './preview';
+import { ico } from './icons';
 
 type Phase = 'drop' | 'wait' | 'shake' | 'open' | 'reveal' | 'summary';
 
@@ -60,7 +61,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
   const label = el('div', 'chest-label', `<b>${esc(def.name)}</b><span>${esc(def.desc)}</span>`);
   ui.appendChild(label);
   const hint = el('div', 'chest-hint', 'Toca para abrir!');
-  const skipBtn = el('button', 'btn btn-ghost chest-skip', 'Ver tudo ⏭');
+  const skipBtn = el('button', 'btn btn-ghost chest-skip', `Ver tudo ${ico('skip')}`);
   skipBtn.onclick = (e) => {
     e.stopPropagation();
     sfx.click();
@@ -380,7 +381,7 @@ function dropName(d: ChestDrop): string {
 
 function dropIcon(d: ChestDrop): HTMLElement {
   if (d.kind === 'coins' || d.kind === 'gems') {
-    const s = el('div', 'thumb-icon', d.kind === 'coins' ? '🪙' : '💎');
+    const s = el('div', 'thumb-icon', ico(d.kind === 'coins' ? 'coin' : 'gem'));
     return s;
   }
   return itemThumb(d.id!);

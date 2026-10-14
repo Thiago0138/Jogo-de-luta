@@ -6,25 +6,26 @@ import { music } from '../../audio/music';
 import { pickEnglishVoice } from '../../audio/announcer';
 import { render } from '../app';
 import { el, esc, modal } from '../dom';
+import { ico } from '../icons';
 
 export function openSettings(): void {
   const b = el('div', 'settings');
   const s = S.settings;
   b.innerHTML = `
-    <label class="set-row vol-row"><span>🔈 Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
-    <label class="set-row vol-row"><span>🎵 Música</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
-    <label class="set-row"><span>🎶 Música ligada</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
-    <label class="set-row"><span>🎙️ Narrador (voz e legendas)</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
-    <label class="set-row vol-row"><span>🎙️ Volume do narrador</span><input type="range" class="annv" min="0" max="100" step="1" value="${Math.round(s.announcerVol * 100)}"/><b class="ann-n">${Math.round(s.announcerVol * 100)}%</b></label>
-    <label class="set-row"><span>🔓 Tudo desbloqueado (modo teste)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
-    <label class="set-row"><span>🔊 Efeitos sonoros</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
-    <label class="set-row"><span>👥 Som do público</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
-    <label class="set-row"><span>✨ Qualidade gráfica alta</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
-    <label class="set-row"><span>⏩ Lutas a 2x por defeito</span><input type="checkbox" data-k="speed" ${s.speed === 2 ? 'checked' : ''}/></label>
+    <label class="set-row vol-row"><span>${ico('speaker')} Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
+    <label class="set-row vol-row"><span>${ico('music')} Música</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
+    <label class="set-row"><span>${ico('music')} Música ligada</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('mic')} Narrador (voz e legendas)</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
+    <label class="set-row vol-row"><span>${ico('mic')} Volume do narrador</span><input type="range" class="annv" min="0" max="100" step="1" value="${Math.round(s.announcerVol * 100)}"/><b class="ann-n">${Math.round(s.announcerVol * 100)}%</b></label>
+    <label class="set-row"><span>${ico('unlock')} Tudo desbloqueado (modo teste)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('speaker')} Efeitos sonoros</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('crowd')} Som do público</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('sparkle')} Qualidade gráfica alta</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('fast')} Lutas a 2x por defeito</span><input type="checkbox" data-k="speed" ${s.speed === 2 ? 'checked' : ''}/></label>
     <div class="set-btns">
-      <button class="btn btn-ghost notes">📰 Novidades</button>
-      <button class="btn btn-ghost rar">💠 Raridades</button>
-      <button class="btn btn-ghost install" hidden>📲 Instalar app</button>
+      <button class="btn btn-ghost notes">${ico('news')} Novidades</button>
+      <button class="btn btn-ghost rar">${ico('rarity')} Raridades</button>
+      <button class="btn btn-ghost install" hidden>${ico('install')} Instalar app</button>
       <button class="btn btn-red reset">Apagar progresso</button>
     </div>
     <p class="muted small center">Reis do Ringue v${CURRENT_VERSION}</p>`;
@@ -123,7 +124,7 @@ export function openPatchNotes(): void {
     b.appendChild(sec);
   }
   markPatchSeen();
-  modal('📰 Novidades', b, [{ label: 'Fixe!', cls: 'btn-gold', onClick: () => render() }]);
+  modal(`${ico('news')} Novidades`, b, [{ label: 'Fixe!', cls: 'btn-gold', onClick: () => render() }]);
 }
 
 export function openRarities(): void {
@@ -141,5 +142,5 @@ export function openRarities(): void {
     const d = RARITIES[r];
     b.appendChild(el('div', `rar-row rar-${r}`, `<span class="rar rar-${r}">${d.name}</span><span>${desc[r]}</span>`));
   }
-  modal('💠 Raridades', b);
+  modal(`${ico('rarity')} Raridades`, b);
 }
