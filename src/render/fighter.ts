@@ -9,7 +9,7 @@ import {
 } from './pose';
 
 import {
-  ARM_L, ARM_U, C, LEG_L, LEG_U, OC, OW, PS, TAU, DL, capsule, circle, glowSprite, hash, limb, proj2D, seg, type Prof,
+  ARM_L, ARM_U, C, LEG_L, LEG_U, OC, OW, PS, TAU, DL, capsule, circle, glowSprite, hash, limb, proj2D, seg, shadeSide, type Prof,
 } from './paint';
 
 export { glowSprite };
@@ -785,6 +785,13 @@ function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number)
     ctx.beginPath();
     ctx.ellipse(10, -17, 8, 4, -0.35, 0, TAU);
     ctx.fill();
+    // luz de recorte do holofote por cima (dá volume à cabeça)
+    ctx.globalAlpha = 0.28;
+    ctx.strokeStyle = '#fff6e0';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, HEAD_R - 2.5, -2.4, -0.55);
+    ctx.stroke();
     ctx.restore();
   }
   if (o.mat && (o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic') && !PS.F) {
@@ -803,7 +810,7 @@ function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number)
 
 // ───────────────────────── Tronco e trajes ─────────────────────────
 
-function torsoPath(ctx: CanvasRenderingContext2D, s: Skel, hw: number, sw: number) {
+function torsoPath(ctx: CanvasRenderingContext2D | Path2D, s: Skel, hw: number, sw: number) {
   const a = s.torsoA;
   const nx = Math.cos(a);
   const ny = Math.sin(a);
@@ -815,7 +822,7 @@ function torsoPath(ctx: CanvasRenderingContext2D, s: Skel, hw: number, sw: numbe
   const sy = s.y[J_SH] + uy * 3;
   const P = (u: number, n: number): [number, number] => [hx + ux * u + nx * n, hy + uy * u + ny * n];
   const S = (u: number, n: number): [number, number] => [sx + ux * u + nx * n, sy + uy * u + ny * n];
-  ctx.beginPath();
+  if ('beginPath' in ctx) ctx.beginPath();
   let p = P(2, -hw);
   ctx.moveTo(p[0], p[1]);
   // costas (dorsais)
@@ -849,6 +856,56 @@ function fillOut(ctx: CanvasRenderingContext2D, color: string) {
   ctx.stroke();
   ctx.fillStyle = C(color);
   ctx.fill();
+}
+
+/**
+ * Funde a raiz de um membro com o tronco (ombro / anca): tapa, só por dentro da silhueta do tronco,
+ * o contorno do encaixe, para o membro sair do corpo em vez de parecer uma peça montada.
+ */
+function blendJoint(
+  ctx: CanvasRenderingContext2D, s: Skel, color: string, shadeC: string,
+  ax: number, ay: number, bx: number, by: number, p: Prof, frac: number, deltoid: boolean, overTorso = true,
+) {
+  if (PS.F) return;
+  ctx.save();
+  const ex = ax + (bx - ax) * frac;
+  const ey = ay + (by - ay) * frac;
+  const k = Math.max(0.5, 1 - (OW * 0.6) / p[1]);
+  if (overTorso) torsoPath(ctx, s, 19, 30);
+  else {
+    // o tronco foi desenhado por cima do membro: tapa o contorno dele que atravessa a coxa
+    ctx.beginPath();
+    capsule(ctx, ax, ay, bx, by, p, k);
+  }
+  ctx.clip();
+  ctx.beginPath();
+  capsule(ctx, ax, ay, ex, ey, [p[0], p[1], p[1]], k);
+  ctx.arc(ax, ay, p[0] * k + 2, 0, TAU);
+  ctx.fillStyle = C(color);
+  ctx.fill();
+  if (deltoid) {
+    // volume do deltóide: sombra suave por baixo e uma linha de músculo a ligar ao peito
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len = Math.hypot(dx, dy) || 1;
+    const [snx, sny] = shadeSide(dx, dy);
+    ctx.globalAlpha = 0.4;
+    ctx.fillStyle = shadeC;
+    ctx.beginPath();
+    capsule(ctx, ax, ay, ex, ey, [p[0], p[1], p[1]], 0.55, snx * p[1] * 0.45, sny * p[1] * 0.45);
+    ctx.fill();
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = shadeC;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    const mx = ax + (dx / len) * p[1] * 1.3;
+    const my = ay + (dy / len) * p[1] * 1.3;
+    ctx.moveTo(mx + snx * p[1] * 0.9, my + sny * p[1] * 0.9);
+    ctx.quadraticCurveTo(mx + snx * p[1] * 0.2 - (dx / len) * 4, my + sny * p[1] * 0.2 - (dy / len) * 4, mx - snx * p[1] * 0.5, my - sny * p[1] * 0.5);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  ctx.restore();
 }
 
 function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
@@ -1367,6 +1424,7 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
   // pescoço
   seg(ctx, X[J_SH], Y[J_SH], X[J_HEAD] * 0.45 + X[J_NECK] * 0.55, Y[J_HEAD] * 0.45 + Y[J_NECK] * 0.55, 19, suit && out.head !== 'astro' ? L.body : L.skin);
   drawTorso(ctx, L, s, t);
+  if (style === 'none' && legC === L.body) blendJoint(ctx, s, L.body, L.bodyShade, X[J_HIP] + 3, Y[J_HIP], X[J_FK], Y[J_FK], LEG_U, 0.35, false, false);
 
   // cabeça
   ctx.save();
@@ -1376,7 +1434,16 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
   ctx.restore();
 
   // braço da frente
-  limb(ctx, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], X[J_FH], Y[J_FH], ARM_U, ARM_L, L.body, L.bodyShade, out.mat ? deco(7) : undefined);
+  // o ombro funde-se com o tronco quando são da mesma "pele" (sem mangas nem armadura)
+  const bareTorso = style === 'trunks' || style === 'singlet' || style === 'none';
+  let soft: { over: Path2D; color: string } | undefined;
+  if (bareTorso && !sleeve && !PS.F) {
+    const tp = new Path2D();
+    torsoPath(tp, s, 19, 30);
+    soft = { over: tp, color: shade(L.bodyShade, -0.25) };
+  }
+  limb(ctx, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], X[J_FH], Y[J_FH], ARM_U, ARM_L, L.body, L.bodyShade, out.mat ? deco(7) : undefined, soft);
+  if (bareTorso && !sleeve) blendJoint(ctx, s, L.body, L.bodyShade, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], ARM_U, 0.42, !out.mat);
   if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_FE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_FE] - Y[J_SH]) * 0.8, 24, sleeve);
   refSleeve(X[J_FE], Y[J_FE], REF_WHITE);
   if (style === 'armor' && !out.shoulders) circle(ctx, X[J_SH], Y[J_SH], 13, out.c3 ?? out.c2 ?? '#aaa');

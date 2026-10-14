@@ -359,6 +359,28 @@ function makeCrowdLayer(spots: Spot[], group: number, armsUp: boolean): HTMLCanv
     }
   }
   g.globalAlpha = 1;
+  return softFocus(c);
+}
+
+/**
+ * Profundidade de campo: o público fica ligeiramente desfocado, menos saturado e mais escuro nas filas de trás,
+ * para os lutadores se destacarem (feito uma vez, ao criar as camadas).
+ */
+function softFocus(src: HTMLCanvasElement): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = src.width;
+  c.height = src.height;
+  const g = c.getContext('2d')!;
+  if ('filter' in g) g.filter = 'blur(1.1px) saturate(0.78) brightness(0.92)';
+  g.drawImage(src, 0, 0);
+  g.filter = 'none';
+  g.globalCompositeOperation = 'source-atop';
+  const fade = g.createLinearGradient(0, 0, 0, c.height);
+  fade.addColorStop(0, 'rgba(10,5,24,0.55)');
+  fade.addColorStop(0.55, 'rgba(10,5,24,0.22)');
+  fade.addColorStop(1, 'rgba(10,5,24,0.05)');
+  g.fillStyle = fade;
+  g.fillRect(0, 0, c.width, c.height);
   return c;
 }
 
@@ -530,28 +552,41 @@ export function drawBackdrop(
 
 // ───────────────────────── Ringue (espaço do mundo) ─────────────────────────
 
-let matGrad: CanvasGradient | null = null;
 let skirtGrad: CanvasGradient | null = null;
 
 function rope(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, cx: number, cy: number, color: string) {
-  ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.quadraticCurveTo(cx, cy, x2, y2);
-  strokeRope(ctx, color);
+  strokeRope(ctx, color, (dy) => {
+    ctx.beginPath();
+    ctx.moveTo(x1, y1 + dy);
+    ctx.quadraticCurveTo(cx, cy + dy, x2, y2 + dy);
+  });
 }
 
-function strokeRope(ctx: CanvasRenderingContext2D, color: string) {
+const ROPE_DARK: Record<string, string> = { '#e63946': '#8e1622', '#f1f1f1': '#9aa0ae', '#2f7bff': '#163f99' };
+
+/** Corda com volume: contorno, cor, lado de baixo na sombra e reflexo do holofote por cima. */
+function strokeRope(ctx: CanvasRenderingContext2D, color: string, trace: (dy: number) => void) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.lineWidth = 7;
+  trace(0);
+  ctx.lineWidth = 7.5;
   ctx.strokeStyle = '#120a18';
   ctx.stroke();
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
   ctx.strokeStyle = color;
   ctx.stroke();
-  ctx.lineWidth = 1.2;
-  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  const a = ctx.globalAlpha;
+  trace(1.4);
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = ROPE_DARK[color] ?? '#000';
+  ctx.globalAlpha = a * 0.75;
   ctx.stroke();
+  trace(-1.3);
+  ctx.lineWidth = 1.3;
+  ctx.strokeStyle = '#ffffff';
+  ctx.globalAlpha = a * 0.65;
+  ctx.stroke();
+  ctx.globalAlpha = a;
 }
 
 /** Desenha uma corda simulada entre dois pontos (só os nós de i0 a i1), com curvas suaves. */
@@ -561,15 +596,16 @@ function simRope(
   const n = NODES - 1;
   const px = (i: number) => x1 + ((x2 - x1) * i) / n + L.d[i] * ox;
   const py = (i: number) => y1 + ((y2 - y1) * i) / n + L.h[i] + Math.sin((i / n) * Math.PI) * sag;
-  ctx.beginPath();
-  ctx.moveTo(px(i0), py(i0));
-  for (let i = i0 + 1; i < i1; i++) {
-    const mx = (px(i) + px(i + 1)) / 2;
-    const my = (py(i) + py(i + 1)) / 2;
-    ctx.quadraticCurveTo(px(i), py(i), mx, my);
-  }
-  ctx.lineTo(px(i1), py(i1));
-  strokeRope(ctx, color);
+  strokeRope(ctx, color, (dy) => {
+    ctx.beginPath();
+    ctx.moveTo(px(i0), py(i0) + dy);
+    for (let i = i0 + 1; i < i1; i++) {
+      const mx = (px(i) + px(i + 1)) / 2;
+      const my = (py(i) + py(i + 1)) / 2;
+      ctx.quadraticCurveTo(px(i), py(i) + dy, mx, my + dy);
+    }
+    ctx.lineTo(px(i1), py(i1) + dy);
+  });
 }
 
 /** Cordas laterais: a parte de trás (até à linha dos lutadores) ou a da frente (por cima deles). */
@@ -590,87 +626,182 @@ function sideRopes(ctx: CanvasRenderingContext2D, ropes: RopeState, front: boole
 
 const ROPE_COLORS = ['#e63946', '#f1f1f1', '#2f7bff'];
 
-function post(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, w: number, team: number) {
-  ctx.fillStyle = '#1b1b24';
-  ctx.fillRect(x - w / 2, y - h, w, h);
-  ctx.fillStyle = '#3a3a4a';
-  ctx.fillRect(x - w / 2, y - h, w * 0.35, h);
-  // almofadas dos cantos
-  for (const rh of ROPE_H) {
-    ctx.fillStyle = TEAM_COLORS[team];
-    ctx.beginPath();
-    ctx.roundRect(x - w / 2 - 4, y - rh - 9, w + 8, 18, 5);
-    ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.35)';
-    ctx.fillRect(x - w / 2 - 1, y - rh - 7, w + 2, 4);
-    ctx.fillStyle = TEAM_COLORS[team];
+const postGrads = new Map<string, CanvasGradient>();
+function postGrad(ctx: CanvasRenderingContext2D, x: number, w: number): CanvasGradient {
+  const k = `${x}|${w}`;
+  let g = postGrads.get(k);
+  if (!g) {
+    g = ctx.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+    g.addColorStop(0, '#20202b');
+    g.addColorStop(0.3, '#6c6f80');
+    g.addColorStop(0.45, '#c9ccd6');
+    g.addColorStop(0.6, '#5a5d6c');
+    g.addColorStop(1, '#16161e');
+    postGrads.set(k, g);
   }
-  ctx.fillStyle = '#c0c4cc';
-  ctx.fillRect(x - w / 2 - 2, y - h - 6, w + 4, 8);
+  return g;
 }
 
-export function drawRingBack(ctx: CanvasRenderingContext2D, ropes: RopeState): void {
-  // tapete
-  if (!matGrad) {
-    matGrad = ctx.createLinearGradient(0, BACK_Y, 0, FRONT_Y);
-    matGrad.addColorStop(0, '#9aa3b8');
-    matGrad.addColorStop(1, '#e3e8f2');
+/** Poste metálico com esticadores e almofadas acolchoadas na cor da equipa. */
+function post(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, w: number, team: number) {
+  ctx.fillStyle = '#0d0a14';
+  ctx.fillRect(x - w / 2 - 1.5, y - h - 1.5, w + 3, h + 1.5);
+  ctx.fillStyle = postGrad(ctx, x, w);
+  ctx.fillRect(x - w / 2, y - h, w, h);
+  const c = TEAM_COLORS[team];
+  const dark = team === 0 ? '#9c1424' : '#1640a0';
+  for (const rh of ROPE_H) {
+    // esticador metálico por trás da almofada
+    ctx.fillStyle = '#8d909c';
+    ctx.fillRect(x - w / 2 - 7, y - rh - 3, w + 14, 6);
+    ctx.fillStyle = '#120a18';
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2 - 5.5, y - rh - 10.5, w + 11, 21, 7);
+    ctx.fill();
+    ctx.fillStyle = c;
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2 - 4, y - rh - 9, w + 8, 18, 6);
+    ctx.fill();
+    ctx.fillStyle = dark;
+    ctx.fillRect(x - w / 2 - 3, y - rh + 3, w + 6, 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.beginPath();
+    ctx.roundRect(x - w / 2 - 1, y - rh - 7, w + 2, 4, 2);
+    ctx.fill();
   }
-  ctx.fillStyle = matGrad;
-  ctx.beginPath();
-  ctx.moveTo(-BACK_X, BACK_Y);
-  ctx.lineTo(BACK_X, BACK_Y);
-  ctx.lineTo(FRONT_X, FRONT_Y);
-  ctx.lineTo(-FRONT_X, FRONT_Y);
-  ctx.closePath();
-  ctx.fill();
-  // costuras da lona e bordo
-  ctx.strokeStyle = 'rgba(70,80,110,0.12)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
+  ctx.fillStyle = '#120a18';
+  ctx.fillRect(x - w / 2 - 3.5, y - h - 7.5, w + 7, 10);
+  ctx.fillStyle = '#d4d7df';
+  ctx.fillRect(x - w / 2 - 2, y - h - 6, w + 4, 7);
+  ctx.fillStyle = 'rgba(255,255,255,0.8)';
+  ctx.fillRect(x - w / 2 - 1, y - h - 5, w + 2, 2);
+}
+
+let matCanvas: HTMLCanvasElement | null = null;
+const MS = 2;
+
+/** Tapete pré-desenhado: lona com textura, luz do holofote ao centro, cantos e bordos na sombra das cordas. */
+function makeMat(): HTMLCanvasElement {
+  const W = FRONT_X * 2;
+  const H = FRONT_Y - BACK_Y;
+  const c = document.createElement('canvas');
+  c.width = Math.round(W * MS);
+  c.height = Math.round(H * MS);
+  const g = c.getContext('2d')!;
+  g.scale(MS, MS);
+  g.translate(FRONT_X, -BACK_Y);
+  g.beginPath();
+  g.moveTo(-BACK_X, BACK_Y);
+  g.lineTo(BACK_X, BACK_Y);
+  g.lineTo(FRONT_X, FRONT_Y);
+  g.lineTo(-FRONT_X, FRONT_Y);
+  g.closePath();
+  g.clip();
+  const base = g.createLinearGradient(0, BACK_Y, 0, FRONT_Y);
+  base.addColorStop(0, '#99a1b6');
+  base.addColorStop(0.55, '#d5dbe7');
+  base.addColorStop(1, '#eef1f7');
+  g.fillStyle = base;
+  g.fillRect(-FRONT_X, BACK_Y, W, H);
+  // trama da lona
+  for (let i = 0; i < 9000; i++) {
+    const x = (hash(i * 3 + 1) - 0.5) * W;
+    const y = BACK_Y + hash(i * 7 + 2) * H;
+    g.fillStyle = hash(i * 11) > 0.5 ? 'rgba(255,255,255,0.22)' : 'rgba(60,70,100,0.07)';
+    g.fillRect(x, y, 2.2, 0.6);
+  }
+  // marcas de uso (pegadas e manchas suaves)
+  for (let i = 0; i < 26; i++) {
+    const x = (hash(i * 13 + 5) - 0.5) * W * 0.8;
+    const y = BACK_Y + 10 + hash(i * 17 + 3) * (H - 20);
+    g.fillStyle = 'rgba(70,75,100,0.05)';
+    g.beginPath();
+    g.ellipse(x, y, 18 + hash(i) * 30, 4 + hash(i * 2) * 5, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  // costuras
+  g.strokeStyle = 'rgba(70,80,110,0.13)';
+  g.lineWidth = 1.6;
+  g.beginPath();
   for (let i = 1; i < 4; i++) {
     const y = BACK_Y + ((FRONT_Y - BACK_Y) * i) / 4;
     const w = BACK_X + ((FRONT_X - BACK_X) * i) / 4;
-    ctx.moveTo(-w, y);
-    ctx.lineTo(w, y);
+    g.moveTo(-w, y);
+    g.lineTo(w, y);
   }
   for (let i = -4; i <= 4; i++) {
-    ctx.moveTo(i * (BACK_X / 5), BACK_Y);
-    ctx.lineTo(i * (FRONT_X / 5), FRONT_Y);
+    g.moveTo(i * (BACK_X / 5), BACK_Y);
+    g.lineTo(i * (FRONT_X / 5), FRONT_Y);
   }
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(196,18,44,0.85)';
-  ctx.beginPath();
-  ctx.moveTo(-FRONT_X, FRONT_Y - 7);
-  ctx.lineTo(FRONT_X, FRONT_Y - 7);
-  ctx.lineTo(FRONT_X, FRONT_Y);
-  ctx.lineTo(-FRONT_X, FRONT_Y);
-  ctx.fill();
-  // logótipo central do tapete
-  ctx.save();
-  ctx.scale(1, 0.24);
-  ctx.globalAlpha = 0.5;
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = '#c4122c';
-  ctx.beginPath();
-  ctx.arc(0, -40, 150, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.fillStyle = 'rgba(196,18,44,0.18)';
-  ctx.fill();
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = '#c4122c';
-  ctx.beginPath();
-  ctx.moveTo(-70, 10);
-  ctx.lineTo(-80, -90);
-  ctx.lineTo(-35, -40);
-  ctx.lineTo(0, -110);
-  ctx.lineTo(35, -40);
-  ctx.lineTo(80, -90);
-  ctx.lineTo(70, 10);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
-  ctx.globalAlpha = 1;
+  g.stroke();
+  // logótipo central
+  g.save();
+  g.scale(1, 0.24);
+  g.globalAlpha = 0.5;
+  g.lineWidth = 10;
+  g.strokeStyle = '#c4122c';
+  g.beginPath();
+  g.arc(0, -40, 150, 0, Math.PI * 2);
+  g.stroke();
+  g.fillStyle = 'rgba(196,18,44,0.18)';
+  g.fill();
+  g.globalAlpha = 0.55;
+  g.fillStyle = '#c4122c';
+  g.beginPath();
+  g.moveTo(-70, 10);
+  g.lineTo(-80, -90);
+  g.lineTo(-35, -40);
+  g.lineTo(0, -110);
+  g.lineTo(35, -40);
+  g.lineTo(80, -90);
+  g.lineTo(70, 10);
+  g.closePath();
+  g.fill();
+  g.restore();
+  g.globalAlpha = 1;
+  // luz do holofote principal no centro do ringue
+  g.save();
+  g.scale(1, 0.26);
+  const hot = g.createRadialGradient(0, -60, 0, 0, -60, 520);
+  hot.addColorStop(0, 'rgba(255,250,235,0.55)');
+  hot.addColorStop(0.5, 'rgba(255,248,230,0.18)');
+  hot.addColorStop(1, 'rgba(255,248,230,0)');
+  g.fillStyle = hot;
+  g.fillRect(-FRONT_X, -1200, W, 2400);
+  g.restore();
+  // sombra das cordas e dos bordos (oclusão junto aos lados)
+  for (const sx of [-1, 1]) {
+    for (let k = 0; k < 3; k++) {
+      const off = 12 + k * 9;
+      g.strokeStyle = `rgba(30,25,50,${0.1 - k * 0.022})`;
+      g.lineWidth = 6 + k * 3;
+      g.beginPath();
+      g.moveTo(sx * (BACK_X - off * 0.7), BACK_Y + 2);
+      g.lineTo(sx * (FRONT_X - off), FRONT_Y - 4);
+      g.stroke();
+    }
+    const eg = g.createLinearGradient(sx * FRONT_X, 0, sx * (FRONT_X - 90), 0);
+    eg.addColorStop(0, 'rgba(20,15,40,0.22)');
+    eg.addColorStop(1, 'rgba(20,15,40,0)');
+    g.fillStyle = eg;
+    g.fillRect(sx > 0 ? FRONT_X - 90 : -FRONT_X, BACK_Y, 90, H);
+  }
+  const back = g.createLinearGradient(0, BACK_Y, 0, BACK_Y + 34);
+  back.addColorStop(0, 'rgba(20,15,40,0.3)');
+  back.addColorStop(1, 'rgba(20,15,40,0)');
+  g.fillStyle = back;
+  g.fillRect(-FRONT_X, BACK_Y, W, 34);
+  // bordo vermelho da frente
+  g.fillStyle = 'rgba(196,18,44,0.9)';
+  g.fillRect(-FRONT_X, FRONT_Y - 7, W, 7);
+  g.fillStyle = 'rgba(255,255,255,0.25)';
+  g.fillRect(-FRONT_X, FRONT_Y - 7, W, 1.5);
+  return c;
+}
+
+export function drawRingBack(ctx: CanvasRenderingContext2D, ropes: RopeState): void {
+  matCanvas ??= makeMat();
+  ctx.drawImage(matCanvas, -FRONT_X, BACK_Y, FRONT_X * 2, FRONT_Y - BACK_Y);
 
   // postes de trás
   post(ctx, -BACK_X, BACK_Y, POST_H - 10, 14, 0);

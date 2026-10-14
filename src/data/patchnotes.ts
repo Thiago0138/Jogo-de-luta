@@ -8,6 +8,18 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.12.0',
+    date: '2026-10-14',
+    title: 'Graphics overhaul',
+    items: [
+      'Fighters look like one body instead of assembled pieces: shoulders flow into the torso and arms crossing the chest show a soft muscle crease instead of a hard black outline.',
+      'Deltoid volume and shading on the shoulders, plus a spotlight rim light on every head.',
+      'New ring canvas: woven texture, wear marks, a bright spotlight pool in the center and soft shadows under the ropes and along the edges.',
+      'Ropes now have real volume (shaded underside and a spotlight highlight) and the posts are polished steel with turnbuckles and padded corners.',
+      'Depth of field: the crowd is slightly out of focus and darker toward the back rows, so the fighters pop out of the scene.',
+    ],
+  },
+  {
     version: '1.11.3',
     date: '2026-10-14',
     title: 'Clean item previews',

@@ -6,7 +6,7 @@ import { eye, hairColors, outfitC1, type DrawOpts, type Expr } from './fighter';
 import { drawBootTo, drawGlove } from './gloves';
 import type { Look } from './look';
 import {
-  ARM_L, ARM_U, C, Cam, DL, LEG_L, LEG_U, OC, OW, PS, TAU, ell, glowSprite, limb, proj3D, seg, sheet,
+  ARM_L, ARM_U, C, Cam, DL, LEG_L, LEG_U, OC, OW, PS, TAU, capsule, ell, glowSprite, limb, proj3D, seg, sheet,
   sphereRegion, spherePt, spike, tube, viewDir, type Proj, type V3,
 } from './paint';
 import {
@@ -42,6 +42,8 @@ const ps = new Skel();
 const dl = new DL();
 
 type Pt = [number, number, number];
+
+let torsoSil: Path2D | null = null;
 
 function sec(u: number): [number, number, number] {
   for (let i = 0; i < SEC.length - 1; i++) {
@@ -114,7 +116,23 @@ function body3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, yaw: number, o:
 
   const arm = (sh: Pt, el: Pt, ha: Pt, front: boolean) => () => {
     const col = front ? L.body : skinB;
-    limb(ctx, sh[0], sh[1], el[0], el[1], ha[0], ha[1], ARM_U, ARM_L, col, front ? L.bodyShade : shade(L.bodyShade, -0.12), deco(front ? 7 : 1));
+    const bare = !sleeve && (style === 'trunks' || style === 'singlet' || style === 'none');
+    const soft = bare && torsoSil && !PS.F ? { over: torsoSil, color: shade(L.bodyShade, -0.25) } : undefined;
+    limb(ctx, sh[0], sh[1], el[0], el[1], ha[0], ha[1], ARM_U, ARM_L, col, front ? L.bodyShade : shade(L.bodyShade, -0.12), deco(front ? 7 : 1), soft);
+    // ombro fundido com o tronco (sem o "anel" de boneco articulado)
+    if (torsoSil && !PS.F && !sleeve && (style === 'trunks' || style === 'singlet' || style === 'none')) {
+      ctx.save();
+      ctx.clip(torsoSil);
+      const k = Math.max(0.5, 1 - (OW * 0.6) / ARM_U[1]);
+      const ex = sh[0] + (el[0] - sh[0]) * 0.4;
+      const ey = sh[1] + (el[1] - sh[1]) * 0.4;
+      ctx.beginPath();
+      capsule(ctx, sh[0], sh[1], ex, ey, [ARM_U[0], ARM_U[1], ARM_U[1]], k);
+      ctx.arc(sh[0], sh[1], ARM_U[0] * k + 2, 0, TAU);
+      ctx.fillStyle = C(col);
+      ctx.fill();
+      ctx.restore();
+    }
     if (sleeve) seg(ctx, sh[0], sh[1], sh[0] + (el[0] - sh[0]) * 0.8, sh[1] + (el[1] - sh[1]) * 0.8, 23, front ? sleeve : shade(sleeve, -0.12));
     if (style === 'armor' && !out.shoulders) ell(ctx, { p: (x, y, z) => [sh[0] + x, sh[1] + y, z] }, 0, 0, 0, 12, 12, 12, out.c3 ?? out.c2 ?? '#aaa');
     drawGlove(ctx, L.gloves, ha[0], ha[1], Math.atan2(ha[0] - el[0], ha[1] - el[1]), t, col, !front);
@@ -151,6 +169,7 @@ function body3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, yaw: number, o:
   dl.add(mid(fsh, fel, fha), arm(fsh, fel, fha, true));
   dl.add(mid(bhip, bkn, bft) - 2, leg(bhip, bkn, bft, false, J_BF));
   dl.add(mid(fhip, fkn, fft) - 2, leg(fhip, fkn, fft, true, J_FF));
+  torsoSil = null;
   dl.add(0, () => {
     seg(ctx, shc[0], shc[1], head[0] * 0.45 + neck[0] * 0.55, head[1] * 0.45 + neck[1] * 0.55, 19, suit && out.head !== 'astro' ? L.body : L.skin);
     torso3D(ctx, L, s, t);
@@ -213,6 +232,12 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   right.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
   for (let i = left.length - 1; i >= 0; i--) ctx.lineTo(left[i][0], left[i][1]);
   ctx.closePath();
+  // guarda a silhueta do tronco para fundir os ombros (os braços da frente desenham-se depois)
+  const sil = new Path2D();
+  right.forEach((p, i) => (i ? sil.lineTo(p[0], p[1]) : sil.moveTo(p[0], p[1])));
+  for (let i = left.length - 1; i >= 0; i--) sil.lineTo(left[i][0], left[i][1]);
+  sil.closePath();
+  torsoSil = sil;
   ctx.lineWidth = OW;
   ctx.strokeStyle = OC();
   ctx.stroke();

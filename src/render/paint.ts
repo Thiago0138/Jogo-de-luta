@@ -95,13 +95,29 @@ export function limb(
   ax: number, ay: number, bx: number, by: number, cx: number, cy: number,
   pu: Prof, pl: Prof, color: string, dark: string,
   deco?: (M: (t: number, s: number) => [number, number], len: number, seg: number) => void,
+  /** Por cima desta zona (o tronco), o contorno é uma prega suave em vez de uma linha preta. */
+  soft?: { over: Path2D; color: string },
 ) {
   ctx.beginPath();
   capsule(ctx, ax, ay, bx, by, pu);
   capsule(ctx, bx, by, cx, cy, pl);
   ctx.lineWidth = OW;
   ctx.strokeStyle = OC();
-  ctx.stroke();
+  if (soft && !PS.F) {
+    ctx.save();
+    const outside = new Path2D();
+    outside.rect(-1e4, -1e4, 2e4, 2e4);
+    outside.addPath(soft.over);
+    ctx.clip(outside, 'evenodd');
+    ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.clip(soft.over);
+    ctx.lineWidth = 3.2;
+    ctx.strokeStyle = soft.color;
+    ctx.stroke();
+    ctx.restore();
+  } else ctx.stroke();
   ctx.fillStyle = C(color);
   ctx.fill();
   if (PS.F) return;
