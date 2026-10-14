@@ -1176,7 +1176,8 @@ export class Fight {
     if (f.stamina < 25 && f.state !== 'down' && f.state !== 'ko' && Math.random() < dt * 2.5) {
       this.parts.spawn(PK.Sweat, this.jx(f, J_HEAD) + (Math.random() - 0.5) * 30, this.jy(f, J_HEAD) - 10, (Math.random() - 0.5) * 120, -120, 0.5, 2.2, '#bfe6ff', 900);
     }
-    if (f.has('p_bencao') && f.hp > 0 && f.state !== 'ko') f.hp = Math.min(f.maxHp, f.hp + f.maxHp * 0.01 * dt);
+    // Bênção: 1 de vida a cada 3 s (antes 1%/s era forte demais)
+    if (f.has('p_bencao') && f.hp > 0 && f.state !== 'ko') f.hp = Math.min(f.maxHp, f.hp + dt / 3);
     if (f.evadeT > 0) {
       f.evadeT -= dt;
       if (f.evadeT <= 0) f.evade = 'none';
@@ -1468,6 +1469,8 @@ export class Fight {
   /** Decide se o defensor esquiva/bloqueia um golpe que vai chegar. */
   private telegraph(att: Fighter, def: Fighter, kind: StrikeKind, high: boolean): void {
     if (def.state !== 'idle' || def.script || def.z > 0 || kind === 'super') return;
+    // nas demonstrações dos menus o golpe mostra-se sempre completo
+    if (this.demo) return;
     const esq = clamp(0.04 + def.s.esq * 0.0042 - att.s.vel * 0.0012, 0.02, 0.42);
     let blk = clamp(0.06 + def.s.def * 0.0036, 0.03, 0.4);
     if (def.has('p_muralha')) blk += 0.15;
@@ -1593,7 +1596,7 @@ export class Fight {
     yield* this.lungeTo(f, o, cd, 0.15);
     this.cinematic((f.x + o.x) / 2, -170, 0.3, 0.8);
     yield* this.lungeTo(f, o, cd, 0.09);
-    const ok = this.strike(f, o, { dmg: 21, reach: Math.max(cd, this.lastLunge) + 25, kind: 'kick', heavy: true, kb: 260, kd: st && Math.random() < 0.6, launch: 300, hitJ: J_FF });
+    const ok = this.strike(f, o, { dmg: 21, reach: Math.max(cd, this.lastLunge) + 25, kind: 'kick', heavy: true, kb: 260, kd: !!this.demo || Math.random() < (st ? 0.85 : 0.5), launch: 300, hitJ: J_FF });
     if (ok) {
       this.pop('SUPERKICK!', f.x, -250, '#ffd23d', 26);
       this.styleFx(f, 'superkick', this.jx(f, J_FF), this.jy(f, J_FF));
@@ -1666,20 +1669,25 @@ export class Fight {
       a.facing = 1;
       b.facing = -1;
     };
-    const down = () => {
-      this.selfDown(b, 6);
-    };
+    // derruba-o primeiro com um golpe a sério (ninguém se deita sozinho)
+    const takeDown = function* (this: Fight): Script {
+      near(78);
+      a.play('grab');
+      yield 0.25;
+      if (Math.random() < 0.5) yield* this.bodySlam(a, b, 0.5);
+      else yield* this.suplex(a, b, 0.5, false);
+      b.downT = Math.max(b.downT, 5);
+      a.face(b);
+      a.play('guard');
+      yield 0.25;
+    }.bind(this);
     switch (move) {
       case 'm_stomp':
-        near(95);
-        down();
-        yield 0.3;
+        yield* takeDown();
         yield* this.stomp(a, b);
         break;
       case 'm_elbow':
-        near(120);
-        down();
-        yield 0.3;
+        yield* takeDown();
         yield* this.elbowDrop(a, b);
         break;
       case 'm_irish':
@@ -1721,10 +1729,8 @@ export class Fight {
         break;
       case 'm_splash':
       case 'm_moonsault':
-        a.x = -140;
-        b.x = 120;
-        down();
-        yield 0.3;
+        a.x = -60;
+        yield* takeDown();
         a.diveCd = 0;
         yield* this.topRopeDive(a, b);
         break;
@@ -2311,7 +2317,7 @@ export class Fight {
       yield FRAME;
     }
     // impacto no ponto mais alto
-    const hit = this.strike(f, o, { dmg: 22, reach: reach + 60, kind: 'kick', heavy: true, body: true, kd: Math.random() < 0.22, kb: 420, hitJ: J_FF });
+    const hit = this.strike(f, o, { dmg: 22, reach: reach + 60, kind: 'kick', heavy: true, body: true, kd: !!this.demo || Math.random() < 0.45, kb: 420, hitJ: J_FF });
     if (hit) {
       this.pop('DROPKICK!', f.x, -240, '#ffd23d', 28);
       this.styleFx(f, 'dropkick', this.jx(f, J_FF), this.jy(f, J_FF));
@@ -2535,7 +2541,7 @@ export class Fight {
       return;
     }
     // esquiva rolando?
-    const roll = Math.random() < clamp(0.08 + o.s.esq * 0.004, 0.05, 0.35);
+    const roll = !this.demo && Math.random() < clamp(0.08 + o.s.esq * 0.004, 0.05, 0.35);
     const moon = f.can('m_moonsault') && (!f.can('m_splash') || Math.random() < 0.55);
     if (moon || f.can('m_splash')) this.special(f, moon ? 'm_moonsault' : 'm_splash', true);
     const msty = moon ? f.styleOf('moonsault') : null;

@@ -185,7 +185,7 @@ const I: ItemDef[] = [
   { id: 'p_furia', kind: 'passive', name: 'Final Fury', rarity: 'epico', desc: '+35% damage when below 30% health.', icon: '😤', source: 'level', unlockLevel: 18, power: 0.35 },
   { id: 'p_muralha', kind: 'passive', name: 'The Wall', rarity: 'lendario', desc: '+15% block chance and stronger counters.', icon: '🧱', source: 'chest', power: 0.15 },
   { id: 'p_fenix', kind: 'passive', name: 'Phoenix', rarity: 'mitico', desc: 'Revive once with 35% health.', icon: '🐦‍🔥', source: 'chest', power: 0.35 },
-  { id: 'p_bencao', kind: 'passive', name: 'Divine Blessing', rarity: 'celestial', desc: 'Start with half a Super and regenerate 1% health/s.', icon: '🕊️', source: 'mission', power: 0.01 },
+  { id: 'p_bencao', kind: 'passive', name: 'Divine Blessing', rarity: 'celestial', desc: 'Start with half a Super and regenerate 1 health every 3 seconds.', icon: '🕊️', source: 'mission', power: 0.01 },
 
   // ───────────── Golpes de assinatura (desbloqueiam com o nível ou compram-se com moedas até 3 níveis antes) ─────────────
   { id: 'm_stomp', kind: 'move', name: 'Stomps', rarity: 'comum', desc: 'Stomp on your downed opponent.', icon: '🦶', source: 'level', unlockLevel: 2, coins: 500, vis: { type: 'stomp' } },

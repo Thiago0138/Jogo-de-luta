@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.10.2',
+    date: '2026-10-14',
+    title: 'Complete move previews and balance',
+    items: [
+      'Move previews always show the full move: the opponent no longer blocks, dodges or counters it.',
+      'Stomps, Flying Elbow, Splash and Moonsault previews now start with a real takedown (body slam or suplex) instead of the opponent lying down on his own.',
+      'Superkick and Dropkick now knock the opponent down far more often, like the real thing.',
+      'Divine Blessing nerfed: it now regenerates 1 health every 3 seconds (was 1% of max health per second).',
+    ],
+  },
+  {
     version: '1.10.1',
     date: '2026-10-14',
     title: 'Ropes done right',
