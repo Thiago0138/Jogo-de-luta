@@ -7,6 +7,7 @@ import { mountApp } from './ui/app';
 import { openCreator } from './ui/screens/creator';
 import { modal } from './ui/dom';
 import { ico } from './ui/icons';
+import { installRotateHint } from './ui/rotateHint';
 
 async function boot(): Promise<void> {
   installAudioUnlock();
@@ -24,6 +25,7 @@ async function boot(): Promise<void> {
   }
   const root = document.getElementById('app')!;
   document.getElementById('splash')?.remove();
+  installRotateHint();
   if (!S.created) {
     openCreator(true, () => {
       mountApp(root);

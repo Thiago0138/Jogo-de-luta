@@ -17,6 +17,8 @@
   --r: 18px;
   --safe-t: env(safe-area-inset-top, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
   --c-comum: #a9b4c2;
   --c-incomum: #4cd964;
   --c-raro: #3aa0ff;
@@ -2316,6 +2318,9 @@ span.rar-celestial,
   background: radial-gradient(600px 400px at 50% 25%, rgba(255, 210, 61, 0.25), transparent 70%), linear-gradient(180deg, #2a1350, #120a24);
   animation: fadeIn 0.3s;
 }
+.results > * {
+  flex-shrink: 0;
+}
 .results.lose {
   background: radial-gradient(600px 400px at 50% 25%, rgba(58, 160, 255, 0.2), transparent 70%), linear-gradient(180deg, #1c1638, #0d0a1c);
 }
@@ -3048,8 +3053,705 @@ span.rar-celestial,
 .thumb {
   border-radius: 12px;
 }
+.id-art .thumb-icon.id-thumb {
+  display: grid;
+  place-items: center;
+  font-size: 88px;
+}
 
 .tabbar .ti .ic {
   width: 28px;
   height: 28px;
+}
+
+/* ───────────── Rodar o telemóvel (aviso em vertical) ───────────── */
+.rotate-hint {
+  display: none;
+}
+@media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
+  html:not(.portrait-ok) .rotate-hint {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    padding: calc(24px + var(--safe-t)) 28px calc(24px + var(--safe-b));
+    text-align: center;
+    background:
+      radial-gradient(420px 360px at 50% 40%, rgba(122, 92, 255, 0.45), transparent 70%),
+      linear-gradient(180deg, #24104a, #120a24);
+    animation: fadeIn 0.3s;
+  }
+}
+.rh-art {
+  width: min(220px, 60vw);
+  height: auto;
+  filter: drop-shadow(0 8px 0 rgba(0, 0, 0, 0.35));
+}
+.rh-phone {
+  transform-box: view-box;
+  transform-origin: 100px 100px;
+  animation: rhTurn 2.8s cubic-bezier(0.6, 0, 0.3, 1) infinite;
+}
+.rh-arrow {
+  animation: rhArrow 2.8s ease-in-out infinite;
+}
+@keyframes rhTurn {
+  0%,
+  22% {
+    transform: rotate(0deg);
+  }
+  48%,
+  80% {
+    transform: rotate(90deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+@keyframes rhArrow {
+  0%,
+  15% {
+    opacity: 1;
+  }
+  45%,
+  85% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.rotate-hint h2 {
+  font-size: 30px;
+  line-height: 1.1;
+  text-shadow: 0 4px 0 var(--ink), 0 0 24px rgba(255, 61, 110, 0.5);
+}
+.rotate-hint h2 span {
+  color: var(--gold);
+}
+.rotate-hint p {
+  margin: 0;
+  max-width: 300px;
+  color: var(--muted);
+  font-weight: 700;
+  line-height: 1.4;
+}
+.rotate-hint .rh-cont {
+  margin-top: 10px;
+}
+
+/* ───────────── Telemóvel na horizontal ───────────── */
+@media (orientation: landscape) and (max-height: 520px) {
+  /* Shell: barra de separadores vira um carril vertical à esquerda */
+  .shell {
+    max-width: none;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    padding-right: var(--safe-r);
+  }
+  .tabbar {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+    width: calc(78px + var(--safe-l));
+    padding: calc(6px + var(--safe-t)) 6px calc(6px + var(--safe-b)) calc(6px + var(--safe-l));
+    border-top: 0;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+    background: linear-gradient(90deg, rgba(10, 6, 20, 0.95), rgba(18, 10, 36, 0.55));
+    backdrop-filter: blur(8px);
+  }
+  .tabbar button {
+    flex-direction: column;
+    gap: 1px;
+    padding: 6px 0 5px;
+  }
+  .tabbar .tn {
+    font-size: 11px;
+  }
+  .tabbar .ti .ic {
+    width: 26px;
+    height: 26px;
+  }
+  .tabbar button.on .ti {
+    transform: scale(1.1);
+  }
+  .badge {
+    top: 0;
+    right: 8px;
+  }
+  .topbar {
+    grid-column: 2;
+    grid-row: 1;
+    padding: calc(5px + var(--safe-t)) 12px 3px;
+  }
+  .tb-avatar {
+    width: 38px;
+    height: 38px;
+    border-width: 2px;
+  }
+  .tb-lvl {
+    left: 24px;
+    top: 22px;
+    min-width: 20px;
+    height: 20px;
+    line-height: 17px;
+    font-size: 12px;
+  }
+  .tb-name {
+    font-size: 16px;
+    max-width: 30vw;
+  }
+  .tb-xp {
+    width: 120px;
+    height: 6px;
+  }
+  .pill {
+    height: 32px;
+  }
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+  }
+  .view {
+    grid-column: 2;
+    grid-row: 2;
+    padding: 4px 12px calc(12px + var(--safe-b));
+  }
+  .page-head {
+    margin: 2px 2px 8px;
+  }
+  .page-head h1 {
+    font-size: 24px;
+  }
+  .sec {
+    font-size: 18px;
+    margin: 12px 2px 8px;
+  }
+  .card {
+    padding: 10px 12px;
+  }
+  .seg {
+    margin-bottom: 8px;
+  }
+  .seg button {
+    padding: 7px 12px;
+  }
+
+  /* Ringue: lutador à esquerda, ações à direita */
+  .page-home {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0 12px;
+    align-items: start;
+  }
+  .page-home .hero {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-height: 0;
+    height: max(250px, calc(100dvh - 66px - var(--safe-t) - var(--safe-b)));
+  }
+  .page-home .hero-stage {
+    height: 100%;
+  }
+  .page-home .play {
+    grid-column: 2;
+    margin: 0 0 10px;
+    gap: 8px;
+  }
+  .page-home .chests-card {
+    grid-column: 2;
+  }
+  .hero-info {
+    inset: 10px;
+  }
+  .lg-icon .ic {
+    width: 32px;
+    height: 32px;
+  }
+  .lg-txt b {
+    font-size: 16px;
+  }
+  .lg-bar {
+    width: 130px;
+  }
+  .news-btn {
+    top: 10px;
+    right: 10px;
+    padding: 6px 10px;
+  }
+  .hero-stats {
+    bottom: 10px;
+    right: 10px;
+  }
+  .play-btn {
+    padding: 8px 12px;
+    border-radius: 18px;
+    box-shadow: 0 5px 0 var(--ink);
+  }
+  .play-btn.solo {
+    padding: 10px 16px;
+  }
+  .pb-ico {
+    font-size: 28px;
+  }
+  .play-btn.solo .pb-ico {
+    font-size: 36px;
+  }
+  .pb-txt b {
+    font-size: 19px;
+  }
+  .play-btn.solo .pb-txt b {
+    font-size: 28px;
+  }
+  .pb-txt small {
+    font-size: 11px;
+  }
+  .chests-card .card-head {
+    margin-bottom: 6px;
+  }
+  .chests-card .card-head h2 {
+    font-size: 18px;
+  }
+  .chests-card .card-head .muted {
+    font-size: 12px;
+  }
+  .chest-row {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .chest-slot {
+    padding: 6px 2px;
+  }
+  .chest-slot b {
+    font-size: 12px;
+  }
+  .chest-slot span {
+    font-size: 10px;
+    max-width: 100%;
+    white-space: nowrap;
+  }
+  .cs-art {
+    width: 40px;
+    height: 35px;
+  }
+
+  /* Lutador: retrato fixo à esquerda, separadores à direita */
+  .page-fighter {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 0 14px;
+    align-items: start;
+  }
+  .page-fighter .fighter-top {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    position: sticky;
+    top: 0;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin: 0;
+  }
+  .page-fighter .ft-stage {
+    height: max(140px, calc(100dvh - 230px - var(--safe-t) - var(--safe-b)));
+  }
+  .page-fighter .ft-info {
+    gap: 5px;
+  }
+  .page-fighter .ft-info h1 {
+    font-size: 22px;
+  }
+  .page-fighter .seg,
+  .page-fighter .f-body {
+    grid-column: 2;
+  }
+  .stat-list {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .grid {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  }
+
+  /* Modais: ocupam a altura disponível e fazem scroll por dentro */
+  .modal-back {
+    padding: 8px calc(12px + var(--safe-r)) 8px calc(12px + var(--safe-l));
+  }
+  .modal {
+    width: min(520px, 100%);
+    max-height: calc(100dvh - 16px);
+  }
+  .modal-head {
+    padding: 10px 14px 6px;
+  }
+  .modal-head h3 {
+    font-size: 20px;
+  }
+  .modal-body {
+    padding: 2px 14px 8px;
+    min-height: 0;
+  }
+  .modal-foot {
+    padding: 8px 14px 12px;
+  }
+  .modal-foot .btn {
+    flex: 1 1 0;
+  }
+  .modal.item-modal {
+    width: min(720px, 100%);
+  }
+  .item-modal .item-detail {
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    gap: 14px;
+  }
+  .item-modal .id-art {
+    flex: 0 0 48%;
+    height: min(260px, calc(100dvh - 140px));
+    min-height: 150px;
+  }
+  .item-modal .id-art.id-ent {
+    height: auto;
+  }
+  .item-modal .id-info {
+    flex: 1;
+    min-width: 0;
+  }
+  .modal:has(.settings) {
+    width: min(720px, 100%);
+  }
+  .settings {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 18px;
+  }
+  .settings > :not(.set-row) {
+    grid-column: 1 / -1;
+  }
+  .modal.trade-modal,
+  .modal.picker-modal {
+    width: min(640px, 100%);
+  }
+  .toasts {
+    top: calc(52px + var(--safe-t));
+  }
+
+  /* Criador: personagem à esquerda, opções à direita */
+  .creator {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    padding-left: var(--safe-l);
+    padding-right: var(--safe-r);
+  }
+  .cr-head {
+    grid-column: 1;
+    grid-row: 1;
+    position: relative;
+    z-index: 3;
+    padding: 8px 60px 0;
+    pointer-events: none;
+  }
+  .cr-logo {
+    font-size: 28px;
+  }
+  .cr-head p {
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .cr-head h2 {
+    font-size: 22px;
+  }
+  .cr-stage {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .cr-dice {
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    right: 10px;
+    top: 4px;
+  }
+  .cr-panel {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-width: none;
+    margin: 0;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+    border-radius: 24px 0 0 24px;
+    padding: calc(10px + var(--safe-t)) 12px calc(10px + var(--safe-b));
+  }
+  .cr-tabs {
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 5px;
+    padding-bottom: 4px;
+  }
+  .cr-tabs button {
+    padding: 6px 9px;
+    font-size: 12px;
+  }
+  .cr-opts {
+    flex: 1 1 auto;
+    min-height: 60px;
+    max-height: none;
+    padding: 6px 2px;
+  }
+  .chip.swatch {
+    width: 40px;
+    height: 40px;
+  }
+  .cr-name {
+    margin: 6px 0;
+  }
+  .cr-name input,
+  .cr-rn {
+    height: 40px;
+  }
+  .cr-rn {
+    width: 40px;
+  }
+  .cr-name input {
+    font-size: 18px;
+  }
+  .cr-actions .btn {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  /* VS */
+  .vs-title {
+    top: calc(8px + var(--safe-t));
+    font-size: 24px;
+  }
+  .vs-side {
+    padding-top: 34px;
+  }
+  .vs-art {
+    width: min(36vw, 300px);
+    height: min(50dvh, 300px);
+  }
+  .vs-fighter.second .vs-art {
+    height: min(24dvh, 120px);
+  }
+  .vs-mid {
+    font-size: 64px;
+  }
+  .vs-tap {
+    bottom: calc(10px + var(--safe-b));
+  }
+
+  /* Luta */
+  .fight-hud {
+    top: calc(6px + var(--safe-t));
+    left: calc(10px + var(--safe-l));
+    right: calc(10px + var(--safe-r));
+  }
+  .hud-name {
+    font-size: 15px;
+  }
+  .hud-clock {
+    font-size: 26px;
+  }
+  .fight-ctrl {
+    right: calc(10px + var(--safe-r));
+    bottom: calc(8px + var(--safe-b));
+    gap: 6px;
+  }
+  .fight-ctrl .btn-ghost,
+  .fight-vol {
+    height: 36px;
+  }
+  .fight-vol input {
+    width: 70px;
+  }
+  .fight-caption {
+    bottom: calc(54px + var(--safe-b));
+    max-width: min(70vw, 560px);
+    padding: 6px 14px;
+  }
+  .fight-caption b {
+    font-size: 15px;
+  }
+  .fight-caption.hot b {
+    font-size: 17px;
+  }
+  /* na entrada o HUD está escondido: a dica sobe para o topo e não colide com os botões */
+  .ent-hint {
+    top: calc(12px + var(--safe-t));
+    bottom: auto;
+  }
+
+  /* Resultados em duas colunas */
+  .results {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    grid-template-areas:
+      'title grid'
+      'sub grid'
+      'stage xp'
+      'stage stats'
+      'stage chest'
+      'stage actions'
+      'stage league';
+    grid-template-rows: auto auto auto auto auto auto 1fr;
+    align-content: center;
+    justify-items: center;
+    gap: 8px 20px;
+    padding: calc(10px + var(--safe-t)) calc(16px + var(--safe-r)) calc(10px + var(--safe-b)) calc(16px + var(--safe-l));
+  }
+  .res-title {
+    grid-area: title;
+    font-size: clamp(40px, 15dvh, 72px);
+    align-self: end;
+  }
+  .res-sub {
+    grid-area: sub;
+    margin: 0;
+  }
+  .res-stage {
+    grid-area: stage;
+    width: min(100%, 220px);
+    height: max(110px, calc(100dvh - 180px));
+    max-height: 240px;
+  }
+  .res-grid {
+    grid-area: grid;
+    align-self: end;
+  }
+  .res-item {
+    padding: 6px;
+  }
+  .res-item b {
+    font-size: 22px;
+  }
+  .res-xp {
+    grid-area: xp;
+  }
+  .res-stats {
+    grid-area: stats;
+  }
+  .res-chest {
+    grid-area: chest;
+  }
+  .rc-box {
+    padding: 8px 10px;
+  }
+  .rc-box .cs-art {
+    width: 44px;
+    height: 40px;
+  }
+  .res-actions {
+    grid-area: actions;
+    margin: 0;
+  }
+  .res-actions .btn {
+    height: 46px;
+    font-size: 18px;
+  }
+  .res-league {
+    grid-area: league;
+    align-self: start;
+  }
+  .res-grid,
+  .res-xp,
+  .res-chest,
+  .res-actions {
+    width: 100%;
+    max-width: 520px;
+  }
+
+  /* Baús */
+  .chest-ui {
+    padding: calc(10px + var(--safe-t)) calc(16px + var(--safe-r)) calc(10px + var(--safe-b)) calc(16px + var(--safe-l));
+  }
+  .chest-label b {
+    font-size: 26px;
+  }
+  .chest-label span {
+    font-size: 13px;
+  }
+  .chest-hint {
+    bottom: calc(14% + var(--safe-b));
+    font-size: 22px;
+  }
+  .chest-skip {
+    bottom: calc(10px + var(--safe-b));
+    right: calc(16px + var(--safe-r));
+  }
+  .reveal-card {
+    width: min(460px, 70vw);
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-auto-flow: dense;
+    column-gap: 14px;
+    row-gap: 2px;
+    align-items: center;
+    justify-items: start;
+    text-align: left;
+    padding: 12px 16px;
+  }
+  .reveal-card > :not(.rc-art):not(.rc-count):not(.rc-new) {
+    grid-column: 2;
+  }
+  .reveal-card .rc-art {
+    grid-column: 1;
+    grid-row: 1 / span 6;
+    width: min(150px, 34dvh);
+    height: min(150px, 34dvh);
+  }
+  .rc-art .thumb-icon {
+    font-size: min(90px, 20dvh);
+  }
+  .rc-count {
+    top: 6px;
+    left: 10px;
+  }
+  .chest-summary {
+    max-height: 100%;
+    min-height: 0;
+    padding: 12px 14px;
+    gap: 10px;
+    width: min(680px, 100%);
+  }
+  .chest-summary h2 {
+    font-size: 22px;
+  }
+  .chest-summary .sum-grid {
+    overflow-y: auto;
+    min-height: 0;
+    grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  }
+  .chest-summary .btn {
+    flex: none;
+  }
+}
+
+/* Telemóveis na horizontal muito baixos (ex.: 360px) */
+@media (orientation: landscape) and (max-height: 380px) {
+  .tabbar button {
+    padding: 4px 0 3px;
+  }
+  .tabbar .ti .ic {
+    width: 24px;
+    height: 24px;
+  }
+  .tabbar .tn {
+    font-size: 10px;
+  }
+  .chests-card .card-head .muted {
+    display: none;
+  }
 }
