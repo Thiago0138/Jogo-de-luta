@@ -497,7 +497,7 @@ export class Fight {
     f.vx = 0;
     f.x = tx;
     this.dust(f.x, 8);
-    sfx.thud();
+    this.fallSfx(1);
   }
 
   private *pose(f: Fighter, anim: AnimName, dur: number, every: number, fx: (t: number) => void, beam: Beam | null): Script {
@@ -649,7 +649,7 @@ export class Fight {
     f.noClamp = false;
     f.vx = 0;
     this.dust(f.x, 10);
-    sfx.thud();
+    this.fallSfx(1);
   }
 
   private fireColumn(px: number, py: number, k: number): void {
@@ -951,6 +951,19 @@ export class Fight {
     this.addHype(0.12);
     // um golpe de assinatura tem um grande impacto (o super pode ter vários)
     if (!isSuper) att.sigT = 0;
+  }
+
+  /**
+   * Estrondo de queda no tapete. Uma queda = um estrondo: o ressalto do corpo, o assentar depois
+   * de uma projeção ou dois corpos a cair ao mesmo tempo não voltam a tocar (só um mais forte substitui).
+   */
+  private lastFallT = -9;
+  private lastFallP = 0;
+  private fallSfx(power: number): void {
+    if (this.rt - this.lastFallT < 0.45 && power <= this.lastFallP + 0.2) return;
+    this.lastFallT = this.rt;
+    this.lastFallP = power;
+    sfx.slam(power);
   }
 
   sparks(x: number, y: number, n: number, color: string, speed = 500, kind: PK = PK.Spark): void {
@@ -2029,7 +2042,7 @@ export class Fight {
     o.blendIn(0.14, nf !== o.facing);
     o.facing = nf;
     o.setState('hit');
-    this.strike(dmgOwner, o, { dmg, reach: 9999, kind, heavy: true, kd: true, unblockable: true, kb: 0, launch: 90, ground: true });
+    this.strike(dmgOwner, o, { dmg, reach: 9999, kind, heavy: true, kd: true, unblockable: true, kb: 0, launch: 90, ground: true, silent: true });
     this.settleLying(o, nf);
     if (o.state === 'down') {
       o.impact = Math.max(o.impact, 0.55 + big * 0.35);
@@ -2038,7 +2051,7 @@ export class Fight {
     this.shake(8 + big * 6, 0.3 + big * 0.1);
     this.dust(o.x, 10 + big * 8, 90);
     this.parts.spawn(PK.Ring, o.x, 0, 0, 0, 0.45, 140 + big * 80, '#ffffff', 0);
-    sfx.slam(0.85 + big * 0.45);
+    this.fallSfx(0.85 + big * 0.45);
     ringShake(this.ropes, 0.6 + big * 0.6);
     if (big > 0.5) sfx.oooh(0.8 + big * 0.4);
     this.addHype(0.1 + big * 0.1);
@@ -2371,7 +2384,7 @@ export class Fight {
     yield () => f.z <= 0;
     f.vx = 0;
     this.dust(f.x, 6);
-    sfx.thud();
+    this.fallSfx(1);
     // levanta-se de um salto (kip-up)
     f.play('kipup', 1.1);
     yield 0.5;
@@ -2552,7 +2565,7 @@ export class Fight {
       this.strike(f, o, { dmg: 18, reach: 100, kind: 'aerial', ground: true, kb: 0, heavy: true });
       this.pop('ELBOW DROP!', f.x, -200, '#ffd23d', 26);
     } else {
-      sfx.thud();
+      this.fallSfx(1);
       this.pop('MISSED!', f.x, -180, '#aaaaaa', 24);
       this.damage(f, 8);
     }
@@ -2681,7 +2694,7 @@ export class Fight {
       this.pop('MISSED!', f.x, -200, '#aaaaaa', 30);
       this.damage(f, 22);
       this.shake(8, 0.3);
-      sfx.thud();
+      this.fallSfx(1);
     }
     this.dust(f.x, 14, 100);
     this.selfDown(f, 0.9);
@@ -2744,7 +2757,7 @@ export class Fight {
     this.pop('MISSED!', f.x, -200, '#aaaaaa', 28);
     this.damage(f, 14);
     this.shake(8, 0.3);
-    sfx.slam(0.9);
+    this.fallSfx(0.9);
     this.dust(f.x, 12, 90);
     this.selfDown(f, 0.9);
   }
@@ -3095,7 +3108,7 @@ export class Fight {
   private *fallLand(f: Fighter): Script {
     yield () => f.z <= 0;
     this.dust(f.x, 8);
-    sfx.slam(0.85);
+    this.fallSfx(0.85);
     ringShake(this.ropes, 0.4);
     this.shake(5, 0.15);
     if (f.state === 'ko') f.play('lieKO');
@@ -3389,7 +3402,7 @@ export class Fight {
       yield FRAME;
     }
     for (const s of st) s.f.z = z1;
-    if (!up) sfx.thud();
+    if (!up) this.fallSfx(1);
     yield up ? 0.05 : 0.3;
   }
 

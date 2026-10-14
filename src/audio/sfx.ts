@@ -455,7 +455,7 @@ function genSlam(sr: number): Float32Array {
   // contacto do corpo: impulso macio (massa grande)
   const hit = mk(sr, L);
   addPulse(hit, sr, 0, rnd(0.006, 0.01), 1);
-  addPulse(hit, sr, rnd(0.018, 0.03), rnd(0.008, 0.012), rnd(0.25, 0.45)); // segunda parte do corpo
+  // (uma só batida: uma segunda, ~25 ms depois, soava a duas quedas)
   const boards = mk(sr, L);
   const modes: [number, number, number][] = [
     [rnd(46, 55), 0.5, 1],
@@ -797,8 +797,8 @@ export const sfx = {
   },
   /** Impacto de golpe de assinatura / super: estrondo grave, estalo e cauda. */
   impact(power = 1) {
+    // sem camada de queda: as projeções já tocam o seu estrondo (senão ouviam-se dois)
     tone({ f: jit(90, 0.05), to: 26, dur: 0.6 * power, peak: 0.55 * power });
-    shot('slam', 0.35 * power, { rate: jit(0.7, 0.03), lp: 700, force: true });
     shot('slap', 0.3, { rate: jit(0.75, 0.05) });
   },
   /** Golpe defendido: luva/antebraço a travar, abafado. */
@@ -819,7 +819,7 @@ export const sfx = {
     });
     if (p > 1.05) {
       // quedas enormes (finishers): segundo corpo do estrondo, mais grave
-      shot('slam', 0.4 * (p - 0.9), { rate: jit(0.78, 0.03), delay: 0.012, lp: 900 });
+      shot('slam', 0.4 * (p - 0.9), { rate: jit(0.78, 0.03), lp: 900 });
       tone({ f: jit(55, 0.05), to: 28, dur: 0.45, peak: 0.5 * (p - 0.8) });
     }
   },

@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.11.2',
+    date: '2026-10-14',
+    title: 'One fall, one boom',
+    items: [
+      'Fixed: throws and slams played a double crash (the impact and then the body settling). Every fall now makes a single, clean boom.',
+      'Signature-move impacts and big finishers no longer stack an extra crash on top of the fall sound.',
+    ],
+  },
+  {
     version: '1.11.1',
     date: '2026-10-14',
     title: 'Mission details',
