@@ -3,6 +3,7 @@ import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle, mo
 import { KIND_NAMES, isTradeable, item, type ItemDef } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { resolveLook } from '../../render/look';
+import { DEFAULT_APPEARANCE } from '../../data/appearance';
 import { sfx } from '../../audio/sfx';
 import { render } from '../app';
 import { el, esc, fmt, modal, rarityTag, toast, type ModalAction } from '../dom';
@@ -139,9 +140,11 @@ export function itemArt(id: string): HTMLElement {
   const d = item(id);
   const art = el('div', `id-art r-${d.rarity}`);
   if (VISUAL.includes(d.kind)) {
-    const app = { ...S.appearance };
-    const lo = { ...S.loadout };
+    // corpo "de manequim": careca, sem barba, calções simples e mãos nuas; só o item em causa por cima
+    const app = { ...DEFAULT_APPEARANCE, hair: 'h_careca', beard: 'nenhuma' };
+    const lo = { outfit: 'o_classico', gloves: '', mask: null as string | null, aura: null as string | null };
     if (d.kind === 'hair') app.hair = id;
+    if (d.kind === 'hairColor') app.hair = DEFAULT_APPEARANCE.hair;
     if (d.kind === 'hairColor') app.hairColor = id;
     if (d.kind === 'outfit') lo.outfit = id;
     if (d.kind === 'gloves') lo.gloves = id;

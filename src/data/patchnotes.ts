@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.11.3',
+    date: '2026-10-14',
+    title: 'Clean item previews',
+    items: [
+      'Outfits, gloves, masks, auras and hair are now previewed on a plain default body (bald, simple trunks, bare hands), so you see exactly that item and nothing else.',
+      'Collection and Shop thumbnails use the same clean body.',
+    ],
+  },
+  {
     version: '1.11.2',
     date: '2026-10-14',
     title: 'One fall, one boom',

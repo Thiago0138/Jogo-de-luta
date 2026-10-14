@@ -1,3 +1,4 @@
+import { DEFAULT_APPEARANCE } from '../data/appearance';
 import { ANIMS, sample, type AnimName } from '../fight/anims';
 import { drawFighter, glowSprite, type Expr } from '../render/fighter';
 import { drawBackdrop } from '../render/aura';
@@ -6,7 +7,6 @@ import type { Look } from '../render/look';
 import { Skel, newPose, solve } from '../render/pose';
 import { item } from '../data/items';
 import { RARITIES } from '../data/rarity';
-import { S } from '../core/state';
 import { resolveLook } from '../render/look';
 import { specialThumb } from './thumbs';
 import { KIND_ICON, hasIcon, ico } from './icons';
@@ -241,7 +241,7 @@ export function itemThumb(id: string): HTMLElement {
     span.innerHTML = ico(hasIcon(d.id) ? d.id : KIND_ICON[d.kind] ?? 'star');
     return span;
   }
-  const key = `${id}|${S.appearance.skin}|${S.appearance.hair}|${S.appearance.hairColor}|${S.appearance.eyes}|${S.appearance.beard}`;
+  const key = id;
   let src = thumbCache.get(key);
   if (!src) {
     src = renderThumb(id);
@@ -257,9 +257,11 @@ export function itemThumb(id: string): HTMLElement {
 
 function renderThumb(id: string): HTMLCanvasElement {
   const d = item(id);
-  const app = { ...S.appearance };
-  const lo = { outfit: 'o_classico', gloves: 'g_vermelhas', mask: null as string | null, aura: null as string | null };
+  // corpo "de manequim" (careca, calções simples, mãos nuas): só o próprio item se vê
+  const app = { ...DEFAULT_APPEARANCE, hair: 'h_careca', beard: 'nenhuma' };
+  const lo = { outfit: 'o_classico', gloves: '', mask: null as string | null, aura: null as string | null };
   if (d.kind === 'hair') app.hair = id;
+  if (d.kind === 'hairColor') app.hair = DEFAULT_APPEARANCE.hair;
   if (d.kind === 'hairColor') app.hairColor = id;
   if (d.kind === 'outfit') lo.outfit = id;
   if (d.kind === 'gloves') lo.gloves = id;
