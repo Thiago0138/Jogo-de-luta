@@ -15,7 +15,6 @@ export interface Loadout {
   aura: string | null;
   supers: string[];
   passives: string[];
-  belt: string[];
   entrance: string;
   /** Golpes de assinatura equipados (máx. 6). */
   moves: string[];
@@ -41,6 +40,8 @@ export interface Settings {
   unlockAll: boolean;
   /** Narrador com voz. */
   announcer: boolean;
+  /** Volume do narrador (0–1). */
+  announcerVol: number;
   /** Música de fundo e volume (0–1). */
   bgm: boolean;
   bgmVol: number;
@@ -85,7 +86,6 @@ const FREE_CHEST_MS = 4 * 3600 * 1000;
 function fresh(): Save {
   const owned: Record<string, number> = {};
   for (const id of STARTER_ITEMS) owned[id] = 1;
-  owned.c_vida = 3;
   return {
     v: 1,
     created: false,
@@ -98,7 +98,6 @@ function fresh(): Save {
       aura: null,
       supers: ['s_supersoco'],
       passives: ['p_ferro'],
-      belt: ['c_vida'],
       entrance: 'e_classica',
       moves: [],
       styles: [],
@@ -121,7 +120,7 @@ function fresh(): Save {
     bestStreak: 0,
     losses: 0,
     redeemed: [],
-    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta', unlockAll: true, announcer: true, bgm: true, bgmVol: 0.5 },
+    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta', unlockAll: true, announcer: true, announcerVol: 0.9, bgm: true, bgmVol: 0.5 },
     seenPatch: '',
     freeChestAt: 0,
     partnerSeed: Math.floor(Math.random() * 1e9),
@@ -142,6 +141,13 @@ function load(): Save {
     s.chests = { ...base.chests, ...(data.chests ?? {}) };
     s.stats = { ...base.stats, ...(data.stats ?? {}) };
     s.loadout = { ...base.loadout, ...(data.loadout ?? {}) };
+    // As poções (e o cinto) foram removidas do jogo: limpa restos de saves antigos.
+    delete (s.loadout as Partial<Loadout> & { belt?: unknown }).belt;
+    const life = s.life as Tally & { potions?: number; noPotionWins?: number };
+    delete life.potions;
+    delete life.noPotionWins;
+    // A missão lendária das poções deu lugar à dos contra-ataques (mesma recompensa).
+    if (Array.isArray(s.legendaryClaimed)) s.legendaryClaimed = s.legendaryClaimed.map((id) => (id === 'l_noPot' ? 'l_counter300' : id));
     s.appearance = { ...base.appearance, ...(data.appearance ?? {}) };
     // Remove itens que deixaram de existir.
     for (const id of Object.keys(s.owned)) if (!ITEMS[id]) delete s.owned[id];
@@ -153,10 +159,6 @@ function load(): Save {
 
 export const S: Save = load();
 
-/** Modo "tudo desbloqueado" (teste): poções com fartura; o resto é tratado em owns(). */
-if (S.settings.unlockAll) {
-  for (const d of ITEM_LIST) if (d.kind === 'potion') S.owned[d.id] = Math.max(S.owned[d.id] ?? 0, 99);
-}
 // equipa automaticamente golpes de assinatura se ainda não houver nenhum
 if (!S.loadout.moves?.length) {
   S.loadout.moves = ITEM_LIST.filter((d) => d.kind === 'move' && ownsItem(d.id))
@@ -169,7 +171,7 @@ if (!S.loadout.styles) S.loadout.styles = [];
 function ownsItem(id: string): boolean {
   if ((S.owned[id] ?? 0) > 0) return true;
   const d = ITEMS[id];
-  return !!d && S.settings.unlockAll && d.kind !== 'potion';
+  return !!d && S.settings.unlockAll;
 }
 
 type Listener = () => void;
@@ -249,12 +251,12 @@ function unequipIfMissing(id: string): void {
 
 export function collectionCount(): number {
   let n = 0;
-  for (const d of ITEM_LIST) if (d.kind !== 'potion' && owns(d.id)) n++;
+  for (const d of ITEM_LIST) if (owns(d.id)) n++;
   return n;
 }
 
 export function collectibleTotal(): number {
-  return ITEM_LIST.filter((d) => d.kind !== 'potion').length;
+  return ITEM_LIST.length;
 }
 
 export function canAfford(d: ItemDef): boolean {
@@ -275,9 +277,9 @@ export function buy(d: ItemDef): boolean {
 export function recycle(id: string): number {
   const d = item(id);
   const min = d.source === 'start' ? 1 : 0;
-  if (count(id) <= Math.max(1, min) && d.kind !== 'potion') return 0;
+  if (count(id) <= Math.max(1, min)) return 0;
   if (!removeItem(id)) return 0;
-  const v = d.kind === 'potion' ? Math.round((d.coins ?? 100) * 0.4) : RARITIES[d.rarity].recycle;
+  const v = RARITIES[d.rarity].recycle;
   S.coins += v;
   commit();
   return v;
@@ -468,15 +470,15 @@ export function rollChest(id: ChestId): ChestDrop[] {
       r = RARITY_ORDER[RARITIES[r].tier - 1];
       pool = poolFor(r);
     }
-    const unowned = pool.filter((d) => !owns(d.id) && d.kind !== 'potion');
-    const potions = pool.filter((d) => d.kind === 'potion');
-    let d: ItemDef;
+    const unowned = pool.filter((d) => !owns(d.id));
     const roll = Math.random();
-    if (potions.length && roll < 0.35) d = pick(potions);
-    else if (unowned.length && roll < 0.8) d = pick(unowned);
-    else d = pick(pool);
-    const amount = d.kind === 'potion' ? rint(1, 3) : 1;
-    drops.push({ kind: 'item', id: d.id, amount, rarity: d.rarity });
+    // Se já tens tudo desta raridade, às vezes sai um saco de moedas em vez de um repetido.
+    if (!unowned.length && roll < 0.35) {
+      drops.push({ kind: 'coins', amount: Math.round(rint(c.coins[0], c.coins[1]) * 0.5), rarity: 'comum' });
+      continue;
+    }
+    const d = unowned.length && roll < 0.8 ? pick(unowned) : pick(pool);
+    drops.push({ kind: 'item', id: d.id, amount: 1, rarity: d.rarity });
   }
   // Ordena por raridade: o melhor sai no fim.
   drops.sort((a, b) => RARITIES[a.rarity].tier - RARITIES[b.rarity].tier);
@@ -488,7 +490,7 @@ export function applyDrops(chest: ChestId, drops: ChestDrop[]): void {
   for (const d of drops) {
     if (d.kind === 'coins') S.coins += d.amount;
     else if (d.kind === 'gems') S.gems += d.amount;
-    else if (d.id) d.isNew = grant(d.id, d.amount) && item(d.id).kind !== 'potion';
+    else if (d.id) d.isNew = grant(d.id, d.amount);
   }
   applyTally({ chestsOpened: 1 });
   commit();

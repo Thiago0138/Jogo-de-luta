@@ -26,7 +26,7 @@ export function itemCard(id: string, o: CardOpts = {}): HTMLElement {
   c.appendChild(name);
   const foot = el('div', 'ic-foot');
   if (o.shop) {
-    if (have && d.kind !== 'potion') foot.innerHTML = '<span class="ic-owned">Tens ✓</span>';
+    if (have) foot.innerHTML = '<span class="ic-owned">Tens ✓</span>';
     else {
       const old = o.discount ? `<s>${priceHtml(d)}</s>` : '';
       foot.innerHTML = `${old}<span class="ic-price">${priceHtml(d, o.discount ?? 0)}</span>`;

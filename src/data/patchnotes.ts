@@ -8,6 +8,24 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.5.0',
+    date: '2026-10-14',
+    title: 'Trajes épicos, rotação 360° e narrador em inglês',
+    items: [
+      'NOVO: Rotação 360° do lutador! Arrasta para rodar na Aparência, no Lutador, no Ringue e nas pré-visualizações dos itens (toque duplo volta à vista inicial).',
+      'Trajes renovados: os básicos continuam simples, os raros viram disfarces completos — T-Rex, Tubarão Assassino, Astronauta, Mecha Titã, Golem de Lava, Gigante de Gelo, Fénix Imortal, Super-Herói e mais.',
+      'Capas, asas, caudas, capacetes, mochilas a jato, escudos, guitarras e ombreiras animados, visíveis nas lutas e nos menus.',
+      'Luvas reinventadas por raridade: manoplas cravejadas, punhos de pedra, manoplas Tesla, gelo, cabeças de dragão, punhos mecha, mãos da sombra, punhos cósmicos e punhos do sol.',
+      'Auras melhoradas e agora também são o fundo animado do teu lutador nos menus: holofotes, néon retro, faíscas, sakura, fogo, tempestade, aurora boreal, abismo e cosmos.',
+      'Coleção: ao abrir uma entrada vês a entrada completa a acontecer.',
+      'Corrigido o dado 🎲 da Aparência.',
+      'As poções foram retiradas do jogo.',
+      'Narrador todo em inglês, com volume próprio nas Definições e botão 🎙️ para o ligar/desligar durante a luta.',
+      'Câmara lenta cinematográfica nos golpes de assinatura e nos supers, com zoom no impacto.',
+      'Golpes corrigidos: contacto mais preciso, transições suaves, projeções sem saltos, Dropkick, Spear, DDT, Chokeslam e mergulhos da corda de cima refeitos.',
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-10-14',
     title: 'Golpes de assinatura, narrador e música!',

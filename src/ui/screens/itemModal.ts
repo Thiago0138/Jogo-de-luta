@@ -1,3 +1,4 @@
+import { coversHead } from '../../render/costume';
 import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle } from '../../core/state';
 import { KIND_NAMES, MOVE_SLOTS, isTradeable, item, type ItemDef } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
@@ -5,13 +6,13 @@ import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
 import { render } from '../app';
 import { el, esc, fmt, modal, rarityTag, toast, type ModalAction } from '../dom';
+import { EntrancePreview } from '../entrancePreview';
 import { Preview } from '../preview';
 import { clearThumbs } from '../preview';
 import { openTrade } from './trade';
 
 export const superSlots = () => 2;
 export const passiveSlots = () => 2;
-export const beltSlots = () => 3;
 
 export function isEquipped(id: string): boolean {
   const d = item(id);
@@ -33,8 +34,6 @@ export function isEquipped(id: string): boolean {
       return L.supers.includes(id);
     case 'passive':
       return L.passives.includes(id);
-    case 'potion':
-      return L.belt.includes(id);
     case 'entrance':
       return L.entrance === id;
     case 'move':
@@ -51,7 +50,7 @@ export function toggleEquip(id: string): void {
   const on = isEquipped(id);
   const slotList = (list: string[], max: number) => {
     if (on) {
-      if (list.length > 1 || d.kind === 'potion') list.splice(list.indexOf(id), 1);
+      if (list.length > 1) list.splice(list.indexOf(id), 1);
       else {
         toast('Precisas de ter pelo menos um equipado.', 'info');
         return;
@@ -85,9 +84,6 @@ export function toggleEquip(id: string): void {
       break;
     case 'passive':
       slotList(L.passives, passiveSlots());
-      break;
-    case 'potion':
-      slotList(L.belt, beltSlots());
       break;
     case 'entrance':
       L.entrance = id;
@@ -153,13 +149,15 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     if (d.kind === 'gloves') lo.gloves = id;
     if (d.kind === 'mask') lo.mask = id;
     if (d.kind === 'aura') lo.aura = id;
-    const p = new Preview(resolveLook(app, lo));
+    // para ver o cabelo, a cor ou a máscara, tira um traje que tape a cabeça
+    if ((d.kind === 'hair' || d.kind === 'hairColor' || d.kind === 'mask') && coversHead(lo.outfit)) lo.outfit = 'o_classico';
+    const p = new Preview(resolveLook(app, lo), { turn: true, spin: true });
     p.play('taunt', 'happy');
     art.appendChild(p.canvas);
   } else if (d.kind === 'entrance') {
-    const p = new Preview(resolveLook(S.appearance, S.loadout));
-    p.play((d.vis?.style ?? 'victory') as never, 'happy');
-    art.appendChild(p.canvas);
+    // a entrada completa, em ciclo, com o teu lutador (pára sozinha ao fechar o modal)
+    art.classList.add('id-ent');
+    art.appendChild(new EntrancePreview(id).el);
     art.appendChild(el('div', 'id-badge', d.icon));
   } else {
     art.appendChild(el('div', 'id-icon', d.icon));
@@ -198,8 +196,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     }
   }
   if (ctx === 'shop' && (d.coins != null || d.gems != null) && d.source === 'shop') {
-    const canStack = d.kind === 'potion';
-    if (owns(id) && !canStack) {
+    if (owns(id)) {
       actions.push({ label: 'Já tens ✓', cls: 'btn-ghost', onClick: () => false });
     } else {
       actions.push({
@@ -222,10 +219,10 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
   }
   if (owns(id)) {
     const eq = isEquipped(id);
-    const removable = ['mask', 'aura', 'super', 'passive', 'potion', 'move', 'moveStyle'].includes(d.kind);
+    const removable = ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(d.kind);
     if (!eq || removable) {
       actions.push({
-        label: eq ? 'Desequipar' : d.kind === 'potion' ? 'Pôr no cinto' : 'Equipar',
+        label: eq ? 'Desequipar' : 'Equipar',
         cls: eq ? 'btn-ghost' : 'btn-blue',
         onClick: () => {
           toggleEquip(id);
@@ -235,9 +232,8 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
       });
     } else actions.push({ label: 'Equipado ✓', cls: 'btn-ghost', onClick: () => false });
     if (ctx === 'collection') {
-      const dup = d.kind === 'potion' ? n >= 1 : n >= 2;
-      if (dup) {
-        const v = d.kind === 'potion' ? Math.round((d.coins ?? 100) * 0.4) : r.recycle;
+      if (n >= 2) {
+        const v = r.recycle;
         actions.push({
           label: `Reciclar +🪙${fmt(v)}`,
           cls: 'btn-ghost',

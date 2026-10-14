@@ -106,7 +106,6 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     aura: gear('aura', maxTier, r, o.champion ? 0.9 : li * 0.08),
     supers: [gear('super', Math.min(maxTier, 2 + Math.floor(lvl / 10)), r) ?? 's_supersoco'],
     passives: [gear('passive', Math.min(maxTier, 1 + Math.floor(lvl / 12)), r) ?? 'p_ferro'],
-    belt: lvl >= 3 ? ['c_vida'] : [],
     entrance: gear('entrance', Math.min(6, maxTier + 1), r) ?? 'e_classica',
     moves: movesFor(lvl, r),
     styles: [],
@@ -126,7 +125,6 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     look: resolveLook(app, loadout),
     supers: loadout.supers,
     passives: loadout.passives,
-    belt: loadout.belt,
     entrance: loadout.entrance,
     moves: loadout.moves,
     isPlayer: false,
@@ -150,14 +148,12 @@ export function makePartner(): FighterSpec {
     look: resolveLook(app, loadout),
     supers: ['s_supersoco'],
     passives: ['p_ferro'],
-    belt: [],
     moves: movesFor(lvl, seeded(S.partnerSeed + 11)),
     isPlayer: false,
   };
 }
 
 export function playerSpec(): FighterSpec {
-  const belt = S.loadout.belt.filter((id) => (S.owned[id] ?? 0) > 0);
   return {
     name: S.name || 'Tu',
     level: S.level,
@@ -165,7 +161,6 @@ export function playerSpec(): FighterSpec {
     look: resolveLook(S.appearance, S.loadout),
     supers: [...S.loadout.supers],
     passives: [...S.loadout.passives],
-    belt,
     entrance: S.loadout.entrance,
     moves: S.loadout.moves.filter((id) => owns(id)),
     styles: S.loadout.styles.filter((id) => owns(id)),

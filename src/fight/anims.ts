@@ -53,14 +53,14 @@ const TAUNT1 = P({ lean: -0.12, head: -0.25, fa1: 2.4, fa2: 2.0, ba1: 2.3, ba2: 
 const TAUNT2 = P({ lean: -0.18, head: -0.35, fa1: 2.6, fa2: 1.6, ba1: 2.5, ba2: 1.7, dy: -3 });
 const VICTORY = P({ lean: -0.1, head: -0.3, fa1: 2.95, fa2: 0.15, ba1: 2.8, ba2: 0.2, fl1: 0.2, bl1: -0.2 });
 const VICTORY2 = P({ lean: -0.15, head: -0.35, fa1: 2.75, fa2: 0.5, ba1: 3.0, ba2: 0.1, fl1: 0.25, bl1: -0.2, dy: -4 });
-const DRINK = P({ lean: -0.05, head: -0.45, ba1: 0.9, ba2: 2.5, fa1: 2.2, fa2: 2.3 });
 
 const CHARGE = P({ dy: 14, lean: -0.15, head: -0.3, fa1: 1.8, fa2: 0.6, ba1: 1.9, ba2: 0.4, fl1: 0.7, fl2: -0.9, bl1: -0.6, bl2: -0.5 });
 const HAYMAKER_W = P({ lean: -0.3, ba1: -0.4, ba2: 1.8, fa1: 0.7, fa2: 2.2, fl1: 0.5, bl1: -0.3, dx: -6 });
 const HAYMAKER = P({ lean: 0.5, ba1: 1.6, ba2: -0.05, fa1: 0.3, fa2: 2.2, fl1: 0.8, fl2: -0.3, bl1: -0.6, bl2: -0.2, dx: 10 });
 
 const CLOTHES = P({ lean: 0.2, fa1: 1.6, fa2: 0.0, ba1: -0.4, ba2: 1.0 });
-const DROPKICK = P({ rot: -1.3, lean: 0, fl1: 1.5, fl2: 0, bl1: 1.4, bl2: 0, fa1: -0.5, fa2: 1.2, ba1: -0.8, ba2: 1.0, head: 0.4 });
+// corpo esticado na horizontal, pernas juntas para a frente (ligeiramente para cima)
+const DROPKICK = P({ rot: -1.35, lean: 0, fl1: 0.42, fl2: 0.02, bl1: 0.3, bl2: 0.05, fa1: -0.5, fa2: 1.2, ba1: -0.8, ba2: 1.0, head: 0.55 });
 const TUCK = P({ lean: 0.6, fl1: 1.8, fl2: -2.2, bl1: 1.6, bl2: -2.1, fa1: 1.3, fa2: 1.4, ba1: 1.2, ba2: 1.5, head: 0.3 });
 const SPLASH = P({ rot: 1.45, lean: 0, fa1: 2.8, fa2: 0.2, ba1: 2.7, ba2: 0.3, fl1: 0.1, bl1: -0.1, head: -0.5 });
 const ELBOW = P({ rot: 1.3, fa1: 1.6, fa2: 2.6, ba1: 1.2, ba2: 1.5, fl1: 0.4, bl1: -0.3, head: -0.2 });
@@ -120,7 +120,6 @@ export const ANIMS = {
   archUp: A([[0, ARCH], [0.4, KNEEL], [0.7, GUARD]]),
   taunt: A([[0, GUARD], [0.2, TAUNT1], [0.45, TAUNT2], [0.7, TAUNT1], [0.95, TAUNT2], [1.25, GUARD]]),
   victory: A([[0, VICTORY], [0.5, VICTORY2], [1.0, VICTORY]], true),
-  drink: A([[0, GUARD], [0.18, DRINK], [0.55, DRINK], [0.7, GUARD]]),
   charge: A([[0, GUARD], [0.2, CHARGE, snap], [10, CHARGE]]),
   haymakerW: A([[0, CHARGE], [0.12, HAYMAKER_W], [10, HAYMAKER_W]]),
   haymaker: A([[0, HAYMAKER_W], [0.08, HAYMAKER, snap], [0.4, HAYMAKER], [0.65, GUARD]]),

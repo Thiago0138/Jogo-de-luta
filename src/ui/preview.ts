@@ -1,5 +1,7 @@
 import { ANIMS, sample, type AnimName } from '../fight/anims';
 import { drawFighter, glowSprite, type Expr } from '../render/fighter';
+import { drawBackdrop } from '../render/aura';
+import { drawFighter3D } from '../render/turntable';
 import type { Look } from '../render/look';
 import { Skel, newPose, solve } from '../render/pose';
 import { item } from '../data/items';
@@ -24,13 +26,24 @@ export class Preview {
   focusHead = false;
   stage = true;
   visible = true;
+  /** Vista 3D que se pode rodar 360° arrastando o dedo. */
+  turn = false;
+  /** Rotação atual (0 = perfil; π/2 = de frente). */
+  yaw = YAW0;
+  /** Roda sozinho devagar quando ninguém está a arrastar. */
+  spin = false;
+  private vel = 0;
+  private dragging = false;
+  private lastX = 0;
+  private lastMove = 0;
+  private tapT = 0;
   private pose = newPose();
   private skel = new Skel();
   private ctx: CanvasRenderingContext2D;
   private obs: IntersectionObserver;
   private idleT = 0;
 
-  constructor(look: Look, opts: { stage?: boolean; focusHead?: boolean; zoom?: number } = {}) {
+  constructor(look: Look, opts: { stage?: boolean; focusHead?: boolean; zoom?: number; turn?: boolean; spin?: boolean } = {}) {
     this.look = look;
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'preview';
@@ -38,12 +51,56 @@ export class Preview {
     this.stage = opts.stage ?? true;
     this.focusHead = opts.focusHead ?? false;
     this.zoom = opts.zoom ?? 1;
+    this.turn = opts.turn ?? false;
+    this.spin = opts.spin ?? false;
+    if (this.turn) this.bindDrag();
     this.obs = new IntersectionObserver((es) => {
       for (const e of es) this.visible = e.isIntersecting;
     });
     this.obs.observe(this.canvas);
     active.add(this);
     ensureLoop();
+  }
+
+  /** Arrastar na horizontal roda o lutador (com inércia); toque duplo volta à vista inicial. */
+  private bindDrag(): void {
+    const c = this.canvas;
+    c.classList.add('turnable');
+    c.style.touchAction = 'pan-y';
+    c.addEventListener('pointerdown', (e) => {
+      this.dragging = true;
+      this.lastX = e.clientX;
+      this.lastMove = performance.now();
+      this.vel = 0;
+      try {
+        c.setPointerCapture(e.pointerId);
+      } catch {
+        /* sem captura */
+      }
+      const now = performance.now();
+      if (now - this.tapT < 320) {
+        this.yaw = YAW0;
+        this.vel = 0;
+      }
+      this.tapT = now;
+    });
+    c.addEventListener('pointermove', (e) => {
+      if (!this.dragging) return;
+      const dx = e.clientX - this.lastX;
+      const now = performance.now();
+      const dt = Math.max(1, now - this.lastMove);
+      this.lastX = e.clientX;
+      this.lastMove = now;
+      const k = 7 / Math.max(240, c.clientWidth);
+      this.yaw -= dx * k;
+      this.vel = this.vel * 0.5 + ((-dx * k) / dt) * 1000 * 0.5;
+    });
+    const up = () => {
+      this.dragging = false;
+      if (performance.now() - this.lastMove > 90) this.vel = 0;
+    };
+    c.addEventListener('pointerup', up);
+    c.addEventListener('pointercancel', up);
   }
 
   play(a: AnimName, expr: Expr = 'normal'): void {
@@ -87,7 +144,23 @@ export class Preview {
       this.play('taunt', 'happy');
     }
     sample(a, this.at, this.pose);
-    if (this.anim === 'guard') this.pose.dy += Math.sin(t * 5) * 1.5;
+    if (this.anim === 'guard') {
+      this.pose.dy += Math.sin(t * 5) * 1.5;
+      if (this.turn) {
+        // guarda descontraída para se ver bem a cara de frente
+        this.pose.fa1 = 0.32 + Math.sin(t * 2) * 0.04;
+        this.pose.fa2 = 1.25;
+        this.pose.ba1 = 0.42;
+        this.pose.ba2 = 1.15;
+      }
+    }
+    if (this.turn && !this.dragging) {
+      if (Math.abs(this.vel) > 0.02) {
+        this.yaw += this.vel * dt;
+        this.vel *= Math.pow(0.04, dt);
+      } else if (this.spin) this.yaw += dt * 0.55;
+      else this.vel = 0;
+    }
     solve(this.pose, this.skel);
     const ctx = this.ctx;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -105,25 +178,17 @@ export class Preview {
       hipX = W / 2;
       hipY = H * this.floor - this.skel.minY * scale * k;
     }
-    if (this.stage && !this.focusHead) {
-      const fy = H * this.floor;
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.35;
-      ctx.drawImage(glowSprite('#7a5cff'), W / 2 - W * 0.45, fy - H * 0.12, W * 0.9, H * 0.24);
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(W / 2, fy, 52 * scale, 10 * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    if (this.stage && !this.focusHead) drawBackdrop(ctx, this.look.aura, W, H, t, H * this.floor, scale);
     ctx.translate(hipX, hipY);
     ctx.scale(scale * k * this.facing, scale * k);
-    drawFighter(ctx, this.look, this.skel, { t, expr: this.expr, flash: false, glow: null, rim: this.focusHead ? null : '#a98bff' });
+    const o = { t, expr: this.expr, flash: false, glow: null, rim: this.focusHead ? null : '#a98bff' };
+    if (this.turn) drawFighter3D(ctx, this.look, this.skel, this.yaw, o);
+    else drawFighter(ctx, this.look, this.skel, o);
   }
 }
 
 const active = new Set<Preview>();
+const YAW0 = 0.85;
 let running = false;
 let lastT = 0;
 

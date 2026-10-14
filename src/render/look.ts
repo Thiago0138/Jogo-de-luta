@@ -1,4 +1,4 @@
-import { EYE_COLORS, SKIN_SHADES, SKIN_TONES, type Appearance } from '../data/appearance';
+import { EYE_COLORS, SKIN_SHADES, SKIN_TONES, shade, type Appearance } from '../data/appearance';
 import { ITEMS, type Vis } from '../data/items';
 import type { Loadout } from '../core/state';
 
@@ -6,6 +6,9 @@ import type { Loadout } from '../core/state';
 export interface Look {
   skin: string;
   skinShade: string;
+  /** Cor do corpo (pele ou fato de corpo inteiro). */
+  body: string;
+  bodyShade: string;
   eyeColor: string;
   eyes: string;
   brows: string;
@@ -22,10 +25,20 @@ export interface Look {
 
 const EMPTY: Vis = {};
 
+/** Materiais que também mudam a cor da cabeça (golems e corpo cósmico). */
+const HEAD_MAT: Record<string, string> = { lava: '#4a2c22', ice: '#a8e2ff', cosmic: '#2a1a6a' };
+
 export function resolveLook(a: Appearance, l: Pick<Loadout, 'outfit' | 'gloves' | 'mask' | 'aura'>): Look {
+  const o = ITEMS[l.outfit]?.vis ?? EMPTY;
+  const hm = o.mat ? HEAD_MAT[o.mat] : undefined;
+  const skin = hm ?? SKIN_TONES[a.skin] ?? SKIN_TONES[2];
+  const skinShade = hm ? shade(hm, -0.25) : SKIN_SHADES[a.skin] ?? SKIN_SHADES[2];
+  const body = o.suit ?? skin;
   return {
-    skin: SKIN_TONES[a.skin] ?? SKIN_TONES[2],
-    skinShade: SKIN_SHADES[a.skin] ?? SKIN_SHADES[2],
+    skin,
+    skinShade,
+    body,
+    bodyShade: o.suit ? shade(o.suit, -0.25) : skinShade,
     eyeColor: EYE_COLORS[a.eyeColor] ?? EYE_COLORS[0],
     eyes: a.eyes,
     brows: a.brows,

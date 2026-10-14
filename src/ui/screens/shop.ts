@@ -17,7 +17,6 @@ const TABS: { id: string; name: string }[] = [
   { id: 'moves', name: '🤼 Golpes' },
   { id: 'entrances', name: '🎆 Entradas' },
   { id: 'abilities', name: '⚡ Habilidades' },
-  { id: 'potions', name: '🧪 Poções' },
   { id: 'chests', name: '🎁 Baús' },
   { id: 'gems', name: '💎 Gemas' },
 ];
@@ -31,7 +30,7 @@ function shopItems(kinds: ItemKind[]) {
 /** 6 itens em destaque por dia (iguais durante o dia), um deles com desconto. */
 export function featured(): { id: string; discount: number }[] {
   const r = seeded(hashStr('loja' + dayKey() + S.partnerSeed));
-  const pool = ITEM_LIST.filter((d) => d.source === 'shop' && d.kind !== 'potion');
+  const pool = ITEM_LIST.filter((d) => d.source === 'shop');
   const unowned = shuffle(pool.filter((d) => !owns(d.id)), r);
   const rest = shuffle(pool.filter((d) => owns(d.id)), r);
   const pick = [...unowned, ...rest].slice(0, 6);
@@ -99,10 +98,6 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
       body.appendChild(el('h3', 'sec', 'Passivas'));
       body.appendChild(grid(shopItems(['passive']).map((d) => ({ id: d.id, discount: 0 }))));
       body.appendChild(el('p', 'muted small', 'Mais habilidades raras saem em baús, sobem com o nível ou são prémios de Desafios Lendários.'));
-      break;
-    case 'potions':
-      body.appendChild(el('p', 'muted small', 'As poções ficam no teu cinto e são usadas automaticamente durante a luta, no momento certo. Só gastas as que forem usadas.'));
-      body.appendChild(grid(shopItems(['potion']).map((d) => ({ id: d.id, discount: 0 }))));
       break;
     case 'chests': {
       const g = el('div', 'chest-shop');

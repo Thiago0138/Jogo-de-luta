@@ -47,7 +47,7 @@ export function renderHome(page: HTMLElement): void {
       <div class="chest-row"></div>
     </section>`;
 
-  const prev = new Preview(resolveLook(S.appearance, S.loadout));
+  const prev = new Preview(resolveLook(S.appearance, S.loadout), { turn: true });
   page.querySelector('.hero-stage')!.appendChild(prev.canvas);
   prev.canvas.onclick = () => {
     sfx.click();

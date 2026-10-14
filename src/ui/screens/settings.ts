@@ -3,6 +3,7 @@ import { PATCH_NOTES, CURRENT_VERSION } from '../../data/patchnotes';
 import { RARITIES, RARITY_ORDER } from '../../data/rarity';
 import { setAmbient, setSound, setVolume, sfx } from '../../audio/sfx';
 import { music } from '../../audio/music';
+import { pickEnglishVoice } from '../../audio/announcer';
 import { render } from '../app';
 import { el, esc, modal } from '../dom';
 
@@ -13,7 +14,8 @@ export function openSettings(): void {
     <label class="set-row vol-row"><span>🔈 Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
     <label class="set-row vol-row"><span>🎵 Música</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
     <label class="set-row"><span>🎶 Música ligada</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
-    <label class="set-row"><span>🎙️ Narrador com voz</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
+    <label class="set-row"><span>🎙️ Narrador (voz e legendas)</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
+    <label class="set-row vol-row"><span>🎙️ Volume do narrador</span><input type="range" class="annv" min="0" max="100" step="1" value="${Math.round(s.announcerVol * 100)}"/><b class="ann-n">${Math.round(s.announcerVol * 100)}%</b></label>
     <label class="set-row"><span>🔓 Tudo desbloqueado (modo teste)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
     <label class="set-row"><span>🔊 Efeitos sonoros</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
     <label class="set-row"><span>👥 Som do público</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
@@ -41,6 +43,16 @@ export function openSettings(): void {
     music.setVolume(s.bgmVol);
   };
   bgmv.onchange = () => commit();
+  const annv = b.querySelector('.annv') as HTMLInputElement;
+  const annN = b.querySelector('.ann-n') as HTMLElement;
+  annv.oninput = () => {
+    s.announcerVol = Number(annv.value) / 100;
+    annN.textContent = annv.value + '%';
+  };
+  annv.onchange = () => {
+    commit();
+    sayTest(s.announcerVol);
+  };
   vol.onchange = () => {
     commit();
     sfx.click();
@@ -84,6 +96,23 @@ export function openSettings(): void {
     ]);
   };
   modal('Definições', b);
+}
+
+/** Frase curta para ouvir o volume do narrador. */
+function sayTest(vol: number): void {
+  if (!S.settings.announcer || vol <= 0 || typeof speechSynthesis === 'undefined') return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance("Let's get ready to rumble!");
+    const v = pickEnglishVoice();
+    if (v) u.voice = v;
+    u.lang = v?.lang ?? 'en-US';
+    u.volume = vol;
+    u.rate = 1.1;
+    speechSynthesis.speak(u);
+  } catch {
+    /* sem voz */
+  }
 }
 
 export function openPatchNotes(): void {

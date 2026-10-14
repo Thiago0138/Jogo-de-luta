@@ -66,6 +66,13 @@ export class FightScene {
   /** Rastos dos punhos/pés (posições recentes no mundo). */
   private smear = new Map<Fighter, Float32Array>();
   private letter = 0;
+  /** Peso suavizado da câmara lenta (zoom/enquadramento). */
+  private cineS = 0;
+  /** Montra de entrada (pré-visualização): sem HUD, narrador, música nem público. */
+  private showcase: boolean;
+  private setup: FightSetup;
+  private showcaseT = 0;
+  private seen = false;
   private onResize = () => this.resize();
   private onVis = () => {
     if (!document.hidden) this.last = performance.now();
@@ -75,50 +82,62 @@ export class FightScene {
     this.opts = opts;
     this.speed = opts.speed;
     this.low = opts.quality === 'baixa';
+    this.setup = setup;
+    this.showcase = !!setup.showcase;
     ensureArena();
-    this.fight = new Fight(setup);
-    this.announcer = new Announcer(S.settings.announcer, S.settings.volume, (text, prio) => this.caption(text, prio));
-    this.fight.onEvent = (ev, a, b, x) => {
-      if (!this.skipping) this.announcer.event(ev, a?.spec.name, b?.spec.name, x);
-      opts.onEvent?.(ev);
-    };
-    this.fight.onEnd = (r) => {
-      this.announcer.stop();
-      stopCrowd();
-      setTimeout(() => !this.destroyed && opts.onEnd(r), 400);
-    };
+    this.announcer = new Announcer(this.showcase ? false : S.settings.announcer, S.settings.announcerVol, (text, prio) => this.caption(text, prio));
+    this.fight = this.newFight();
     this.root = document.createElement('div');
-    this.root.className = 'fight-root';
+    this.root.className = 'fight-root' + (this.showcase ? ' showcase' : '');
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'fight-canvas';
     this.root.appendChild(this.canvas);
     this.ctx = this.canvas.getContext('2d', { alpha: false })!;
-    this.buildHud(setup.mode === 'tag');
+    if (!this.showcase) this.buildHud(setup.mode === 'tag');
     container.appendChild(this.root);
     this.resize();
     window.addEventListener('resize', this.onResize);
     document.addEventListener('visibilitychange', this.onVis);
-    startCrowd();
-    music.play('fight');
+    if (!this.showcase) {
+      startCrowd();
+      music.play('fight');
+    }
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.loop);
   }
 
+  private newFight(): Fight {
+    const fight = new Fight(this.setup);
+    fight.onEvent = (ev, a, b, x) => {
+      if (!this.skipping && !this.showcase) this.announcer.event(ev, a?.spec.name, b?.spec.name, x);
+      this.opts.onEvent?.(ev);
+    };
+    fight.onEnd = (r) => {
+      this.announcer.stop();
+      stopCrowd();
+      setTimeout(() => !this.destroyed && this.opts.onEnd(r), 400);
+    };
+    return fight;
+  }
+
   destroy(): void {
+    if (this.destroyed) return;
     this.destroyed = true;
     cancelAnimationFrame(this.raf);
     window.removeEventListener('resize', this.onResize);
     document.removeEventListener('visibilitychange', this.onVis);
-    stopCrowd();
     this.announcer.stop();
-    music.play('menu');
+    if (!this.showcase) {
+      stopCrowd();
+      music.play('menu');
+    }
     this.root.remove();
   }
 
   private resize(): void {
-    const r = this.root.getBoundingClientRect();
-    this.W = Math.max(1, r.width);
-    this.H = Math.max(1, r.height);
+    // tamanho de layout (não afetado por transformações, ex.: animação de abertura do modal)
+    this.W = Math.max(1, this.root.clientWidth);
+    this.H = Math.max(1, this.root.clientHeight);
     this.dpr = this.low ? 1 : Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
@@ -162,13 +181,22 @@ export class FightScene {
 
     const ctr = document.createElement('div');
     ctr.className = 'fight-ctrl';
-    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">🔊<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ⏭</button>`;
+    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">🔊<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost mic${S.settings.announcer ? '' : ' off'}" aria-label="Narrador" title="Narrador">🎙️</button><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ⏭</button>`;
     const vol = ctr.querySelector('.fight-vol input') as HTMLInputElement;
     vol.oninput = () => {
       S.settings.volume = Number(vol.value) / 100;
       setVolume(S.settings.volume);
     };
     vol.onchange = () => commit();
+    const mic = ctr.querySelector('.mic') as HTMLButtonElement;
+    mic.onclick = () => {
+      S.settings.announcer = !S.settings.announcer;
+      this.announcer.setEnabled(S.settings.announcer);
+      mic.classList.toggle('off', !S.settings.announcer);
+      if (!S.settings.announcer && this.capEl) this.capEl.classList.remove('on');
+      commit();
+      sfx.click();
+    };
     const sp = ctr.querySelector('.sp') as HTMLButtonElement;
     sp.onclick = () => {
       this.speed = this.speed === 1 ? 2 : 1;
@@ -260,10 +288,27 @@ export class FightScene {
 
   private loop = (now: number) => {
     if (this.destroyed) return;
+    // a montra liberta-se sozinha quando o seu contentor sai do documento (ex.: modal fechado)
+    if (this.showcase) {
+      if (this.root.isConnected) this.seen = true;
+      else if (this.seen) {
+        this.destroy();
+        return;
+      }
+    }
     this.raf = requestAnimationFrame(this.loop);
     let dt = (now - this.last) / 1000;
     this.last = now;
     if (dt > 0.1) dt = 0.1;
+    if (this.showcase && this.fight.showcaseDone) {
+      // pausa curta em pose e recomeça a entrada
+      this.showcaseT += dt;
+      if (this.showcaseT > 1.6) {
+        this.showcaseT = 0;
+        this.smear.clear();
+        this.fight = this.newFight();
+      }
+    }
     // adapta a qualidade se o dispositivo estiver a sofrer
     if (!this.low && this.frames < 240) {
       this.frames++;
@@ -278,7 +323,9 @@ export class FightScene {
     const n = step > 0.034 ? 2 : 1;
     for (let i = 0; i < n; i++) this.fight.update(step / n);
     this.render(dt);
+    if (this.showcase) return;
     this.updateHud();
+    this.announcer.volume = S.settings.announcerVol;
     this.announcer.tick(dt, this.fight.phase === 'fight');
     music.setIntensity(this.fight.hype);
     if (this.capEl && this.capT > 0) {
@@ -329,10 +376,17 @@ export class FightScene {
       const d = Math.abs(a.x - b.x);
       desired = portrait ? Math.min(900, Math.max(410, d + 260)) : Math.min(1300, Math.max(780, d + 520));
     }
-    const zx = this.W / desired;
-    const zy = this.H / (portrait ? 820 : 640);
-    const z = Math.min(zx, zy) * (1 + F.zoomPunch);
+    // câmara lenta: aproxima-se do ponto de impacto
     const k = 1 - Math.pow(0.002, dt);
+    this.cineS += (F.cineW - this.cineS) * k;
+    const cw = this.cineS;
+    if (cw > 0.001) {
+      tx += (F.cineX - tx) * cw * 0.85;
+      desired *= 1 - 0.3 * cw;
+    }
+    const zx = this.W / desired;
+    const zy = this.H / (portrait ? 820 : 640) * (1 + 0.3 * cw);
+    const z = Math.min(zx, zy) * (1 + F.zoomPunch);
     this.zoom += (z - this.zoom) * k;
     this.camX += (tx - this.camX) * k;
     const half = this.W / 2 / this.zoom;
@@ -349,7 +403,8 @@ export class FightScene {
     this.camera(dt);
     const z = this.zoom;
     const portrait = H > W;
-    const floorY = H * (portrait ? 0.64 : 0.72);
+    // na câmara lenta o chão desce um pouco para o golpe ficar no centro do ecrã
+    const floorY = H * ((portrait ? 0.64 : 0.72) + 0.06 * this.cineS);
     let shx = 0;
     let shy = 0;
     if (F.shakeT > 0) {
@@ -466,7 +521,7 @@ export class FightScene {
       }
     }
     this.drawVignette(ctx, W, H);
-    const lt = F.phase === 'entrance' || F.cutin ? 1 : 0;
+    const lt = F.phase === 'entrance' || F.cutin ? 1 : this.cineS * 0.7;
     this.letter += (lt - this.letter) * Math.min(1, dt * 6);
     if (this.letter > 0.01) {
       const bh = H * 0.085 * this.letter;
@@ -720,7 +775,7 @@ export class FightScene {
     drawFighter(ctx, f.spec.look, f.skel, opts);
     ctx.restore();
     // marcador de equipa por cima da cabeça do jogador
-    if (f.spec.isPlayer && f.state !== 'out' && F.phase !== 'end') {
+    if (f.spec.isPlayer && f.state !== 'out' && F.phase !== 'end' && !F.showcase) {
       const hx = F.jx(f, J_HEAD);
       const hy = F.jy(f, J_HEAD) - HEAD_R * k - 34;
       ctx.fillStyle = TEAM_COLORS[0];

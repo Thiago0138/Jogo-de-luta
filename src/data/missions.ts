@@ -13,9 +13,7 @@ export interface Tally {
   dodges: number;
   counters: number;
   dives: number;
-  potions: number;
   perfectWins: number;
-  noPotionWins: number;
   comebackWins: number;
   chestsOpened: number;
   damage: number;
@@ -24,7 +22,7 @@ export interface Tally {
 export function emptyTally(): Tally {
   return {
     fights: 0, wins: 0, tagWins: 0, championWins: 0, punches: 0, grapples: 0, supers: 0,
-    superKOs: 0, dodges: 0, counters: 0, dives: 0, potions: 0, perfectWins: 0, noPotionWins: 0,
+    superKOs: 0, dodges: 0, counters: 0, dives: 0, perfectWins: 0,
     comebackWins: 0, chestsOpened: 0, damage: 0,
   };
 }
@@ -74,7 +72,7 @@ export const WEEKLY_POOL: MissionDef[] = [
 export const LEGENDARY: MissionDef[] = [
   { id: 'l_streak5', text: 'Vence 5 lutas seguidas', key: 'bestStreak', target: 5, reward: { gems: 30, chest: 'ouro' } },
   { id: 'l_level10', text: 'Chega ao nível 10', key: 'level', target: 10, reward: { gems: 40, item: 'hc_arcoiris' } },
-  { id: 'l_noPot', text: 'Vence 25 lutas sem usar poções', key: 'noPotionWins', target: 25, reward: { gems: 50, item: 'm_cyber' } },
+  { id: 'l_counter300', text: 'Faz 300 contra-ataques', key: 'counters', target: 300, reward: { gems: 50, item: 'm_cyber' } },
   { id: 'l_comeback', text: 'Vence 10 lutas depois de ficares abaixo de 15% de vida', key: 'comebackWins', target: 10, reward: { gems: 60, item: 'o_gelo' } },
   { id: 'l_streak15', text: 'Vence 15 lutas seguidas', key: 'bestStreak', target: 15, reward: { gems: 80, chest: 'lendario' } },
   { id: 'l_champ25', text: 'Derrota 25 Campeões', key: 'championWins', target: 25, reward: { gems: 100, item: 'a_cosmos' } },

@@ -9,7 +9,7 @@ import { render } from '../app';
 import { el, esc, fmt, modal, toast } from '../dom';
 import { Preview, itemThumb } from '../preview';
 import { openCreator } from './creator';
-import { beltSlots, isEquipped, openItem, passiveSlots, superSlots, toggleEquip } from './itemModal';
+import { isEquipped, openItem, passiveSlots, superSlots, toggleEquip } from './itemModal';
 
 const TABS = [
   { id: 'stats', name: '📊 Atributos' },
@@ -30,7 +30,7 @@ export function renderFighter(page: HTMLElement, sub = 'stats'): void {
     </div>
     <div class="seg"></div>
     <div class="f-body"></div>`;
-  const p = new Preview(resolveLook(S.appearance, S.loadout));
+  const p = new Preview(resolveLook(S.appearance, S.loadout), { turn: true });
   page.querySelector('.ft-stage')!.appendChild(p.canvas);
   (page.querySelector('.edit') as HTMLElement).onclick = () => {
     sfx.click();
@@ -128,9 +128,6 @@ function gear(body: HTMLElement): void {
   const abil: Slot[] = [];
   for (let i = 0; i < 2; i++) abil.push({ label: `Super ${i + 1}`, kind: 'super', id: L.supers[i] ?? null, locked: i >= superSlots() ? 8 : undefined });
   for (let i = 0; i < 2; i++) abil.push({ label: `Passiva ${i + 1}`, kind: 'passive', id: L.passives[i] ?? null, locked: i >= passiveSlots() ? 6 : undefined });
-  const belt: Slot[] = [];
-  const lv = [0, 4, 12];
-  for (let i = 0; i < 3; i++) belt.push({ label: `Cinto ${i + 1}`, kind: 'potion', id: L.belt[i] ?? null, locked: i >= beltSlots() ? lv[i] : undefined });
 
   const section = (title: string, list: Slot[], hint = '') => {
     body.appendChild(el('h3', 'sec', title));
@@ -146,7 +143,6 @@ function gear(body: HTMLElement): void {
   section('Estilos de golpe', styles, 'Efeitos visuais para os teus golpes (só aparência, mesmo dano).');
   section('Visual', slots);
   section('Habilidades', abil, 'Os supers são usados quando a barra de Super enche. As passivas estão sempre ativas.');
-  section('Cinto de poções', belt, 'Cada poção do cinto é usada automaticamente uma vez por luta, quando é precisa.');
 }
 
 function slotEl(s: Slot): HTMLElement {
@@ -159,8 +155,7 @@ function slotEl(s: Slot): HTMLElement {
   b.appendChild(el('div', 'slot-l', s.locked ? `${s.label} · Nv ${s.locked}` : s.label));
   if (s.id && !s.locked) {
     const d = item(s.id);
-    const extra = s.kind === 'potion' ? ` ×${S.owned[s.id] ?? 0}` : '';
-    b.appendChild(el('div', 'slot-n', esc(d.name) + extra));
+    b.appendChild(el('div', 'slot-n', esc(d.name)));
   }
   b.onclick = () => {
     sfx.click();
@@ -178,7 +173,7 @@ function picker(s: Slot): void {
     .sort((a, b) => (s.kind === 'move' ? (a.unlockLevel ?? 0) - (b.unlockLevel ?? 0) : RARITIES[b.rarity].tier - RARITIES[a.rarity].tier));
   const box = el('div', 'picker');
   let close: () => void = () => {};
-  if (s.id && ['mask', 'aura', 'super', 'passive', 'potion', 'move', 'moveStyle'].includes(s.kind)) {
+  if (s.id && ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(s.kind)) {
     const rm = el('button', 'pick-row none', '✖ Remover deste espaço');
     rm.onclick = () => {
       toggleEquip(s.id!);
@@ -192,7 +187,7 @@ function picker(s: Slot): void {
     const art = el('div', 'pr-art');
     art.appendChild(itemThumb(d.id));
     r.appendChild(art);
-    r.appendChild(el('div', 'pr-txt', `<b>${esc(d.name)}${d.kind === 'potion' ? ` ×${S.owned[d.id]}` : ''}</b><small>${esc(d.desc)}</small>`));
+    r.appendChild(el('div', 'pr-txt', `<b>${esc(d.name)}</b><small>${esc(d.desc)}</small>`));
     const locked = d.kind === 'move' && !owns(d.id);
     if (locked) {
       r.classList.add('locked');
@@ -204,8 +199,8 @@ function picker(s: Slot): void {
         openItem(d.id, 'shop');
         return;
       }
-      if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'potion' || s.kind === 'move') {
-        const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : s.kind === 'move' ? S.loadout.moves : S.loadout.belt;
+      if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'move') {
+        const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : S.loadout.moves;
         if (arr.includes(d.id)) {
           close();
           return;
@@ -234,7 +229,7 @@ function road(body: HTMLElement): void {
   const list = el('div', 'road');
   const unlocks = new Map<number, string[]>();
   for (const d of ITEM_LIST) if (d.source === 'level' && d.unlockLevel) unlocks.set(d.unlockLevel, [...(unlocks.get(d.unlockLevel) ?? []), `${d.icon} ${d.name}`]);
-  const slotsAt: Record<number, string> = { 4: '🧪 2.º espaço do cinto', 6: '✨ 2.ª passiva', 8: '⚡ 2.º super', 12: '🧪 3.º espaço do cinto' };
+  const slotsAt: Record<number, string> = { 6: '✨ 2.ª passiva', 8: '⚡ 2.º super' };
   for (let lv = 2; lv <= Math.min(MAX_LEVEL, Math.max(S.level + 12, 32)); lv++) {
     const rewards: string[] = [];
     for (const u of unlocks.get(lv) ?? []) rewards.push(u);

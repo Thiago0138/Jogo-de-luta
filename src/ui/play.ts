@@ -1,4 +1,4 @@
-import { S, addXp, applyTally, changeTrophies, commit, removeItem, type LevelUp } from '../core/state';
+import { S, addXp, applyTally, changeTrophies, commit, type LevelUp } from '../core/state';
 import { makeOpponent, makePartner, playerSpec } from '../core/opponents';
 import { CHESTS, type ChestId } from '../data/chests';
 import { ITEMS } from '../data/items';
@@ -127,8 +127,6 @@ function computeRewards(mode: Mode, opp: FighterSpec, r: FightReport): Rewards {
 }
 
 function applyRewards(mode: Mode, r: FightReport, rw: Rewards): void {
-  // consome poções usadas
-  for (const id of r.usedPotions) removeItem(id);
   if (r.won) {
     S.streak++;
     S.bestStreak = Math.max(S.bestStreak, S.streak);

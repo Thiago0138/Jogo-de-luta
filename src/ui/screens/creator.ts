@@ -4,6 +4,7 @@ import { itemsOfKind } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { randomAppearance, randomName } from '../../core/opponents';
 import { resolveLook } from '../../render/look';
+import { coversHead } from '../../render/costume';
 import { sfx, unlockAudio } from '../../audio/sfx';
 import { el, esc, toast } from '../dom';
 import { Preview, clearThumbs } from '../preview';
@@ -40,10 +41,14 @@ export function openCreator(first: boolean, onDone?: () => void): void {
     </div>`;
   document.body.appendChild(root);
 
-  const prev = new Preview(resolveLook(app, S.loadout), { zoom: 1.05 });
-  root.querySelector('.cr-stage')!.appendChild(prev.canvas);
+  // sem capacetes nem capuzes, para se ver bem a cara e o cabelo que se está a escolher
+  const lo = () => ({ ...S.loadout, outfit: coversHead(S.loadout.outfit) ? 'o_classico' : S.loadout.outfit });
+  const prev = new Preview(resolveLook(app, lo()), { zoom: 1.05, turn: true });
+  const stage = root.querySelector('.cr-stage')!;
+  stage.appendChild(prev.canvas);
+  stage.appendChild(el('div', 'cr-rot', '↔ Arrasta para rodar 360°'));
   const refresh = () => {
-    prev.look = resolveLook(app, S.loadout);
+    prev.look = resolveLook(app, lo());
   };
 
   const tabsEl = root.querySelector('.cr-tabs') as HTMLElement;

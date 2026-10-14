@@ -9,7 +9,6 @@ export type ItemKind =
   | 'aura'
   | 'super'
   | 'passive'
-  | 'potion'
   | 'entrance'
   | 'move'
   | 'moveStyle';
@@ -25,6 +24,21 @@ export interface Vis {
   boots?: string;
   anim?: string;
   type?: string;
+  c4?: string;
+  /** Fato de corpo inteiro: cor que substitui a pele nos braços, pernas e tronco. */
+  suit?: string;
+  /** Material especial do corpo (lava, gelo, metal, cosmos, escamas, penas…). */
+  mat?: string;
+  /** Capuz / capacete / adorno de cabeça do traje. */
+  head?: string;
+  /** Peça nas costas: capa, asas, mochila a jato, escudo… */
+  back?: string;
+  /** Cauda. */
+  tail?: string;
+  /** Emblema / detalhe no peito. */
+  chest?: string;
+  /** Ombreiras. */
+  shoulders?: string;
 }
 
 export interface ItemDef {
@@ -39,7 +53,7 @@ export interface ItemDef {
   gems?: number;
   unlockLevel?: number;
   vis?: Vis;
-  /** Número do efeito (ex.: multiplicador de dano do super, % de cura da poção). */
+  /** Número do efeito (ex.: multiplicador de dano do super). */
   power?: number;
 }
 
@@ -52,7 +66,6 @@ export const KIND_NAMES: Record<ItemKind, string> = {
   aura: 'Aura',
   super: 'Super ataque',
   passive: 'Habilidade passiva',
-  potion: 'Poção',
   entrance: 'Entrada',
   move: 'Golpe de assinatura',
   moveStyle: 'Estilo de golpe',
@@ -94,29 +107,43 @@ const I: ItemDef[] = [
   { id: 'o_azul', kind: 'outfit', name: 'Calções Azuis', rarity: 'comum', desc: 'Frio e calculista.', icon: '🩳', source: 'start', vis: { style: 'trunks', c1: '#2357d9', c2: '#ffd23d', boots: '#1d2235', pattern: 'stripe' } },
   { id: 'o_preto', kind: 'outfit', name: 'Calções Pretos', rarity: 'comum', desc: 'Sem conversa.', icon: '🩳', source: 'shop', coins: 300, vis: { style: 'trunks', c1: '#1e1e24', c2: '#e3263b', boots: '#0f0f12', pattern: 'stripe' } },
   { id: 'o_lima', kind: 'outfit', name: 'Singlet Lima', rarity: 'incomum', desc: 'Visto a quilómetros.', icon: '🟩', source: 'shop', coins: 800, vis: { style: 'singlet', c1: '#7bdc1f', c2: '#1b3d08', boots: '#1b3d08', pattern: 'none' } },
-  { id: 'o_retro', kind: 'outfit', name: 'Retro 80', rarity: 'incomum', desc: 'Néon, laca e muita atitude.', icon: '📼', source: 'chest', vis: { style: 'singlet', c1: '#ff4fa3', c2: '#3ee6ff', boots: '#ffffff', pattern: 'stripe' } },
+  { id: 'o_retro', kind: 'outfit', name: 'Retro 80', rarity: 'incomum', desc: 'Néon, fita na testa e muita atitude.', icon: '📼', source: 'chest', vis: { style: 'singlet', c1: '#ff4fa3', c2: '#3ee6ff', boots: '#ffffff', pattern: 'stripe', head: 'bandana' } },
   { id: 'o_leopardo', kind: 'outfit', name: 'Leopardo', rarity: 'incomum', desc: 'Selvagem por natureza.', icon: '🐆', source: 'shop', coins: 900, vis: { style: 'trunks', c1: '#e8a93b', c2: '#3a2310', boots: '#3a2310', pattern: 'spots' } },
-  { id: 'o_luchador', kind: 'outfit', name: 'Luchador Estelar', rarity: 'raro', desc: 'Voa mais alto que todos.', icon: '⭐', source: 'shop', coins: 2800, vis: { style: 'singlet', c1: '#1940c9', c2: '#ffd700', boots: '#ffd700', pattern: 'stars' } },
-  { id: 'o_ninja', kind: 'outfit', name: 'Ninja Sombrio', rarity: 'raro', desc: 'Silencioso como a noite.', icon: '🥷', source: 'chest', vis: { style: 'gi', c1: '#20212b', c2: '#7f1dd1', boots: '#15151c', pattern: 'none' } },
-  { id: 'o_bairro', kind: 'outfit', name: 'Campeão de Bairro', rarity: 'raro', desc: 'Respeitado em todas as ruas.', icon: '🏆', source: 'level', unlockLevel: 8, vis: { style: 'jacket', c1: '#d6202f', c2: '#f5f5f5', boots: '#f5f5f5', pattern: 'stripe' } },
-  { id: 'o_samurai', kind: 'outfit', name: 'Samurai Carmesim', rarity: 'epico', desc: 'Armadura forjada em batalha.', icon: '⛩️', source: 'shop', gems: 220, vis: { style: 'armor', c1: '#a3121f', c2: '#1a1a1a', c3: '#e8c25a', boots: '#1a1a1a', pattern: 'none' } },
-  { id: 'o_rocker', kind: 'outfit', name: 'Rocker Elétrico', rarity: 'epico', desc: 'Cada golpe é um solo de guitarra.', icon: '🎸', source: 'chest', vis: { style: 'jacket', c1: '#151518', c2: '#ffe23d', boots: '#151518', pattern: 'lightning' } },
-  { id: 'o_gladiador', kind: 'outfit', name: 'Gladiador', rarity: 'epico', desc: 'Pelo coliseu e pela glória.', icon: '🏛️', source: 'level', unlockLevel: 20, vis: { style: 'armor', c1: '#8a5a24', c2: '#3a2410', c3: '#d4a24a', boots: '#3a2410', pattern: 'none' } },
-  { id: 'o_imperador', kind: 'outfit', name: 'Imperador Dourado', rarity: 'lendario', desc: 'Ouro maciço que reflete os holofotes.', icon: '👑', source: 'shop', gems: 600, vis: { style: 'armor', c1: '#e0a800', c2: '#fff3b0', c3: '#ffffff', boots: '#b07d00', pattern: 'none', anim: 'gold' } },
-  { id: 'o_dragao', kind: 'outfit', name: 'Dragão Ancestral', rarity: 'lendario', desc: 'Escamas que brilham com fogo interior.', icon: '🐉', source: 'chest', vis: { style: 'gi', c1: '#0f7a3d', c2: '#ffb31a', boots: '#07391c', pattern: 'scales', anim: 'glow' } },
-  { id: 'o_lava', kind: 'outfit', name: 'Lava Viva', rarity: 'mitico', desc: 'Fissuras de magma pulsam a cada respiração.', icon: '🌋', source: 'chest', vis: { style: 'armor', c1: '#2a1410', c2: '#ff5a00', c3: '#ffd000', boots: '#1a0c08', pattern: 'cracks', anim: 'lava' } },
-  { id: 'o_gelo', kind: 'outfit', name: 'Gelo Eterno', rarity: 'mitico', desc: 'Forjado no coração de um glaciar.', icon: '❄️', source: 'mission', vis: { style: 'armor', c1: '#bfefff', c2: '#3aa8ff', c3: '#ffffff', boots: '#6cc4ff', pattern: 'crystals', anim: 'ice' } },
-  { id: 'o_cosmos', kind: 'outfit', name: 'Deus do Ringue', rarity: 'celestial', desc: 'Um universo inteiro a vestir um lutador.', icon: '🌌', source: 'mission', vis: { style: 'armor', c1: '#0b0626', c2: '#7a5cff', c3: '#ffffff', boots: '#0b0626', pattern: 'cosmos', anim: 'cosmic' } },
+  { id: 'o_luchador', kind: 'outfit', name: 'Luchador Estelar', rarity: 'raro', desc: 'Singlet de estrelas e capa curta para voar mais alto.', icon: '⭐', source: 'shop', coins: 2800, vis: { style: 'singlet', c1: '#1940c9', c2: '#ffd700', boots: '#ffd700', pattern: 'stars', back: 'cape', c3: '#1940c9', c4: '#ffd700' } },
+  { id: 'o_ninja', kind: 'outfit', name: 'Ninja Sombrio', rarity: 'raro', desc: 'Capuz, fato negro e uma katana às costas.', icon: '🥷', source: 'chest', vis: { style: 'gi', suit: '#22232d', c1: '#20212b', c2: '#7f1dd1', boots: '#15151c', pattern: 'none', head: 'ninja', back: 'katana' } },
+  { id: 'o_bairro', kind: 'outfit', name: 'Campeão de Bairro', rarity: 'raro', desc: 'Casaco de cetim e medalhão de ouro ao peito.', icon: '🏆', source: 'level', unlockLevel: 8, vis: { style: 'jacket', c1: '#d6202f', c2: '#f5f5f5', boots: '#f5f5f5', pattern: 'stripe', chest: 'medal' } },
+  { id: 'o_samurai', kind: 'outfit', name: 'Samurai Carmesim', rarity: 'epico', desc: 'Armadura lacada, ombreiras e kabuto com crista dourada.', icon: '⛩️', source: 'shop', gems: 220, vis: { style: 'armor', c1: '#a3121f', c2: '#1a1a1a', c3: '#e8c25a', boots: '#1a1a1a', pattern: 'lacquer', head: 'kabuto', shoulders: 'samurai' } },
+  { id: 'o_rocker', kind: 'outfit', name: 'Rocker Elétrico', rarity: 'epico', desc: 'Casaco de cabedal com picos e uma guitarra elétrica às costas.', icon: '🎸', source: 'chest', vis: { style: 'jacket', c1: '#151518', c2: '#ffe23d', boots: '#151518', pattern: 'lightning', back: 'guitar', shoulders: 'spikes' } },
+  { id: 'o_gladiador', kind: 'outfit', name: 'Gladiador', rarity: 'epico', desc: 'Elmo de penacho, couraça de bronze e escudo romano.', icon: '🏛️', source: 'level', unlockLevel: 20, vis: { style: 'armor', c1: '#8a5a24', c2: '#c98d3a', c3: '#ffd27a', boots: '#3a2410', pattern: 'muscle', head: 'galea', back: 'shield', shoulders: 'bronze' } },
+  { id: 'o_heroi', kind: 'outfit', name: 'Super-Herói', rarity: 'epico', desc: 'Fato justo, emblema ao peito e uma capa enorme a esvoaçar.', icon: '🦸', source: 'shop', gems: 280, vis: { style: 'trunks', suit: '#1f5ad9', c1: '#d6202f', c2: '#ffd23d', boots: '#d6202f', pattern: 'none', back: 'cape_long', c3: '#d6202f', c4: '#9e1220', chest: 'emblem', head: 'domino' } },
+  { id: 'o_imperador', kind: 'outfit', name: 'Imperador Dourado', rarity: 'lendario', desc: 'Armadura de ouro maciço, coroa e manto real de veludo.', icon: '👑', source: 'shop', gems: 600, vis: { style: 'armor', c1: '#e0a800', c2: '#fff3b0', c3: '#ffffff', boots: '#b07d00', pattern: 'royal', anim: 'gold', head: 'crown', back: 'royalcape', shoulders: 'gold' } },
+  { id: 'o_dragao', kind: 'outfit', name: 'Dragão Ancestral', rarity: 'lendario', desc: 'Escamas, chifres, asas e cauda de dragão. Brilha com fogo interior.', icon: '🐉', source: 'chest', vis: { style: 'none', mat: 'dragon', suit: '#1f8a4c', c1: '#0f7a3d', c2: '#ffb31a', c3: '#ffe08a', boots: '#07391c', pattern: 'none', anim: 'glow', head: 'horns', back: 'wings_dragon', tail: 'dragon' } },
+  { id: 'o_astronauta', kind: 'outfit', name: 'Astronauta', rarity: 'lendario', desc: 'Fato espacial, capacete de vidro e mochila de propulsão com luzes.', icon: '👨‍🚀', source: 'shop', gems: 650, vis: { style: 'none', mat: 'astro', suit: '#f1f3f7', c1: '#f1f3f7', c2: '#ff7a1a', c3: '#3a8bff', boots: '#d9dde6', pattern: 'none', head: 'astro', back: 'astropack', chest: 'panel' } },
+  { id: 'o_tubarao', kind: 'outfit', name: 'Tubarão Assassino', rarity: 'lendario', desc: 'Um disfarce de tubarão completo: a cara espreita entre os dentes!', icon: '🦈', source: 'shop', gems: 550, vis: { style: 'none', mat: 'shark', suit: '#6f8fa8', c1: '#6f8fa8', c2: '#f2f5f8', c3: '#ffffff', boots: '#4d6a80', pattern: 'none', head: 'shark', back: 'fin', tail: 'shark' } },
+  { id: 'o_lava', kind: 'outfit', name: 'Golem de Lava', rarity: 'mitico', desc: 'O corpo inteiro é rocha vulcânica com magma a pulsar nas fendas.', icon: '🌋', source: 'chest', vis: { style: 'none', mat: 'lava', suit: '#3a2620', c1: '#2a1410', c2: '#ff5a00', c3: '#ffd000', boots: '#1a0c08', pattern: 'none', anim: 'lava', head: 'lava', shoulders: 'rock' } },
+  { id: 'o_gelo', kind: 'outfit', name: 'Gigante de Gelo', rarity: 'mitico', desc: 'Um corpo de cristal gelado, coroa de estalactites e névoa congelada.', icon: '❄️', source: 'mission', vis: { style: 'none', mat: 'ice', suit: '#9fdcff', c1: '#bfefff', c2: '#3aa8ff', c3: '#ffffff', boots: '#6cc4ff', pattern: 'none', anim: 'ice', head: 'ice', shoulders: 'crystals' } },
+  { id: 'o_mecha', kind: 'outfit', name: 'Mecha Titã', rarity: 'mitico', desc: 'Armadura robótica, núcleo de energia no peito e propulsores a jato.', icon: '🤖', source: 'shop', gems: 1200, vis: { style: 'none', mat: 'metal', suit: '#9aa6b8', c1: '#c3ccd8', c2: '#2be3ff', c3: '#ff4a3d', boots: '#59627a', pattern: 'none', head: 'robo', back: 'jetpack', chest: 'core', shoulders: 'mecha' } },
+  { id: 'o_rex', kind: 'outfit', name: 'T-Rex', rarity: 'mitico', desc: 'Disfarce de dinossauro com mandíbulas gigantes, placas nas costas e cauda.', icon: '🦖', source: 'shop', gems: 1000, vis: { style: 'none', mat: 'dino', suit: '#4fae3a', c1: '#4fae3a', c2: '#f4d98a', c3: '#ffffff', boots: '#2f7a22', pattern: 'none', head: 'dino', back: 'plates', tail: 'dino' } },
+  { id: 'o_cosmos', kind: 'outfit', name: 'Deus do Ringue', rarity: 'celestial', desc: 'O corpo é uma galáxia viva, com auréola e anéis planetários a orbitar.', icon: '🌌', source: 'mission', vis: { style: 'none', mat: 'cosmic', suit: '#1a0f4a', c1: '#0b0626', c2: '#7a5cff', c3: '#ffffff', boots: '#0b0626', pattern: 'none', anim: 'cosmic', head: 'halo', back: 'orbit' } },
+  { id: 'o_fenix', kind: 'outfit', name: 'Fénix Imortal', rarity: 'celestial', desc: 'Penas de fogo, crista em chamas e asas ardentes que renascem a cada golpe.', icon: '🐦‍🔥', source: 'shop', gems: 2000, vis: { style: 'none', mat: 'feather', suit: '#e8461a', c1: '#d6301a', c2: '#ffb31a', c3: '#fff3a0', boots: '#7a1508', pattern: 'none', anim: 'fire', head: 'fenix', back: 'wings_fire', tail: 'fire' } },
 
   // ───────────── Luvas ─────────────
   { id: 'g_vermelhas', kind: 'gloves', name: 'Luvas Vermelhas', rarity: 'comum', desc: 'As de sempre.', icon: '🥊', source: 'start', vis: { style: 'boxe', c1: '#d91f2f', c2: '#ffffff' } },
   { id: 'g_azuis', kind: 'gloves', name: 'Luvas Azuis', rarity: 'comum', desc: 'Frescas como o mar.', icon: '🥊', source: 'start', vis: { style: 'boxe', c1: '#1f5ad9', c2: '#ffffff' } },
-  { id: 'g_fita', kind: 'gloves', name: 'Ligaduras de Rua', rarity: 'incomum', desc: 'Luta à moda antiga.', icon: '🩹', source: 'shop', coins: 700, vis: { style: 'fita', c1: '#f2efe6', c2: '#c9c3b0' } },
-  { id: 'g_pretas', kind: 'gloves', name: 'Luvas Noite', rarity: 'incomum', desc: 'Pretas com detalhe dourado.', icon: '🥊', source: 'chest', vis: { style: 'boxe', c1: '#18181d', c2: '#e2b44a' } },
-  { id: 'g_ouro', kind: 'gloves', name: 'Luvas de Ouro', rarity: 'raro', desc: 'Para quem nasceu campeão.', icon: '🏅', source: 'shop', coins: 2200, vis: { style: 'boxe', c1: '#e8b31c', c2: '#fff3b0' } },
-  { id: 'g_garras', kind: 'gloves', name: 'Garras de Aço', rarity: 'epico', desc: 'Metal frio e afiado.', icon: '🦾', source: 'chest', vis: { style: 'garra', c1: '#9aa4b2', c2: '#e8eef5' } },
-  { id: 'g_fogo', kind: 'gloves', name: 'Punhos de Fogo', rarity: 'lendario', desc: 'Cada soco deixa um rasto de chamas.', icon: '🔥', source: 'shop', gems: 380, vis: { style: 'fogo', c1: '#ff5a00', c2: '#ffd000', anim: 'fire' } },
-  { id: 'g_cosmicas', kind: 'gloves', name: 'Manoplas Cósmicas', rarity: 'celestial', desc: 'Contêm o poder de mil estrelas.', icon: '✨', source: 'chest', vis: { style: 'cosmico', c1: '#2a1a7a', c2: '#9be8ff', anim: 'cosmic' } },
+  { id: 'g_fita', kind: 'gloves', name: 'Ligaduras de Rua', rarity: 'incomum', desc: 'Luta à moda antiga, de punhos ligados.', icon: '🩹', source: 'shop', coins: 700, vis: { style: 'fita', c1: '#f2efe6', c2: '#c9c3b0' } },
+  { id: 'g_pretas', kind: 'gloves', name: 'Luvas Noite', rarity: 'incomum', desc: 'Pretas com atacadores e logótipo dourado.', icon: '🥊', source: 'chest', vis: { style: 'pro', c1: '#18181d', c2: '#e2b44a' } },
+  { id: 'g_ouro', kind: 'gloves', name: 'Luvas de Ouro', rarity: 'raro', desc: 'Ouro polido com reflexos que correm a cada soco.', icon: '🏅', source: 'shop', coins: 2200, vis: { style: 'pro', c1: '#e8b31c', c2: '#fff3b0', anim: 'shine' } },
+  { id: 'g_picos', kind: 'gloves', name: 'Manoplas Cravejadas', rarity: 'raro', desc: 'Cabedal pesado com picos de metal nos nós dos dedos.', icon: '⛓️', source: 'chest', vis: { style: 'picos', c1: '#3a2418', c2: '#d9dde3' } },
+  { id: 'g_garras', kind: 'gloves', name: 'Garras de Aço', rarity: 'epico', desc: 'Manopla de metal com três lâminas afiadas.', icon: '🦾', source: 'chest', vis: { style: 'garra', c1: '#7d8796', c2: '#eef3f8' } },
+  { id: 'g_pedra', kind: 'gloves', name: 'Punhos de Pedra', rarity: 'epico', desc: 'Dois pedregulhos enormes com musgo e fendas.', icon: '🪨', source: 'shop', gems: 200, vis: { style: 'pedra', c1: '#7d7468', c2: '#4f8a3a' } },
+  { id: 'g_tesla', kind: 'gloves', name: 'Manoplas Tesla', rarity: 'epico', desc: 'Bobinas de cobre e arcos elétricos entre os dedos.', icon: '⚡', source: 'chest', vis: { style: 'tesla', c1: '#3a3f4a', c2: '#7ad7ff', c3: '#d98a3a' } },
+  { id: 'g_fogo', kind: 'gloves', name: 'Punhos de Fogo', rarity: 'lendario', desc: 'Os punhos são chamas vivas que sobem pelos braços.', icon: '🔥', source: 'shop', gems: 380, vis: { style: 'fogo', c1: '#ff5a00', c2: '#ffd000', anim: 'fire' } },
+  { id: 'g_gelo', kind: 'gloves', name: 'Manoplas de Gelo', rarity: 'lendario', desc: 'Cristais de gelo eterno e névoa congelante.', icon: '🧊', source: 'chest', vis: { style: 'gelo', c1: '#bfefff', c2: '#3aa8ff' } },
+  { id: 'g_dragao', kind: 'gloves', name: 'Cabeças de Dragão', rarity: 'lendario', desc: 'Cada punho é a cabeça de um dragão que abre a boca e deita fumo.', icon: '🐲', source: 'shop', gems: 480, vis: { style: 'dragao', c1: '#c4122c', c2: '#ffd23d' } },
+  { id: 'g_mecha', kind: 'gloves', name: 'Punhos Mecha', rarity: 'mitico', desc: 'Punhos robóticos gigantes com pistões, luzes e propulsores.', icon: '🦿', source: 'shop', gems: 800, vis: { style: 'mecha', c1: '#9aa6b8', c2: '#2be3ff', c3: '#ff4a3d' } },
+  { id: 'g_sombra', kind: 'gloves', name: 'Mãos da Sombra', rarity: 'mitico', desc: 'Garras fantasmagóricas de fumo roxo com olhos que brilham.', icon: '👻', source: 'chest', vis: { style: 'sombra', c1: '#2a0a45', c2: '#c77dff' } },
+  { id: 'g_cosmicas', kind: 'gloves', name: 'Manoplas Cósmicas', rarity: 'celestial', desc: 'Galáxias nos punhos, com anéis planetários a orbitar.', icon: '✨', source: 'chest', vis: { style: 'cosmico', c1: '#2a1a7a', c2: '#9be8ff', anim: 'cosmic' } },
+  { id: 'g_sol', kind: 'gloves', name: 'Punhos do Sol', rarity: 'celestial', desc: 'Dois sóis em miniatura com coroa de raios e chamas solares.', icon: '☀️', source: 'mission', vis: { style: 'sol', c1: '#ff9a00', c2: '#fff6b0' } },
 
   // ───────────── Máscaras ─────────────
   { id: 'm_luchador', kind: 'mask', name: 'Máscara Luchador', rarity: 'raro', desc: 'A tradição mexicana com estilo.', icon: '🎭', source: 'shop', coins: 2500, vis: { style: 'luchador', c1: '#1f5ad9', c2: '#ffffff' } },
@@ -125,13 +152,16 @@ const I: ItemDef[] = [
   { id: 'm_demonio', kind: 'mask', name: 'Máscara Demónio', rarity: 'lendario', desc: 'Olhos que ardem no escuro.', icon: '👹', source: 'chest', vis: { style: 'demonio', c1: '#b3121f', c2: '#ffd000' } },
   { id: 'm_cyber', kind: 'mask', name: 'Visor Cyber', rarity: 'mitico', desc: 'Analisa o adversário em tempo real.', icon: '🤖', source: 'mission', vis: { style: 'cyber', c1: '#1a1d26', c2: '#00f0ff', anim: 'scan' } },
 
-  // ───────────── Auras ─────────────
-  { id: 'a_faiscas', kind: 'aura', name: 'Faíscas', rarity: 'raro', desc: 'Pequenas faíscas douradas à tua volta.', icon: '✨', source: 'shop', coins: 3000, vis: { type: 'faiscas', c1: '#ffd23d', c2: '#fff6c2' } },
-  { id: 'a_petalas', kind: 'aura', name: 'Pétalas de Sakura', rarity: 'epico', desc: 'Elegância mortal.', icon: '🌸', source: 'chest', vis: { type: 'petalas', c1: '#ff9ccf', c2: '#ffe3f1' } },
-  { id: 'a_chamas', kind: 'aura', name: 'Aura de Chamas', rarity: 'epico', desc: 'O ringue aquece contigo.', icon: '🔥', source: 'shop', gems: 250, vis: { type: 'chamas', c1: '#ff5a00', c2: '#ffd000' } },
-  { id: 'a_raio', kind: 'aura', name: 'Tempestade', rarity: 'lendario', desc: 'Relâmpagos dançam à tua volta.', icon: '🌩️', source: 'chest', vis: { type: 'raio', c1: '#6ad4ff', c2: '#ffffff' } },
-  { id: 'a_sombra', kind: 'aura', name: 'Sombra Abissal', rarity: 'mitico', desc: 'A escuridão obedece-te.', icon: '🌑', source: 'chest', vis: { type: 'sombra', c1: '#3a0a5c', c2: '#b25cff' } },
-  { id: 'a_cosmos', kind: 'aura', name: 'Cosmos', rarity: 'celestial', desc: 'Galáxias inteiras orbitam o teu corpo.', icon: '🪐', source: 'mission', vis: { type: 'cosmos', c1: '#7a5cff', c2: '#7af7ff' } },
+  // ───────────── Auras (efeito à volta do lutador + fundo nos menus) ─────────────
+  { id: 'a_holofotes', kind: 'aura', name: 'Holofotes', rarity: 'comum', desc: 'Fundo de arena com holofotes a varrer o fumo.', icon: '🔦', source: 'shop', coins: 400, vis: { type: 'holofotes', c1: '#ffffff', c2: '#9ab8ff' } },
+  { id: 'a_neon', kind: 'aura', name: 'Néon Retro', rarity: 'incomum', desc: 'Pôr do sol synthwave e grelha néon. Contorno néon no lutador.', icon: '🌆', source: 'shop', coins: 1200, vis: { type: 'neon', c1: '#ff3df0', c2: '#3df0ff' } },
+  { id: 'a_faiscas', kind: 'aura', name: 'Faíscas', rarity: 'raro', desc: 'Faíscas douradas sobem à tua volta.', icon: '✨', source: 'shop', coins: 3000, vis: { type: 'faiscas', c1: '#ffd23d', c2: '#fff6c2' } },
+  { id: 'a_petalas', kind: 'aura', name: 'Pétalas de Sakura', rarity: 'epico', desc: 'Cerejeiras ao luar e pétalas a dançar.', icon: '🌸', source: 'chest', vis: { type: 'petalas', c1: '#ff9ccf', c2: '#ffe3f1' } },
+  { id: 'a_chamas', kind: 'aura', name: 'Aura de Chamas', rarity: 'epico', desc: 'Uma muralha de fogo arde atrás de ti.', icon: '🔥', source: 'shop', gems: 250, vis: { type: 'chamas', c1: '#ff5a00', c2: '#ffd000' } },
+  { id: 'a_raio', kind: 'aura', name: 'Tempestade', rarity: 'lendario', desc: 'Nuvens negras, chuva e relâmpagos a dançar à tua volta.', icon: '🌩️', source: 'chest', vis: { type: 'raio', c1: '#6ad4ff', c2: '#ffffff' } },
+  { id: 'a_aurora', kind: 'aura', name: 'Aurora Boreal', rarity: 'lendario', desc: 'Cortinas de luz verde e violeta sobre montanhas geladas.', icon: '🌌', source: 'shop', gems: 450, vis: { type: 'aurora', c1: '#3dffa8', c2: '#b05cff' } },
+  { id: 'a_sombra', kind: 'aura', name: 'Sombra Abissal', rarity: 'mitico', desc: 'O abismo observa-te: fumo negro, tentáculos e olhos no escuro.', icon: '🌑', source: 'chest', vis: { type: 'sombra', c1: '#3a0a5c', c2: '#b25cff' } },
+  { id: 'a_cosmos', kind: 'aura', name: 'Cosmos', rarity: 'celestial', desc: 'Uma galáxia em espiral, planetas e estrelas cadentes.', icon: '🪐', source: 'mission', vis: { type: 'cosmos', c1: '#7a5cff', c2: '#7af7ff' } },
 
   // ───────────── Super ataques ─────────────
   { id: 's_supersoco', kind: 'super', name: 'Super Soco', rarity: 'comum', desc: 'Um soco carregado que sacode o ringue.', icon: '👊', source: 'start', power: 1.0, vis: { type: 'supersoco' } },
@@ -191,15 +221,6 @@ const I: ItemDef[] = [
   { id: 'e_rei', kind: 'entrance', name: 'Entrada Real', rarity: 'mitico', desc: 'Chuva de confettis dourados e fontes de faíscas para o rei.', icon: '👑', source: 'shop', gems: 900, vis: { type: 'rei', style: 'victory' } },
   { id: 'e_dragao', kind: 'entrance', name: 'Voo do Dragão', rarity: 'mitico', desc: 'Um dragão de fogo sobrevoa a arena antes de entrares.', icon: '🐲', source: 'chest', vis: { type: 'dragao', style: 'point' } },
   { id: 'e_cosmica', kind: 'entrance', name: 'Portal Cósmico', rarity: 'celestial', desc: 'A arena transforma-se no espaço e chovem meteoros.', icon: '🌠', source: 'mission', vis: { type: 'cosmica', style: 'flex' } },
-
-  // ───────────── Poções / energias ─────────────
-  { id: 'c_vida', kind: 'potion', name: 'Poção de Vida', rarity: 'comum', desc: 'Recupera 20% da vida quando estás em apuros.', icon: '🧪', source: 'shop', coins: 120, power: 0.2 },
-  { id: 'c_energia', kind: 'potion', name: 'Bebida Energética', rarity: 'incomum', desc: 'Enche 60% do Super de uma vez.', icon: '🥤', source: 'shop', coins: 220, power: 60 },
-  { id: 'c_ferro', kind: 'potion', name: 'Tónico de Ferro', rarity: 'incomum', desc: 'Recebe menos 40% de dano durante 10s.', icon: '🍶', source: 'shop', coins: 260, power: 0.4 },
-  { id: 'c_grande', kind: 'potion', name: 'Grande Poção', rarity: 'raro', desc: 'Recupera 40% da vida.', icon: '⚗️', source: 'shop', coins: 520, power: 0.4 },
-  { id: 'c_furia', kind: 'potion', name: 'Elixir de Fúria', rarity: 'raro', desc: '+35% de dano durante 10s.', icon: '🍷', source: 'shop', coins: 480, power: 0.35 },
-  { id: 'c_estrelas', kind: 'potion', name: 'Pó de Estrelas', rarity: 'epico', desc: 'Super cheio e +25% de velocidade durante 8s.', icon: '🌠', source: 'chest', power: 0.25 },
-  { id: 'c_fenix', kind: 'potion', name: 'Néctar de Fénix', rarity: 'lendario', desc: 'Ao cair a 0 de vida, renasce com 40%.', icon: '🪶', source: 'chest', power: 0.4 },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(I.map((i) => [i.id, i]));
@@ -215,7 +236,7 @@ export function itemsOfKind(kind: ItemKind): ItemDef[] {
   return I.filter((i) => i.kind === kind);
 }
 
-/** Itens que se podem trocar entre jogadores (skins, habilidades e poções; não os itens iniciais). */
+/** Itens que se podem trocar entre jogadores (skins e habilidades; não os itens iniciais). */
 export function isTradeable(d: ItemDef): boolean {
   return d.source !== 'start';
 }

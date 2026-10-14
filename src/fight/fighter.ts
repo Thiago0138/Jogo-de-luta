@@ -1,7 +1,7 @@
 import type { Stats } from '../data/stats';
 import { ITEMS } from '../data/items';
 import type { Look } from '../render/look';
-import { Skel, newPose, solve, type Pose } from '../render/pose';
+import { POSE_KEYS, Skel, copyPose, easeInOut, newPose, solve, type Pose } from '../render/pose';
 import type { Expr } from '../render/fighter';
 import { ANIMS, locomotion, sample, type AnimName } from './anims';
 
@@ -12,8 +12,6 @@ export interface FighterSpec {
   look: Look;
   supers: string[];
   passives: string[];
-  /** Poções disponíveis no cinto (ids). */
-  belt: string[];
   isPlayer: boolean;
   /** Título exibido (ex.: "Campeão"). */
   title?: string;
@@ -65,6 +63,10 @@ export class Fighter {
   skel = new Skel();
   /** Rotação/posição sobrepostas (para ser projetado por outro lutador). */
   override: { x: number; y: number; rot: number } | null = null;
+  /** Transição suave a partir da última pose desenhada (ver blendIn). */
+  private blendFrom = newPose();
+  private blendT = 0;
+  private blendMax = 0;
 
   expr: Expr = 'normal';
   exprT = 0;
@@ -88,7 +90,6 @@ export class Fighter {
   furyT = 0;
   ironT = 0;
   speedT = 0;
-  usedBelt: boolean[] = [];
   usedFolego = false;
   usedFenix = false;
   usedNectar = false;
@@ -122,7 +123,6 @@ export class Fighter {
     this.slot = slot;
     this.hp = hp;
     this.maxHp = hp;
-    this.usedBelt = spec.belt.map(() => false);
   }
 
   get s(): Stats {
@@ -159,6 +159,9 @@ export class Fighter {
 
   play(a: AnimName | 'walk' | 'run' | 'walkBack', speed = 1, restart = true): void {
     if (!restart && this.anim === a) return;
+    // pequena transição para não haver saltos de pose entre animações
+    // (se já houver uma transição em curso, continua a partir dela)
+    if (this.blendT <= 0) this.blendIn(0.07);
     this.anim = a;
     this.at = 0;
     this.animSpeed = speed;
@@ -209,6 +212,16 @@ export class Fighter {
     }
   }
 
+  /**
+   * Funde suavemente, durante `dur` segundos, a pose desenhada agora com as animações seguintes.
+   * `mirror`: a pose atual é espelhada (para quando o lutador vai mudar de lado já a seguir).
+   */
+  blendIn(dur: number, mirror = false): void {
+    copyPose(this.blendFrom, this.pose);
+    if (mirror) for (const k of POSE_KEYS) if (k !== 'dy') this.blendFrom[k] = -this.blendFrom[k];
+    this.blendT = this.blendMax = dur;
+  }
+
   get hpRatio(): number {
     return this.hp / this.maxHp;
   }
@@ -229,6 +242,15 @@ export class Fighter {
         // respiração/balanço de boxe
         this.pose.dy += Math.sin(t * 6 + this.slot) * 1.5;
       }
+    }
+    if (this.blendT > 0) {
+      const b = this.blendFrom;
+      // roda pelo caminho mais curto (a rotação de uma projeção pode ter dado voltas)
+      const tw = Math.PI * 2;
+      b.rot -= tw * Math.round((b.rot - this.pose.rot - extraRot) / tw);
+      const u = easeInOut(1 - this.blendT / this.blendMax);
+      for (const k of POSE_KEYS) this.pose[k] = b[k] + (this.pose[k] + (k === 'rot' ? extraRot : 0) - b[k]) * u - (k === 'rot' ? extraRot : 0);
+      this.blendT -= dt;
     }
     if (extraRot !== 0) this.pose.rot += extraRot;
     solve(this.pose, this.skel);

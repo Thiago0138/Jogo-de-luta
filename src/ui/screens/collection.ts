@@ -17,7 +17,6 @@ const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
   { id: 'passive', name: 'Passivas', kinds: ['passive'] },
   { id: 'move', name: 'Golpes', kinds: ['move', 'moveStyle'] },
   { id: 'entrance', name: 'Entradas', kinds: ['entrance'] },
-  { id: 'potion', name: 'Poções', kinds: ['potion'] },
 ];
 
 let onlyOwned = false;
@@ -42,7 +41,7 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
   };
   const legend = page.querySelector('.rar-legend') as HTMLElement;
   for (const r of RARITY_ORDER) {
-    const all = ITEM_LIST.filter((d) => d.rarity === r && d.kind !== 'potion');
+    const all = ITEM_LIST.filter((d) => d.rarity === r);
     const got = all.filter((d) => owns(d.id)).length;
     legend.appendChild(el('div', `rl rar-${r}`, `<span class="rl-name">${RARITIES[r].name}</span><span class="rl-n">${got}/${all.length}</span>`));
   }
