@@ -8,6 +8,16 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.10.1',
+    date: '2026-10-14',
+    title: 'Ropes done right',
+    items: [
+      'Fixed: fighters could end up fighting outside the ropes after being hit while bouncing off them or mid-move near the corner.',
+      'Entrances through the ropes are now realistic: the fighter grabs them, pushes the middle rope down, lifts the top one and steps through the gap.',
+      'Jump-in entrances and tag-team switches now clear the top rope with a proper leap instead of passing through it, and the rope shakes as they fly over.',
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-10-14',
     title: 'High flyers',

@@ -222,6 +222,8 @@ export class Fighter {
     this.script = null;
     this.wait = 0;
     this.flying = false;
+    // um script interrompido (ex.: atingido a ressaltar nas cordas) não pode deixá-lo solto fora do ringue
+    this.noClamp = false;
     this.armor = false;
     this.glow = null;
     this.override = null;

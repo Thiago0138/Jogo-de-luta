@@ -432,20 +432,60 @@ export class Fight {
 
   /** Entra pelas cordas: passa por entre a corda do meio (sem salto). */
   private *stepThrough(f: Fighter, side: number, beam: Beam | null): Script {
-    yield* this.walkTo(f, side * (FRONT_X + 10), 170, beam);
-    f.play('duck', 0.6);
-    yield* this.walkTo(f, side * (RING - 60), 120, beam, 'duck');
+    // chega às cordas pelo avental, segura-as abertas (do meio para baixo, de cima para cima) e passa por entre elas
+    const follow = beam ? () => (beam.x = f.x) : null;
+    const g = this.makeGrip(f);
+    f.facing = -side as 1 | -1;
+    const walk = this.stroll(f, side * (ROPE_X + 45));
+    for (let r = walk.next(); !r.done; r = walk.next()) {
+      follow?.();
+      yield r.value;
+    }
+    const thr = this.throughRopes(f, side, g);
+    for (let r = thr.next(); !r.done; r = thr.next()) {
+      follow?.();
+      yield r.value;
+    }
+    f.footLock = false;
+    yield* this.walkTo(f, side * (RING - 60), 130, beam);
     f.play('guard');
   }
 
-  /** Salta por cima da corda de cima. */
+  /** Salta por cima da corda de cima (pés bem acima dela quando cruza a linha das cordas). */
   private *jumpIn(f: Fighter, side: number, tx: number): Script {
+    yield* this.vault(f, tx);
+  }
+
+  /** Salto por cima da corda de cima, de fora para dentro ou de dentro para fora do ringue. */
+  private *vault(f: Fighter, tx: number): Script {
+    f.noClamp = true;
+    const sd = (Math.sign(f.x || tx) > 0 ? 1 : 0) as 0 | 1;
+    // ganha balanço
+    f.play('duck');
+    f.vx = 0;
+    yield 0.14;
+    // altura para os pés passarem por cima da corda de cima (com folga) onde cruzam a linha das cordas
+    const x0 = f.x;
+    const span = tx - x0;
+    const u = span ? clamp((Math.sign(x0) * ROPE_LINE_X - x0) / span, 0.15, 0.85) : 0.5;
+    const clear = ROPE_H[2] + 34;
+    const H = Math.max(120, clear / (4 * u * (1 - u)));
+    const vz0 = Math.sqrt(2 * GRAV * H);
+    const T = (2 * vz0) / GRAV;
     f.play('tuck');
-    const T = 0.5;
-    f.vx = (tx - f.x) / T;
-    f.vz = 0.5 * GRAV * T;
-    f.z = 1;
-    yield () => f.z <= 0;
+    f.vx = span / T;
+    f.vz = vz0;
+    f.z = Math.max(f.z, 1);
+    sfx.whoosh();
+    let crossed = false;
+    while (f.z > 0) {
+      if (!crossed && Math.abs(f.x) < ROPE_LINE_X === Math.abs(x0) > ROPE_LINE_X) {
+        crossed = true;
+        // a corda de cima vibra com a deslocação de ar / toque dos pés
+        pushRope(this.ropes, sd, 14, 2, 120);
+      }
+      yield FRAME;
+    }
     f.vx = 0;
     f.x = tx;
     this.dust(f.x, 8);
@@ -1179,6 +1219,7 @@ export class Fight {
       }
       if (!f.script && f.state !== 'idle') f.vx *= Math.pow(0.02, dt);
       const lim = ROPE_LINE_X - BODY_HALF;
+      if (f.noClamp && !f.script && this.phase !== 'entrance' && (f.state as string) !== 'apron' && (f.state as string) !== 'out') f.noClamp = false;
       if (Math.abs(f.x) > lim && !f.noClamp && (f.state as string) !== 'apron' && (f.state as string) !== 'out') {
         const side = f.x > 0 ? 1 : 0;
         if (Math.abs(f.vx) > 260) {
@@ -3465,19 +3506,9 @@ export class Fight {
     f.tagCooldown = 8;
     f.noClamp = true;
     const side = f.team === 0 ? -1 : 1;
-    f.play('tuck');
     f.facing = -side as 1 | -1;
-    const tx = side * (RING - 70);
-    const T = 0.55;
-    f.vx = (tx - f.x) / T;
-    f.vz = (0.5 * GRAV * T * T) / T;
-    f.z = 1;
-    yield () => f.z <= 0;
-    f.vx = 0;
-    f.x = tx;
+    yield* this.vault(f, side * (RING - 70));
     f.noClamp = false;
-    this.dust(f.x, 6);
-    sfx.thud();
     f.play('taunt', 1.4);
     yield 0.5;
     f.play('guard');
@@ -3526,15 +3557,8 @@ export class Fight {
     // troca: o ativo sai para o avental e o parceiro entra
     this.active[f.team] = p;
     p.run(this.enterRing(p));
-    // salta para fora
-    f.noClamp = true;
-    f.play('tuck');
-    f.vz = 600;
-    f.z = 1;
-    f.vx = (side * APRON_X - f.x) / 0.55;
-    yield () => f.z <= 0;
-    f.vx = 0;
-    f.x = side * APRON_X;
+    // salta para fora, por cima da corda de cima
+    yield* this.vault(f, side * APRON_X);
     f.noClamp = false;
     f.setState('apron');
     f.play('apron');
