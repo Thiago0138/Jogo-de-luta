@@ -8,6 +8,12 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.1.1',
+    date: '2026-10-14',
+    title: 'Chuva de gemas!',
+    items: ['Todos os jogadores recebem 100 000 💎 de presente (uma única vez).'],
+  },
+  {
     version: '1.1.0',
     date: '2026-10-14',
     title: 'Lutadores renovados',

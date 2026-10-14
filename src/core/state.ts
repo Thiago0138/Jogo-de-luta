@@ -61,6 +61,8 @@ export interface Save {
   freeChestAt: number;
   partnerSeed: number;
   giftDay: string;
+  /** Presentes únicos já entregues (ex.: 'gems100k'). */
+  grants: string[];
 }
 
 const KEY = 'reis-do-ringue-save-v1';
@@ -107,6 +109,7 @@ function fresh(): Save {
     freeChestAt: 0,
     partnerSeed: Math.floor(Math.random() * 1e9),
     giftDay: '',
+    grants: [],
   };
 }
 
@@ -517,5 +520,13 @@ export function redeemTrade(code: string): RedeemResult {
 
 export function markPatchSeen(): void {
   S.seenPatch = CURRENT_VERSION;
+  commit();
+}
+
+/** Presente único: 100 000 gemas para todos os jogadores (novos e existentes). */
+if (!S.grants) S.grants = [];
+if (!S.grants.includes('gems100k')) {
+  S.grants.push('gems100k');
+  S.gems += 100000;
   commit();
 }
