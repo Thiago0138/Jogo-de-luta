@@ -65,8 +65,11 @@ const TUCK = P({ lean: 0.6, fl1: 1.8, fl2: -2.2, bl1: 1.6, bl2: -2.1, fa1: 1.3, 
 const SPLASH = P({ rot: 1.45, lean: 0, fa1: 2.8, fa2: 0.2, ba1: 2.7, ba2: 0.3, fl1: 0.1, bl1: -0.1, head: -0.5 });
 const ELBOW = P({ rot: 1.3, fa1: 1.6, fa2: 2.6, ba1: 1.2, ba2: 1.5, fl1: 0.4, bl1: -0.3, head: -0.2 });
 const PERCH = P({ dy: 34, lean: 0.35, fl1: 1.4, fl2: -1.9, bl1: 1.0, bl2: -1.7, fa1: 0.4, fa2: 1.1, ba1: 1.9, ba2: 0.5 });
-const STOMP_UP = P({ lean: -0.1, fl1: 1.1, fl2: -1.4, fa1: 0.9, fa2: 1.8, ba1: 0.4, ba2: 1.4 });
-const STOMP = P({ lean: 0.25, fl1: 0.9, fl2: 0.1, fa1: 0.6, fa2: 1.5, ba1: 0.5, ba2: 1.4 });
+// joelho bem alto, braço de trás a equilibrar; depois o tacão desce com o peso do corpo todo
+const STOMP_UP = P({ lean: -0.15, fl1: 1.75, fl2: -2.0, fa1: 1.2, fa2: 1.9, ba1: -0.35, ba2: 1.2 });
+const STOMP = P({ dy: 6, lean: 0.32, fl1: 0.85, fl2: -0.05, fa1: 0.2, fa2: 1.6, ba1: 0.9, ba2: 1.0 });
+// pisão final: braços no ar a puxar pelo público, joelho ao peito
+const STOMP_WIND = P({ lean: -0.25, fl1: 1.85, fl2: -2.1, fa1: 2.9, fa2: 0.3, ba1: 2.7, ba2: 0.4, head: 0.25 });
 const PIN = P({ rot: 1.5, lean: 0.1, fa1: 1.2, fa2: 0.6, ba1: 1.4, ba2: 0.4, fl1: 0.2, fl2: -0.8, bl1: -0.4, bl2: -0.4, head: -0.4 });
 const REACH = P({ lean: 0.4, fa1: 2.0, fa2: 0.05, ba1: 0.6, ba2: 2.0, fl1: 0.5, bl1: -0.5 });
 const APRON = P({ lean: 0.08, fa1: 1.75, fa2: 0.45, ba1: 0.2, ba2: 0.3 });
@@ -157,7 +160,8 @@ export const ANIMS = {
   splash: A([[0, TUCK], [0.2, SPLASH, easeOut], [10, SPLASH]]),
   elbow: A([[0, GUARD], [0.2, ELBOW, easeOut], [10, ELBOW]]),
   perch: A([[0, PERCH], [0.6, P({ ...PERCH, ba1: 2.2, head: -0.3 })], [1.2, PERCH]], true),
-  stomp: A([[0, GUARD], [0.15, STOMP_UP], [0.25, STOMP, snap], [0.45, GUARD]]),
+  stomp: A([[0, GUARD], [0.18, STOMP_UP, easeOut], [0.25, STOMP, snap], [0.42, STOMP], [0.62, GUARD]]),
+  bigStomp: A([[0, GUARD], [0.35, STOMP_WIND, easeOut], [0.55, STOMP_WIND], [0.62, STOMP, snap], [0.85, STOMP], [1.1, GUARD]]),
   pin: A([[0, PIN, easeOut], [10, PIN]]),
   reach: A([[0, GUARD], [0.18, REACH, snap], [10, REACH]]),
   apron: A([[0, APRON], [0.8, P({ ...APRON, dy: 2, head: 0.1 })], [1.6, APRON]], true),

@@ -85,6 +85,8 @@ interface StrikeOpts {
   unblockable?: boolean;
   color?: string;
   quiet?: boolean;
+  /** Sem o som genérico de golpe (o golpe toca o seu próprio). */
+  silent?: boolean;
   /** Articulação do atacante que acerta (para o impacto aparecer no sítio certo). */
   hitJ?: number;
 }
@@ -209,6 +211,12 @@ export class Fight {
   focus: Fighter | null = null;
   focusT = 0;
   zoomPunch = 0;
+  /** Destaque de golpe de assinatura / super: holofote, linhas de velocidade e brilho na cor do golpe. */
+  hl: { f: Fighter; color: string; t: number; max: number; kind: 'sig' | 'super' } | null = null;
+  /** "Impact frame" (estilo anime): negativo a preto e branco durante uns frames no impacto. */
+  impactT = 0;
+  impactColor = '#ffffff';
+  private lastImpact = -9;
   tally: Tally = emptyTally();
   superKO = false;
   decision = false;
@@ -921,6 +929,30 @@ export class Fight {
     this.cineY = y;
   }
 
+  /** Impacto de um golpe de assinatura / super: impact frame, onda de choque, câmara lenta e estrondo. */
+  private bigImpact(att: Fighter, x: number, y: number, color: string, isSuper: boolean): void {
+    if (this.phase !== 'fight' || this.rt - this.lastImpact < 0.5) return;
+    this.lastImpact = this.rt;
+    this.impactT = isSuper ? 0.13 : 0.1;
+    this.impactColor = color;
+    this.freeze = Math.max(this.freeze, isSuper ? 0.2 : 0.15);
+    this.cinematic(x, y - 20, isSuper ? 0.2 : 0.25, isSuper ? 1 : 0.8, true);
+    this.shake(isSuper ? 18 : 13, 0.38);
+    this.zoomPunch = 0.12;
+    this.flash = Math.max(this.flash, 0.35);
+    this.flashColor = color;
+    this.waves.push({ x, y: y * 0.4, r: 20, vr: 1500, life: 0.45, max: 0.45, color });
+    this.waves.push({ x, y: 0, r: 30, vr: 900, life: 0.6, max: 0.6, color: '#ffffff' });
+    this.sparks(x, y, 26, color, 1000, PK.Star);
+    this.sparks(x, y, 18, '#ffffff', 800);
+    this.parts.spawn(PK.Ring, x, y, 0, 0, 0.35, 220, color, 0);
+    sfx.impact(isSuper ? 1.2 : 1);
+    sfx.oooh(0.9);
+    this.addHype(0.12);
+    // um golpe de assinatura tem um grande impacto (o super pode ter vários)
+    if (!isSuper) att.sigT = 0;
+  }
+
   sparks(x: number, y: number, n: number, color: string, speed = 500, kind: PK = PK.Spark): void {
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -1083,10 +1115,16 @@ export class Fight {
     if (!d) return;
     f.used(moveId, moveId === 'm_stomp' || moveId === 'm_elbow' ? 6 : 11);
     this.emit('move', f, this.opp(f), d.name);
+    const COLORS: Record<string, string> = { comum: '#ffd23d', incomum: '#5ef08a', raro: '#4ab8ff', epico: '#c77dff', lendario: '#ffb31a', mitico: '#ff4f7b', celestial: '#7af7ff' };
+    const color = f.styleOf(d.vis?.type ?? '')?.color ?? COLORS[d.rarity] ?? '#ffd23d';
+    // todo o golpe de assinatura tem destaque (holofote, brilho, impacto em câmara lenta)
+    f.sigT = 3;
+    f.sigColor = color;
+    if (this.phase === 'fight') this.hl = { f, color, t: 0, max: 2.1, kind: 'sig' };
+    sfx.charge();
     if (!force && this.t - this.lastCallT < 3.5) return;
     this.lastCallT = this.t;
-    const COLORS: Record<string, string> = { comum: '#ffd23d', incomum: '#5ef08a', raro: '#4ab8ff', epico: '#c77dff', lendario: '#ffb31a', mitico: '#ff4f7b', celestial: '#7af7ff' };
-    this.moveCall = { name: f.spec.name, move: d.name, icon: d.icon, color: COLORS[d.rarity] ?? '#ffd23d', team: f.team, t: 0, max: 1.15 };
+    this.moveCall = { name: f.spec.name, move: d.name, icon: d.icon, color, team: f.team, t: 0, max: 1.5 };
     this.addHype(0.08);
   }
 
@@ -1102,6 +1140,12 @@ export class Fight {
     this.flash = Math.max(0, this.flash - rawDt * 3);
     this.darken += (this.darkenTarget - this.darken) * Math.min(1, rawDt * 6);
     this.zoomPunch = Math.max(0, this.zoomPunch - rawDt * 1.5);
+    this.impactT = Math.max(0, this.impactT - rawDt);
+    if (this.hl) {
+      this.hl.t += rawDt;
+      if (this.hl.t >= this.hl.max) this.hl = null;
+    }
+    for (const f of this.fighters) if (f.sigT > 0) f.sigT -= rawDt;
     if (this.focusT > 0) {
       this.focusT -= rawDt;
       if (this.focusT <= 0) this.focus = null;
@@ -2438,22 +2482,56 @@ export class Fight {
     }
   }
 
+  /** Stomps: põe-se ao lado do tronco, levanta o joelho e enterra o tacão (2 rápidos + 1 final com o público). */
   private *stomp(f: Fighter, o: Fighter): Script {
-    f.used('m_stomp', 5);
-    f.face(o);
-    while (Math.abs(o.x - f.x) > 60 && o.state === 'down') {
-      f.vx = Math.sign(o.x - f.x) * 160;
-      f.play('walk', 1, false);
+    this.special(f, 'm_stomp');
+    // onde o tacão cai, relativo à anca de quem pisa
+    const sc = this.scale(f);
+    sample(ANIMS.stomp, 0.25, tmpPose);
+    solve(tmpPose, tmpSkel);
+    const footOff = tmpSkel.x[J_FF] * sc;
+    const torso = () => (this.jx(o, J_HIP) + this.jx(o, J_NECK)) / 2;
+    const side = f.x < o.x ? -1 : 1;
+    let t = 0;
+    while (o.state === 'down' && t < 1.6) {
+      const want = torso() + side * footOff;
+      if (Math.abs(want - f.x) < 6) break;
+      t += this.dt;
+      f.face(o);
+      f.facing = -side as 1 | -1;
+      f.vx = Math.sign(want - f.x) * 170;
+      f.play(Math.sign(want - f.x) === f.facing ? 'walk' : 'walkBack', 1, false);
       yield FRAME;
     }
     f.vx = 0;
-    for (let i = 0; i < 2; i++) {
-      f.play('stomp');
-      yield 0.24;
-      this.strike(f, o, { dmg: 8, reach: 90, kind: 'ground', ground: true, kb: 0 });
-      yield 0.18;
+    f.facing = -side as 1 | -1;
+    for (let i = 0; i < 3 && o.state === 'down'; i++) {
+      const last = i === 2;
+      f.play(last ? 'bigStomp' : 'stomp', last ? 1 : 1.1);
+      if (last) {
+        f.setExpr('power', 1.2);
+        sfx.cheer(0.7);
+        this.cinematic(torso(), -60, 0.4, 0.7);
+      }
+      yield (last ? 0.62 : 0.25) / (last ? 1 : 1.1);
       if (o.state !== 'down') break;
+      const fx = this.jx(f, J_FF);
+      this.strike(f, o, { dmg: last ? 11 : 6, reach: 999, kind: 'ground', ground: true, kb: 0, heavy: last, silent: true });
+      sfx.stomp(last ? 1.1 : 0.6 + i * 0.15);
+      // o corpo dele salta com o pisão e o tapete levanta pó
+      o.flashT = 0.05;
+      o.z = 1;
+      o.vz = last ? 160 : 90;
+      o.setExpr('hurt', 0.8);
+      this.dust(fx, last ? 10 : 5, 50);
+      this.shake(last ? 10 : 4, last ? 0.25 : 0.12);
+      ringShake(this.ropes, last ? 0.35 : 0.12);
+      if (last) this.pop('STOMP!', fx, -200, '#ffd23d', 28);
+      yield last ? 0.45 : 0.28;
+      // entre pisões o outro pé bate no tapete (o barulho que os lutadores fazem a sério)
+      if (!last) sfx.stamp();
     }
+    f.play('guard');
   }
 
   private *elbowDrop(f: Fighter, o: Fighter): Script {
@@ -2925,7 +3003,7 @@ export class Fight {
     if (Math.random() < 0.6) {
       for (let i = 0; i < 4; i++) this.parts.spawn(PK.Sweat, hx, hy, dir * (100 + Math.random() * 200), -150 - Math.random() * 200, 0.6, 2.5, '#bfe6ff', 1400);
     }
-    sfx.punch(heavy ? 1 : o.kind === 'kick' ? 0.75 : 0.55, !!o.body, o.kind === 'kick' ? 'kick' : 'punch');
+    if (!o.silent) sfx.punch(heavy ? 1 : o.kind === 'kick' ? 0.75 : 0.55, !!o.body, o.kind === 'kick' ? 'kick' : 'punch');
     if (crit || (heavy && o.kind === 'super')) sfx.oooh(crit ? 0.7 : 1);
     if (heavy && o.kind !== 'assist') {
       this.bursts.push({ x: hx, y: hy - 10, text: BURST_WORDS[Math.floor(Math.random() * BURST_WORDS.length)], life: 0.42, max: 0.42, color: crit ? '#ffd23d' : o.color ?? '#ff5a5a', rot: (Math.random() - 0.5) * 0.5 });
@@ -2933,6 +3011,7 @@ export class Fight {
     }
     this.freeze = heavy ? 0.085 : 0.035;
     this.shake(heavy ? 9 : 3.5, heavy ? 0.22 : 0.1);
+    if ((att.sigT > 0 || o.kind === 'super') && (heavy || o.kd)) this.bigImpact(att, hx, hy, att.sigColor ?? o.color ?? '#ffd23d', o.kind === 'super');
     if (heavy) this.zoomPunch = 0.06;
     this.addHype(heavy ? 0.06 : 0.015);
     if (o.kind !== 'super') this.gainMeter(att, dmg * 0.2 * (1 + att.s.car * 0.012) * (att.has('p_showman') ? 1.3 : 1));
@@ -3690,7 +3769,10 @@ export class Fight {
     if (f.spec.isPlayer) this.tally.supers++;
     this.superBudget = o.maxHp * (0.1 + (power - 1) * 0.12);
     // cut-in cinematográfico
-    this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: '', color, team: f.team, t: 0, max: 1.25 };
+    this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: '', color, team: f.team, t: 0, max: 1.4 };
+    this.hl = { f, color, t: 0, max: 4, kind: 'super' };
+    f.sigT = 5;
+    f.sigColor = color;
     this.emit('super', f, o, d?.name);
     f.play('charge');
     f.glow = color;

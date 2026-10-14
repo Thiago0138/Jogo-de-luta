@@ -440,7 +440,7 @@ export class FightScene {
   private director(dt: number): void {
     const F = this.fight;
     const [a, b] = F.active;
-    const big = !!F.focus || F.cineW > 0.05 || !!F.cutin || !!F.moveCall || !!a.holding || !!b.holding || a.perchSide >= 0 || b.perchSide >= 0;
+    const big = !!F.focus || F.cineW > 0.05 || !!F.cutin || !!F.moveCall || !!F.hl || !!a.holding || !!b.holding || a.perchSide >= 0 || b.perchSide >= 0;
     if (big) {
       this.shot = 'close';
       this.hotT = 0.9;
@@ -574,6 +574,9 @@ export class FightScene {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
 
+    // destaque de golpe de assinatura / super: o resto do ringue escurece e o atacante fica sob um holofote
+    if (F.hl) this.drawHighlight(ctx, F.hl, F.t);
+
     // sombras suaves de contacto
     const shadow = glowSprite('#000000');
     const all = F.extras.length ? F.fighters.concat(F.extras) : F.fighters;
@@ -651,8 +654,9 @@ export class FightScene {
         ctx.fillRect(0, 0, W, H);
       }
     }
+    if (F.impactT > 0) this.drawImpactFrame(ctx, W, H, F.impactT);
     this.drawVignette(ctx, W, H);
-    const lt = F.phase === 'entrance' || F.cutin ? 1 : this.cineS * 0.7;
+    const lt = F.phase === 'entrance' || F.cutin || F.hl ? 1 : this.cineS * 0.7;
     this.letter += (lt - this.letter) * Math.min(1, dt * 6);
     if (this.letter > 0.01) {
       const bh = H * 0.085 * this.letter;
@@ -889,7 +893,8 @@ export class FightScene {
     const k = F.scale(f);
     const x = F.hipX(f);
     const y = F.hipY(f);
-    const opts = { t: F.t + f.slot * 1.3, expr: f.expr, flash: f.flashT > 0, glow: f.glow, low: this.low, rim: this.low ? null : f.referee ? '#dfe6ff' : f.team === 0 ? '#ff6f93' : '#6fbaff' };
+    const hlGlow = F.hl && F.hl.f === f && F.hl.t < F.hl.max - 0.2 ? F.hl.color : null;
+    const opts = { t: F.t + f.slot * 1.3, expr: f.expr, flash: f.flashT > 0, glow: f.glow ?? hlGlow, low: this.low, rim: this.low ? null : f.referee ? '#dfe6ff' : f.team === 0 ? '#ff6f93' : '#6fbaff' };
     if (f.ghost) {
       for (let g = 2; g >= 1; g--) {
         ctx.save();
@@ -1040,6 +1045,73 @@ export class FightScene {
     ctx.drawImage(glowSprite('#7a5cff'), this.W * 0.2, this.H * 0.05, this.W * 0.6, this.H * 0.5);
     ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
+  }
+
+  /** Holofote na cor do golpe + escurecer o resto + linhas de velocidade a convergir no atacante. */
+  private drawHighlight(ctx: CanvasRenderingContext2D, hl: NonNullable<Fight['hl']>, t: number): void {
+    const F = this.fight;
+    const inK = Math.min(1, hl.t / 0.18);
+    const outK = Math.min(1, (hl.max - hl.t) / 0.35);
+    const k = inK * outK;
+    if (k <= 0.01) return;
+    const f = hl.f;
+    const x = F.hipX(f);
+    const y = F.hipY(f) - 60 * F.scale(f);
+    // escurece o ringue e o público (os lutadores são desenhados por cima)
+    ctx.fillStyle = `rgba(4,2,10,${(hl.kind === 'super' ? 0.55 : 0.42) * k})`;
+    ctx.fillRect(x - 4000, -3000, 8000, 5000);
+    ctx.globalCompositeOperation = 'lighter';
+    // holofote e aura de cor
+    ctx.globalAlpha = 0.55 * k;
+    ctx.drawImage(glowSprite('#fff1cf'), x - 210, -70, 420, 130);
+    ctx.globalAlpha = (hl.kind === 'super' ? 0.75 : 0.55) * k;
+    ctx.drawImage(glowSprite(hl.color), x - 260, y - 260, 520, 520);
+    // linhas de velocidade (estilo manga) a apontar para o atacante
+    if (!this.low) {
+      ctx.strokeStyle = hl.color;
+      const n = hl.kind === 'super' ? 34 : 24;
+      const spin = Math.floor(t * 14);
+      for (let i = 0; i < n; i++) {
+        const a = hash(i * 7 + spin) * Math.PI * 2;
+        const r0 = 230 + hash(i + spin * 3) * 140;
+        const r1 = r0 + 500 + hash(i * 3 + spin) * 700;
+        ctx.globalAlpha = (0.18 + hash(i * 11 + spin) * 0.25) * k;
+        ctx.lineWidth = 2 + hash(i * 5 + spin) * 5;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * r0, y + Math.sin(a) * r0 * 0.75);
+        ctx.lineTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1 * 0.75);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /** "Impact frame": negativo a preto e branco por uns frames, depois um clarão na cor do golpe. */
+  private drawImpactFrame(ctx: CanvasRenderingContext2D, W: number, H: number, left: number): void {
+    const F = this.fight;
+    const total = 0.13;
+    const age = total - left;
+    ctx.save();
+    if (age < 0.07) {
+      ctx.globalCompositeOperation = 'difference';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = 'saturation';
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, W, H);
+      // tinta da cor do golpe nas zonas claras
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.globalAlpha = 0.35;
+      ctx.fillStyle = F.impactColor;
+      ctx.fillRect(0, 0, W, H);
+    } else {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = Math.min(1, left / 0.06) * 0.35;
+      ctx.fillStyle = F.impactColor;
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
   }
 
   private vignette: CanvasGradient | null = null;

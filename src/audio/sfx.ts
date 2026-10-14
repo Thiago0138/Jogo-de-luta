@@ -608,7 +608,44 @@ function genBell(sr: number): Float32Array {
   return out;
 }
 
+/** Pisão: sola/tacão da bota a enterrar-se no tronco (couro + carne) e o tapete a ecoar por baixo. */
+function genStomp(sr: number): Float32Array {
+  const L = 0.9;
+  const out = mk(sr, L);
+  // tacão de borracha/couro: estalo seco e curto
+  const heel = mk(sr, L);
+  addBurst(heel, sr, 0, rnd(0.0018, 0.003), 1);
+  const hr = mk(sr, L);
+  resonate(heel, hr, sr, rnd(900, 1150), 0.035, 1);
+  resonate(heel, hr, sr, rnd(1700, 2100), 0.025, 0.6);
+  mix(hr, highpass(heel, sr, 1100), 0.7);
+  mix(out, hr, 0.55);
+  // carne/tronco: baque surdo com queda de tom (o ar a sair dos pulmões)
+  const th = mk(sr, L);
+  addSweep(th, sr, 0.001, rnd(105, 125), 48, 0.04, 0.09, 1, 0.002);
+  mix(out, th, 1);
+  const meat = mk(sr, L);
+  addBurst(meat, sr, 0.001, rnd(0.006, 0.01), 1);
+  const mr = mk(sr, L);
+  resonate(meat, mr, sr, rnd(220, 280), 0.09, 1);
+  resonate(meat, mr, sr, rnd(520, 640), 0.05, 0.5);
+  mix(out, mr, 0.5);
+  // o corpo afunda e as tábuas do ringue respondem (mais curto que uma queda)
+  const hit = mk(sr, L);
+  addPulse(hit, sr, 0.004, rnd(0.008, 0.012), 1);
+  const boards = mk(sr, L);
+  for (const [f, t60, g] of [[rnd(50, 58), 0.32, 1], [rnd(76, 88), 0.26, 0.8], [rnd(118, 134), 0.18, 0.55], [rnd(170, 195), 0.12, 0.4]] as [number, number, number][]) resonate(hit, boards, sr, f, t60, g);
+  mix(out, boards, 0.55);
+  // expiração abafada do adversário ("uff")
+  const air = mk(sr, L);
+  addBurst(air, sr, 0.02, 0.07, 1, 0.012);
+  mix(out, lowpass(highpass(air, sr, 350), sr, 1400), 0.12);
+  saturate(out, 1.6);
+  return out;
+}
+
 const RECIPES: Record<string, { n: number; gen: (sr: number) => Float32Array }> = {
+  stomp: { n: 3, gen: genStomp },
   punchHead: { n: 4, gen: (sr) => genPunch(sr, false) },
   punchBody: { n: 3, gen: (sr) => genPunch(sr, true) },
   kick: { n: 3, gen: genKick },
@@ -747,6 +784,22 @@ export const sfx = {
   },
   hit(heavy = false) {
     sfx.punch(heavy ? 1 : 0.6);
+  },
+  /** Pisão no adversário deitado. `power` 0..1 (o último é o mais forte). */
+  stomp(power = 0.7) {
+    const p = Math.max(0.3, Math.min(1.2, power));
+    shot('stomp', 0.65 + p * 0.35, { rate: jit(1.04 - p * 0.08, 0.05), force: true });
+    if (p > 0.9) tone({ f: jit(62, 0.06), to: 32, dur: 0.25, peak: 0.35 });
+  },
+  /** O outro pé a bater no tapete para fazer barulho (como os lutadores a sério). */
+  stamp() {
+    shot('slam', 0.22, { rate: jit(1.5, 0.05), lp: 1400 });
+  },
+  /** Impacto de golpe de assinatura / super: estrondo grave, estalo e cauda. */
+  impact(power = 1) {
+    tone({ f: jit(90, 0.05), to: 26, dur: 0.6 * power, peak: 0.55 * power });
+    shot('slam', 0.35 * power, { rate: jit(0.7, 0.03), lp: 700, force: true });
+    shot('slap', 0.3, { rate: jit(0.75, 0.05) });
   },
   /** Golpe defendido: luva/antebraço a travar, abafado. */
   block() {

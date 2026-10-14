@@ -88,6 +88,9 @@ export class Fighter {
   lastHitBy: Fighter | null = null;
   /** Força da última queda (0 = leve, 1+ = brutal): quanto maior, mais demora a levantar-se. */
   impact = 0;
+  /** Golpe de assinatura em curso (s) e a sua cor: dá destaque extra ao impacto. */
+  sigT = 0;
+  sigColor: string | null = null;
   /** Em pleno voo de um golpe aéreo (crossbody, springboard): os golpes normais não o apanham. */
   flying = false;
   combo = 0;

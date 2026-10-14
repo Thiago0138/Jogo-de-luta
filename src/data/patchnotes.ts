@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.11.0',
+    date: '2026-10-14',
+    title: 'Signature moments',
+    items: [
+      'Signature moves and Supers now take over the screen: the ring darkens, a spotlight in the move color falls on the attacker, he glows, manga speed lines rush toward him and cinema bars close in.',
+      'Big impacts: when a signature move or Super lands you get an anime-style impact frame, a shockwave, a heavy hit-stop, deep slow motion, a screen shake and a booming sub-bass hit.',
+      'Stomps rebuilt: the fighter lines up beside the torso, drives his knee up and buries the heel in with his whole weight, two quick ones and a final stomp with arms raised to the crowd. The body jolts with every stomp.',
+      'New stomp sound: boot heel on the body, a muffled thud, the ring boards answering underneath and the other foot slapping the canvas between stomps.',
+    ],
+  },
+  {
     version: '1.10.2',
     date: '2026-10-14',
     title: 'Complete move previews and balance',
