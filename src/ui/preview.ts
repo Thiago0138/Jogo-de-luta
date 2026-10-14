@@ -119,7 +119,7 @@ export class Preview {
     }
     ctx.translate(hipX, hipY);
     ctx.scale(scale * k * this.facing, scale * k);
-    drawFighter(ctx, this.look, this.skel, { t, expr: this.expr, flash: false, glow: null });
+    drawFighter(ctx, this.look, this.skel, { t, expr: this.expr, flash: false, glow: null, rim: this.focusHead ? null : '#a98bff' });
   }
 }
 

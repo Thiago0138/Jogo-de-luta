@@ -342,15 +342,17 @@ export class FightScene {
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
 
-    // sombras
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    // sombras suaves de contacto
+    const shadow = glowSprite('#000000');
     for (const f of F.fighters) {
       if (f.state === 'out' || f.hidden) continue;
       const s = Math.max(0.3, 1 - f.z / 400);
-      ctx.beginPath();
-      ctx.ellipse(F.hipX(f), 2, 44 * s, 9 * s, 0, 0, Math.PI * 2);
-      ctx.fill();
+      const lying = f.state === 'down' || f.state === 'ko';
+      ctx.globalAlpha = 0.7 * s;
+      const w = (lying ? 190 : 120) * s;
+      ctx.drawImage(shadow, F.hipX(f) - w / 2 + (lying ? -f.facing * 30 : 0), -12 * s, w, 26 * s);
     }
+    ctx.globalAlpha = 1;
 
     for (const b of F.beams) this.drawBeam(ctx, b.x, b.w, b.life / b.max, b.color);
 
@@ -545,7 +547,7 @@ export class FightScene {
     const k = F.scale(f);
     const x = F.hipX(f);
     const y = F.hipY(f);
-    const opts = { t: F.t + f.slot * 1.3, expr: f.expr, flash: f.flashT > 0, glow: f.glow, low: this.low };
+    const opts = { t: F.t + f.slot * 1.3, expr: f.expr, flash: f.flashT > 0, glow: f.glow, low: this.low, rim: this.low ? null : f.team === 0 ? '#ff6f93' : '#6fbaff' };
     if (f.ghost) {
       for (let g = 2; g >= 1; g--) {
         ctx.save();

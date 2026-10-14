@@ -2,7 +2,8 @@ import { ITEMS } from '../data/items';
 import { emptyTally, type Tally } from '../data/missions';
 import { maxHp } from '../data/stats';
 import { sfx, crowdLevel } from '../audio/sfx';
-import { J_HEAD, J_NECK, J_HIP, clamp } from '../render/pose';
+import { J_BH, J_FF, J_FH, J_HEAD, J_NECK, J_HIP, Skel, clamp, newPose, solve } from '../render/pose';
+import { ANIMS, sample, type AnimName } from './anims';
 import { APRON_X, BACK_X, BACK_Y, FRONT_X, FRONT_Y, POST_H, RING, ROPE_H, newRopes, pushRope, updateRopes, type RopeState } from './arena';
 import { Fighter, type FighterSpec, type Script, type Yield } from './fighter';
 import { PK, Particles, type Banner, type Beam, type Bolt, type PopText, type Proj, type Wave } from './fx';
@@ -48,6 +49,28 @@ interface StrikeOpts {
   unblockable?: boolean;
   color?: string;
   quiet?: boolean;
+  /** Articulação do atacante que acerta (para o impacto aparecer no sítio certo). */
+  hitJ?: number;
+}
+
+/** Alcance máximo para a frente de uma articulação ao longo de uma animação (cache). */
+const reachCache = new Map<string, number>();
+const tmpPose = newPose();
+const tmpSkel = new Skel();
+function reachOf(anim: AnimName, joint: number): number {
+  const key = anim + ':' + joint;
+  let r = reachCache.get(key);
+  if (r != null) return r;
+  const a = ANIMS[anim];
+  const end = Math.min(2, a.keys[a.keys.length - 1].t);
+  r = 0;
+  for (let t = 0; t <= end; t += 0.01) {
+    sample(a, t, tmpPose);
+    solve(tmpPose, tmpSkel);
+    r = Math.max(r, tmpSkel.x[joint]);
+  }
+  reachCache.set(key, r);
+  return r;
 }
 
 export interface CutIn {
@@ -101,6 +124,8 @@ export class Fight {
   bursts: { x: number; y: number; text: string; life: number; max: number; color: string; rot: number }[] = [];
   /** Show de lasers da entrada (segundos restantes) e cor. */
   lasersT = 0;
+  /** Dano total que o super em curso ainda pode causar (-1 = sem super). */
+  superBudget = -1;
   laserHue = 0;
   projs: Proj[] = [];
   cutin: CutIn | null = null;
@@ -146,7 +171,7 @@ export class Fight {
       });
     });
     this.active = [this.teams[0][0], this.teams[1][0]];
-    if (this.mode === 'tag') this.clock = 150;
+    if (this.mode === 'tag') this.clock = 180;
     if (setup.entrances !== false) {
       this.phase = 'entrance';
       // o adversário entra primeiro, o jogador fecha em grande
@@ -480,6 +505,35 @@ export class Fight {
     this.waves.push({ x, y, r: 10, vr: r / life, life, max: life, color });
   }
 
+  /**
+   * Distância entre ancas para o golpe tocar exatamente no alvo:
+   * alcance do punho/pé + o quanto a cabeça/peito do alvo sobressai, menos um pouco de "impacto".
+   */
+  contactDist(f: Fighter, o: Fighter, anim: AnimName, joint: number, body: boolean): number {
+    const reach = reachOf(anim, joint) * this.scale(f);
+    const front = (body ? 20 : 29) * this.scale(o);
+    return reach + front - 7;
+  }
+
+  /** Ajusta a posição durante a preparação do golpe para chegar à distância de contacto. */
+  private *lungeTo(f: Fighter, o: Fighter, dist: number, dur: number): Script {
+    let t = 0;
+    const total = Math.max(0.05, dur);
+    while (t < total) {
+      const step = this.dt * this.spd(f);
+      t += step;
+      if (o.state !== 'ko' && o.state !== 'out') {
+        f.face(o);
+        const want = o.x - f.facing * dist;
+        const d = want - f.x;
+        // velocidade limitada: um passo de boxe, não um teletransporte
+        const maxMove = 520 * step;
+        f.x += clamp(d * Math.min(1, step / Math.max(0.02, total - t + step)), -maxMove, maxMove);
+      }
+      yield FRAME;
+    }
+  }
+
   /** Gasta estamina (a Resistência reduz o custo). */
   tire(f: Fighter, n: number): void {
     f.stamina = Math.max(0, f.stamina - n * (1 - Math.min(0.4, f.s.res * 0.004)));
@@ -729,7 +783,7 @@ export class Fight {
     if (!a || !b) return;
     if (a.state === 'down' || b.state === 'down' || a.override || b.override || a.z > 20 || b.z > 20) return;
     if (a.state === 'ko' || b.state === 'ko' || a.state === 'out' || b.state === 'out') return;
-    const min = 46;
+    const min = 60 * (this.scale(a) + this.scale(b)) * 0.5;
     const d = b.x - a.x;
     if (Math.abs(d) < min) {
       const push = (min - Math.abs(d)) / 2;
@@ -844,9 +898,10 @@ export class Fight {
       return;
     }
     if (dist > 100) {
-      if (r < 0.12) f.run(this.dropkick(f, o));
-      else if (r < 0.2 && f.tauntCd <= 0 && f.s.car > 15) f.run(this.taunt(f));
-      else f.wantX = o.x - f.facing * (70 + Math.random() * 15);
+      if (r < 0.1 && dist < 260 && o.state === 'idle') f.run(this.spear(f, o));
+      else if (r < 0.2) f.run(this.dropkick(f, o));
+      else if (r < 0.28 && f.tauntCd <= 0 && f.s.car > 15) f.run(this.taunt(f));
+      else f.wantX = o.x - f.facing * (86 + Math.random() * 14);
       return;
     }
     // ao alcance
@@ -940,9 +995,10 @@ export class Fight {
     if (f.spec.isPlayer) this.tally.counters++;
     this.pop('CONTRA!', f.x, this.jy(f, J_HEAD) - 40, '#7ad7ff', 30);
     f.play('hook', 1.4);
-    yield 0.2;
+    const cd = this.contactDist(f, o, 'hook', J_FH, false);
+    yield* this.lungeTo(f, o, cd, 0.2);
     const bonus = f.has('p_muralha') ? 1.4 : 1;
-    this.strike(f, o, { dmg: 18 * bonus, reach: 120, kind: 'punch', heavy: true, kb: 160, unblockable: true });
+    this.strike(f, o, { dmg: 18 * bonus, reach: cd + 25, kind: 'punch', heavy: true, kb: 160, unblockable: true, hitJ: J_FH });
     yield 0.25;
   }
 
@@ -954,21 +1010,16 @@ export class Fight {
     const start = Math.floor(Math.random() * 2);
     for (let i = 0; i < n; i++) {
       const m = seq[(start + i) % seq.length];
-      if (Math.abs(o.x - f.x) > 110) {
-        f.vx = f.facing * 220;
-        yield 0.1;
-        f.vx = 0;
-      }
       f.face(o);
       f.play(m);
       this.tire(f, m === 'jab' ? 3 : m === 'cross' ? 4 : m === 'hook' ? 6 : 5);
       const hit = m === 'jab' ? 0.14 : m === 'cross' ? 0.18 : m === 'hook' ? 0.23 : 0.2;
+      const joint = m === 'cross' || m === 'body' ? J_BH : J_FH;
+      const cd = this.contactDist(f, o, m, joint, m === 'body');
       this.telegraph(f, o, 'punch', m !== 'body');
-      f.vx = f.facing * 60;
-      yield hit;
-      f.vx = 0;
+      yield* this.lungeTo(f, o, cd, hit);
       const dmg = m === 'jab' ? 8 : m === 'cross' ? 11 : m === 'hook' ? 15 : 12;
-      const landed = this.strike(f, o, { dmg, reach: m === 'jab' || m === 'cross' ? 108 : 96, kind: 'punch', body: m === 'body', kb: m === 'hook' ? 120 : 70 });
+      const landed = this.strike(f, o, { dmg, reach: cd + 22, kind: 'punch', body: m === 'body', kb: m === 'hook' ? 120 : 70, hitJ: joint });
       yield m === 'jab' ? 0.12 : 0.2;
       if (!landed || o.state === 'down' || o.state === 'ko') break;
     }
@@ -979,35 +1030,85 @@ export class Fight {
     const r = Math.random();
     this.tire(f, 8);
     const st = o.stunT > 0;
-    if (r < 0.32) {
+    const hitWith = (anim: AnimName, joint: number, body: boolean) => this.contactDist(f, o, anim, joint, body);
+    if (r < 0.26) {
       f.play('upper');
       this.telegraph(f, o, 'punch', true);
-      yield 0.27;
-      this.strike(f, o, { dmg: 22, reach: 95, kind: 'punch', heavy: true, kd: st || Math.random() < 0.08, launch: 380, kb: 140 });
+      const cd = hitWith('upper', J_FH, false);
+      yield* this.lungeTo(f, o, cd, 0.27);
+      this.strike(f, o, { dmg: 22, reach: cd + 22, kind: 'punch', heavy: true, kd: st || Math.random() < 0.08, launch: 380, kb: 140, hitJ: J_FH });
       yield 0.4;
-    } else if (r < 0.55) {
+    } else if (r < 0.46) {
       f.play('hook');
       this.telegraph(f, o, 'punch', true);
-      yield 0.23;
-      this.strike(f, o, { dmg: 17, reach: 100, kind: 'punch', heavy: true, kb: 200, kd: st && Math.random() < 0.7 });
+      const cd = hitWith('hook', J_FH, false);
+      yield* this.lungeTo(f, o, cd, 0.23);
+      this.strike(f, o, { dmg: 17, reach: cd + 22, kind: 'punch', heavy: true, kb: 200, kd: st && Math.random() < 0.7, hitJ: J_FH });
       yield 0.3;
-    } else if (r < 0.78) {
+    } else if (r < 0.64) {
       f.play('kick');
       this.telegraph(f, o, 'kick', false);
-      yield 0.26;
-      this.strike(f, o, { dmg: 19, reach: 125, kind: 'kick', heavy: true, kb: 320, body: true, kd: st });
+      const cd = hitWith('kick', J_FF, true);
+      yield* this.lungeTo(f, o, cd, 0.26);
+      this.strike(f, o, { dmg: 19, reach: cd + 25, kind: 'kick', heavy: true, kb: 320, body: true, kd: st, hitJ: J_FF });
       yield 0.38;
+    } else if (r < 0.8) {
+      // superkick: pontapé alto ao queixo
+      f.play('superkick');
+      this.tire(f, 4);
+      this.telegraph(f, o, 'kick', true);
+      const cd = hitWith('superkick', J_FF, false);
+      yield* this.lungeTo(f, o, cd, 0.24);
+      const ok = this.strike(f, o, { dmg: 21, reach: cd + 25, kind: 'kick', heavy: true, kb: 260, kd: st || Math.random() < 0.25, launch: 300, hitJ: J_FF });
+      if (ok) this.pop('SUPERKICK!', f.x, -250, '#ffd23d', 26);
+      yield 0.45;
     } else {
       f.play('body');
       this.telegraph(f, o, 'punch', false);
-      yield 0.2;
-      this.strike(f, o, { dmg: 14, reach: 95, kind: 'punch', body: true, kb: 90 });
+      let cd = hitWith('body', J_BH, true);
+      yield* this.lungeTo(f, o, cd, 0.2);
+      this.strike(f, o, { dmg: 14, reach: cd + 22, kind: 'punch', body: true, kb: 60, hitJ: J_BH });
       yield 0.12;
       f.play('upper', 1.2);
-      yield 0.22;
-      this.strike(f, o, { dmg: 18, reach: 95, kind: 'punch', heavy: true, kd: st || Math.random() < 0.12, launch: 300, kb: 120 });
+      cd = hitWith('upper', J_FH, false);
+      yield* this.lungeTo(f, o, cd, 0.22);
+      this.strike(f, o, { dmg: 18, reach: cd + 22, kind: 'punch', heavy: true, kd: st || Math.random() < 0.12, launch: 300, kb: 120, hitJ: J_FH });
       yield 0.35;
     }
+  }
+
+  /** Spear: placagem a correr, ombro ao abdómen, os dois caem. */
+  private *spear(f: Fighter, o: Fighter): Script {
+    this.tire(f, 12);
+    f.face(o);
+    f.play('run');
+    f.vx = f.facing * 300;
+    yield 0.18;
+    f.play('spear');
+    this.telegraph(f, o, 'grapple', false);
+    let t = 0;
+    while (Math.abs(o.x - f.x) > 58 && t < 1.2) {
+      t += this.dt;
+      f.vx = f.facing * 640;
+      yield FRAME;
+    }
+    f.vx = 0;
+    if (Math.abs(o.x - f.x) > 70 || o.evade === 'dodge' || !this.canGrab(o)) {
+      // falhou: passa ao lado / tropeça
+      f.vx = f.facing * 260;
+      yield 0.25;
+      f.vx = 0;
+      this.selfDown(f, 0.4);
+      return;
+    }
+    this.strike(f, o, { dmg: 24, reach: 9999, kind: 'grapple', heavy: true, kd: true, kb: 380, launch: 160, unblockable: true, body: true, hitJ: J_NECK });
+    this.pop('SPEAR!', f.x, -240, '#ff6a3d', 30);
+    if (f.spec.isPlayer) this.tally.grapples++;
+    f.vx = f.facing * 300;
+    yield 0.18;
+    f.vx = 0;
+    this.dust(f.x + f.facing * 40, 12, 90);
+    this.selfDown(f, 0.35);
   }
 
   private *catchBreath(f: Fighter, o: Fighter): Script {
@@ -1116,8 +1217,9 @@ export class Fight {
     }
     if (f.spec.isPlayer) this.tally.grapples++;
     const type = Math.random();
-    if (type < 0.4) yield* this.suplex(f, o, 1, false);
-    else if (type < 0.75) yield* this.bodySlam(f, o, 1);
+    if (type < 0.32) yield* this.suplex(f, o, 1, false);
+    else if (type < 0.58) yield* this.bodySlam(f, o, 1);
+    else if (type < 0.8) yield* this.powerbomb(f, o);
     else yield* this.ddt(f, o);
   }
 
@@ -1130,6 +1232,7 @@ export class Fight {
 
   private lock(f: Fighter, o: Fighter): void {
     f.holding = o;
+    o.facing = -f.facing as 1 | -1;
     o.stop();
     o.setState('thrown');
     o.evade = 'none';
@@ -1139,17 +1242,23 @@ export class Fight {
   }
 
   /** Tween do defensor preso nas mãos do atacante. */
+  /**
+   * Segura o adversário pelas mãos: a anca dele acompanha o ponto médio das mãos do atacante
+   * (a animação do atacante é que o levanta e projeta, por isso o contacto fica sempre certo).
+   * Offsets em coordenadas do atacante (x para a frente, y para baixo) e rotação do defensor.
+   */
   private *carry(f: Fighter, o: Fighter, dur: number, from: [number, number, number], to: [number, number, number], ease = (t: number) => t): Script {
     let t = 0;
+    const k = this.scale(f);
     while (t < dur) {
       t += this.dt * this.spd(f);
       const u = ease(clamp(t / dur, 0, 1));
-      const bx = f.x;
-      const by = -f.z - 90 * this.scale(f);
+      const hx = (this.jx(f, J_FH) + this.jx(f, J_BH)) / 2;
+      const hy = (this.jy(f, J_FH) + this.jy(f, J_BH)) / 2;
       o.override = {
-        x: bx + f.facing * (from[0] + (to[0] - from[0]) * u),
-        y: by + from[1] + (to[1] - from[1]) * u,
-        rot: (from[2] + (to[2] - from[2]) * u) * f.facing,
+        x: hx + f.facing * (from[0] + (to[0] - from[0]) * u) * k,
+        y: hy + (from[1] + (to[1] - from[1]) * u) * k,
+        rot: (from[2] + (to[2] - from[2]) * u) * -1,
       };
       yield FRAME;
     }
@@ -1173,12 +1282,16 @@ export class Fight {
   private *suplex(f: Fighter, o: Fighter, power: number, atomic: boolean): Script {
     this.lock(f, o);
     o.play('hitBody');
+    f.play('grab', 1.4);
+    yield* this.carry(f, o, 0.12, [24, 40, 0], [16, 34, 0.3]);
     f.play('lift', 1);
-    yield* this.carry(f, o, 0.35, [45, 30, 0], [10, -60, -2.4], (t) => t * t);
+    // levanta-o de cabeça para baixo por cima da cabeça
+    yield* this.carry(f, o, 0.38, [16, 34, 0.3], [-4, 4, 2.9], (t) => t * t * (3 - 2 * t));
     f.play('arch');
-    yield* this.carry(f, o, 0.22, [10, -60, -2.4], [-60, 45, -3.6]);
+    // ponte para trás: as costas dele batem no tapete atrás do atacante
+    yield* this.carry(f, o, 0.24, [-4, 4, 2.9], [-30, 30, 4.4], (t) => t * t);
     o.play('lieKO');
-    this.land(o, f.x - f.facing * 75, f, 30 * power, 'grapple', atomic ? 3 : 1);
+    this.land(o, f.x - f.facing * 78 * this.scale(f), f, 30 * power, 'grapple', atomic ? 3 : 1);
     this.pop(atomic ? 'SUPLEX ATÓMICO!' : 'SUPLEX!', f.x, -230, '#ffb31a', 30);
     yield 0.45;
     f.play('archUp');
@@ -1188,27 +1301,48 @@ export class Fight {
   private *bodySlam(f: Fighter, o: Fighter, power: number): Script {
     this.lock(f, o);
     o.play('hitBody');
+    f.play('grab', 1.4);
+    yield* this.carry(f, o, 0.12, [24, 40, 0], [18, 30, 0.6]);
     f.play('lift', 0.9);
-    yield* this.carry(f, o, 0.4, [40, 30, 0], [0, -85, -1.57]);
+    // deitado na horizontal por cima da cabeça
+    yield* this.carry(f, o, 0.42, [18, 30, 0.6], [6, -6, 1.57], (t) => t * t * (3 - 2 * t));
     yield 0.18;
     f.play('slam');
-    yield* this.carry(f, o, 0.16, [0, -85, -1.57], [70, 55, -1.57], (t) => t * t);
+    yield* this.carry(f, o, 0.17, [6, -6, 1.57], [34, 36, 1.57], (t) => t * t);
     o.play('lieKO');
-    this.land(o, f.x + f.facing * 75, f, 26 * power, 'grapple', 1);
+    this.land(o, f.x + f.facing * 72 * this.scale(f), f, 26 * power, 'grapple', 1);
     this.pop('SLAM!', f.x, -230, '#ff8a3d', 30);
     yield 0.6;
+  }
+
+  /** Powerbomb: senta-o nos ombros e esmaga-o de costas à frente. */
+  private *powerbomb(f: Fighter, o: Fighter): Script {
+    this.lock(f, o);
+    o.play('hitBody');
+    f.play('grab', 1.4);
+    yield* this.carry(f, o, 0.14, [24, 40, 0], [16, 30, -0.9]);
+    f.play('lift', 0.85);
+    yield* this.carry(f, o, 0.45, [16, 30, -0.9], [4, -12, -2.75], (t) => t * t * (3 - 2 * t));
+    yield 0.22;
+    f.play('slam', 1.1);
+    yield* this.carry(f, o, 0.16, [4, -12, -2.75], [44, 40, -4.5], (t) => t * t);
+    o.play('lieKO');
+    this.land(o, f.x + f.facing * 80 * this.scale(f), f, 32, 'grapple', 2);
+    this.pop('POWERBOMB!', f.x, -240, '#ff3d6e', 32);
+    yield 0.7;
   }
 
   private *ddt(f: Fighter, o: Fighter): Script {
     this.lock(f, o);
     o.play('hitBody');
-    f.play('grab');
-    yield* this.carry(f, o, 0.2, [40, 30, 0], [35, 20, 1.3]);
+    f.play('grab', 1.4);
+    // chave de cabeça: dobra-o para a frente
+    yield* this.carry(f, o, 0.22, [24, 40, 0], [22, 50, -1.2]);
     f.play('fall');
     f.vx = 0;
-    yield* this.carry(f, o, 0.2, [35, 20, 1.3], [40, 60, 2.6], (t) => t * t);
+    yield* this.carry(f, o, 0.2, [22, 50, -1.2], [20, 70, -2.7], (t) => t * t);
     o.play('lieKO');
-    this.land(o, f.x + f.facing * 55, f, 24, 'grapple', 1);
+    this.land(o, f.x + f.facing * 55 * this.scale(f), f, 24, 'grapple', 1);
     this.pop('DDT!', f.x, -230, '#ff8a3d', 30);
     this.selfDown(f, 0.5);
   }
@@ -1609,8 +1743,12 @@ export class Fight {
       return false;
     }
     const dir = def.x >= att.x ? 1 : -1;
-    const hx = this.jx(def, o.body ? J_NECK : J_HEAD) - dir * 18;
-    const hy = o.ground ? this.jy(def, J_HIP) - 10 : this.jy(def, o.body ? J_NECK : J_HEAD) + (o.body ? 25 : 0);
+    let hx = this.jx(def, o.body ? J_NECK : J_HEAD) - dir * 18;
+    let hy = o.ground ? this.jy(def, J_HIP) - 10 : this.jy(def, o.body ? J_NECK : J_HEAD) + (o.body ? 25 : 0);
+    if (o.hitJ != null && !o.ground) {
+      hx = this.jx(att, o.hitJ) + dir * 8;
+      hy = this.jy(att, o.hitJ);
+    }
     if (!o.unblockable && def.evade === 'dodge') {
       sfx.whoosh();
       this.pop('ESQUIVA!', def.x, this.jy(def, J_HEAD) - 50, '#5ef0c0', 24);
@@ -1618,7 +1756,7 @@ export class Fight {
       this.gainMeter(def, 5 * (1 + def.s.car * 0.012));
       return false;
     }
-    let dmg = o.dmg * (o.kind === 'super' ? 0.85 : 0.8);
+    let dmg = o.dmg * (o.kind === 'super' ? 0.6 : 0.95);
     const isGrapple = o.kind === 'grapple';
     dmg *= isGrapple ? 1 + att.s.agr * 0.022 : 1 + att.s.for * 0.02;
     if (o.kind === 'super') dmg *= 1 + (att.s.for + att.s.agr) * 0.006;
@@ -1648,6 +1786,14 @@ export class Fight {
       return true;
     }
 
+    // os supers têm um orçamento total de dano por utilização (nada de K.O. instantâneo)
+    if (o.kind === 'super') {
+      dmg = Math.min(dmg, def.maxHp * 0.16);
+      if (this.superBudget >= 0) {
+        dmg = Math.min(dmg, this.superBudget);
+        this.superBudget = Math.max(0, this.superBudget - dmg);
+      }
+    }
     dmg = Math.max(1, Math.round(dmg));
     def.hp -= dmg;
     def.stamina = Math.max(0, def.stamina - dmg * 0.18);
@@ -1683,8 +1829,8 @@ export class Fight {
     this.shake(heavy ? 9 : 3.5, heavy ? 0.22 : 0.1);
     if (heavy) this.zoomPunch = 0.06;
     this.addHype(heavy ? 0.06 : 0.015);
-    this.gainMeter(att, dmg * 0.38 * (1 + att.s.car * 0.012) * (att.has('p_showman') ? 1.3 : 1));
-    this.gainMeter(def, dmg * 0.22);
+    if (o.kind !== 'super') this.gainMeter(att, dmg * 0.26 * (1 + att.s.car * 0.012) * (att.has('p_showman') ? 1.3 : 1));
+    if (o.kind !== 'super') this.gainMeter(def, dmg * 0.16);
 
     // segundo fôlego
     if (def.hp > 0 && def.hpRatio < 0.25 && def.has('p_folego') && !def.usedFolego) {
@@ -2059,6 +2205,7 @@ export class Fight {
     const color = SUPER_COLORS[type] ?? '#ffd23d';
     f.meter = 0;
     if (f.spec.isPlayer) this.tally.supers++;
+    this.superBudget = o.maxHp * (0.1 + (power - 1) * 0.12);
     // cut-in cinematográfico
     this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: d?.icon ?? '💥', color, team: f.team, t: 0, max: 1.05 };
     f.play('charge');
@@ -2104,6 +2251,7 @@ export class Fight {
       }
     } finally {
       this.darkenTarget = 0;
+      this.superBudget = -1;
       f.glow = null;
       f.spinAng = 0;
       f.spinRate = 0;
@@ -2308,7 +2456,7 @@ export class Fight {
     this.lock(f, o);
     o.play('hitBody');
     f.play('lift');
-    yield* this.carry(f, o, 0.25, [45, 30, 0], [10, -60, -1.2]);
+    yield* this.carry(f, o, 0.25, [24, 40, 0], [16, 30, 0.8]);
     // salta com o adversário
     f.vz = 1300;
     f.z = 1;
@@ -2317,7 +2465,7 @@ export class Fight {
     while (f.vz > -200) {
       t += this.dt;
       const u = clamp(t / 0.6, 0, 1);
-      o.override = { x: f.x + f.facing * (10 - 70 * u), y: -f.z - 150 + 60 * u, rot: (-1.2 - 2.4 * u) * f.facing };
+      o.override = { x: f.x + f.facing * (10 - 70 * u), y: -f.z - 150 + 60 * u, rot: -(0.8 + 3.4 * u) };
       for (let i = 0; i < 2; i++) this.parts.spawn(PK.Ember, f.x, -f.z - 60, (Math.random() - 0.5) * 100, 100, 0.4, 30, c, 0);
       yield FRAME;
     }

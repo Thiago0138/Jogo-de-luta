@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.3.0',
+    date: '2026-10-14',
+    title: 'Contacto perfeito e lutadores mais bonitos',
+    items: [
+      'Golpes com contacto exato: cada soco e pontapé para precisamente na cara ou no peito do adversário, com o impacto no sítio certo.',
+      'Os corpos já não se atravessam: os lutadores encostam-se mas nunca se sobrepõem.',
+      'Projeções reais: o adversário é segurado e levantado pelas mãos do atacante em suplex, body slam, DDT e no novo Powerbomb.',
+      'Novos golpes: Superkick ao queixo, Spear (placagem a correr) e Powerbomb.',
+      'Caras redesenhadas: nariz no sítio, olhos e boca alinhados, orelha correta e sem manchas na bochecha.',
+      'Cabelo assente na cabeça: nova linha do cabelo, patilhas e madeixas; a cauda de cometa já não flutua.',
+      'Luz de recorte colorida nos lutadores e sombras suaves no tapete.',
+      'Supers equilibrados: cada super tem um limite de dano por uso (sem K.O. instantâneos) e a barra de Super enche mais devagar.',
+      'Golpes normais ligeiramente mais fortes para manter o ritmo das lutas; Tag Team com 180 segundos.',
+    ],
+  },
+  {
     version: '1.2.1',
     date: '2026-10-14',
     title: 'Botão de recarregar',

@@ -139,7 +139,7 @@ const I: ItemDef[] = [
   { id: 's_meteoro', kind: 'super', name: 'Queda do Meteoro', rarity: 'lendario', desc: 'Salta até ao teto e cai como um meteoro.', icon: '☄️', source: 'chest', power: 1.55, vis: { type: 'meteoro' } },
   { id: 's_atomico', kind: 'super', name: 'Suplex Atómico', rarity: 'lendario', desc: 'Um suplex tão forte que cria uma onda de choque.', icon: '☢️', source: 'level', unlockLevel: 30, power: 1.55, vis: { type: 'atomico' } },
   { id: 's_cosmico', kind: 'super', name: 'Soco Cósmico', rarity: 'mitico', desc: 'Para o tempo e desfere um punho galáctico.', icon: '🌌', source: 'chest', power: 1.75, vis: { type: 'cosmico' } },
-  { id: 's_ira', kind: 'super', name: 'Ira Celestial', rarity: 'celestial', desc: 'Asas de luz e um raio divino dos céus.', icon: '😇', source: 'mission', power: 2.0, vis: { type: 'ira' } },
+  { id: 's_ira', kind: 'super', name: 'Ira Celestial', rarity: 'celestial', desc: 'Asas de luz e um raio divino dos céus.', icon: '😇', source: 'mission', power: 1.8, vis: { type: 'ira' } },
 
   // ───────────── Passivas ─────────────
   { id: 'p_ferro', kind: 'passive', name: 'Pele de Ferro', rarity: 'comum', desc: 'Recebe menos 8% de dano.', icon: '🛡️', source: 'start', power: 0.08 },

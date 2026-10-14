@@ -16,14 +16,19 @@ export interface DrawOpts {
   glow: string | null;
   /** Qualidade baixa: menos detalhes nas auras. */
   low?: boolean;
+  /** Cor da luz de recorte nas costas/topo (iluminação de palco). */
+  rim?: string | null;
 }
 
 const OUT = '#1a1220';
 const OW = 5;
 const TAU = Math.PI * 2;
 
-let F = false; // flash ativo neste desenho
-const C = (c: string) => (F ? '#ffffff' : c);
+let F = false; // flash ativo neste desenho (ou silhueta)
+/** Cor de silhueta (luz de recorte); quando definida tudo é pintado desta cor. */
+let SIL: string | null = null;
+const C = (c: string) => SIL ?? (F ? '#ffffff' : c);
+const OC = () => SIL ?? OUT;
 
 function seg(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, w: number, color: string, outline = true) {
   ctx.beginPath();
@@ -31,7 +36,7 @@ function seg(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, 
   ctx.lineTo(x2, y2);
   if (outline) {
     ctx.lineWidth = w + OW;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
   }
   ctx.lineWidth = w;
@@ -46,7 +51,7 @@ function circle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, 
   ctx.fill();
   if (outline) {
     ctx.lineWidth = 3;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
   }
 }
@@ -129,7 +134,7 @@ function limb(
   capsule(ctx, ax, ay, bx, by, pu);
   capsule(ctx, bx, by, cx, cy, pl);
   ctx.lineWidth = OW;
-  ctx.strokeStyle = OUT;
+  ctx.strokeStyle = OC();
   ctx.stroke();
   ctx.fillStyle = C(color);
   ctx.fill();
@@ -331,7 +336,7 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
       ctx.fillStyle = C(c1);
       ctx.fill();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       break;
     case 'mullet':
@@ -344,7 +349,7 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
       ctx.fillStyle = C(c1);
       ctx.fill();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       break;
     case 'rabo': {
@@ -357,7 +362,7 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
       ctx.fillStyle = C(c1);
       ctx.fill();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       circle(ctx, -24, -14, 4, c2);
       break;
@@ -370,7 +375,7 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
         ctx.moveTo(x0, -20 + i * 5);
         ctx.quadraticCurveTo(x0 - 14, 10, x0 - 8 + sw, 40 - i * 3);
         ctx.lineWidth = 9;
-        ctx.strokeStyle = OUT;
+        ctx.strokeStyle = OC();
         ctx.stroke();
         ctx.lineWidth = 5;
         ctx.strokeStyle = C(i % 2 ? c2 : c1);
@@ -396,7 +401,7 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
       ctx.fillStyle = C(c1);
       ctx.fill();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       break;
     }
@@ -431,8 +436,8 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
       ctx.globalCompositeOperation = 'lighter';
       for (let i = 6; i >= 0; i--) {
         const k = i / 6;
-        const x = -26 - k * 70;
-        const y = -18 + Math.sin(t * 5 - k * 4) * 8 * k + k * 10;
+        const x = -18 - k * 70;
+        const y = -14 + Math.sin(t * 5 - k * 4) * 8 * k + k * 10;
         ctx.globalAlpha = 0.85 - k * 0.6;
         ctx.fillStyle = C(i % 2 ? c2 : c1);
         ctx.beginPath();
@@ -446,17 +451,28 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
   }
 }
 
-function capPath(ctx: CanvasRenderingContext2D, low = 4) {
+/**
+ * Calota de cabelo assente no crânio (círculo de raio HEAD_R centrado na origem).
+ * `low` controla até onde desce na nuca.
+ */
+function capPath(ctx: CanvasRenderingContext2D, low = 6) {
+  const R = HEAD_R + 2.5;
+  const a0 = Math.atan2(low, -R + 1);
   ctx.beginPath();
-  ctx.moveTo(-27, low);
-  ctx.bezierCurveTo(-32, -26, -6, -38, 16, -30);
-  ctx.quadraticCurveTo(28, -22, 26, -10);
-  ctx.lineTo(18, -16);
-  ctx.lineTo(14, -10);
-  ctx.lineTo(8, -16);
-  ctx.lineTo(2, -12);
-  ctx.quadraticCurveTo(-10, -14, -16, -2);
-  ctx.quadraticCurveTo(-20, 4, -22, 10);
+  ctx.moveTo(Math.cos(a0) * R, Math.sin(a0) * R);
+  ctx.arc(0, 0, R, a0, Math.PI * 2 - 0.5);
+  // franja
+  ctx.lineTo(22, -9);
+  ctx.lineTo(18, -15);
+  ctx.lineTo(13, -10);
+  ctx.lineTo(8, -15);
+  ctx.quadraticCurveTo(1, -12, -1, -5);
+  // patilha curta à frente da orelha
+  ctx.lineTo(-3, 1);
+  ctx.lineTo(-6, 1);
+  // por cima da orelha até à nuca
+  ctx.quadraticCurveTo(-11, -4, -17, -3);
+  ctx.quadraticCurveTo(-23, -1, Math.cos(a0) * R + 3, Math.sin(a0) * R);
   ctx.closePath();
 }
 
@@ -466,7 +482,7 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
     ctx.fillStyle = C(fill);
     ctx.fill();
     ctx.lineWidth = 3;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
   };
   switch (style) {
@@ -507,14 +523,6 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
       ctx.lineTo(16, -18);
       ctx.closePath();
       fillStroke(c1);
-      // laterais rapadas
-      ctx.globalAlpha = 0.35;
-      ctx.fillStyle = C(c1);
-      ctx.beginPath();
-      ctx.arc(0, 0, 26, Math.PI * 1.05, Math.PI * 1.7);
-      ctx.lineTo(0, 0);
-      ctx.fill();
-      ctx.globalAlpha = 1;
       break;
     }
     case 'topete':
@@ -556,7 +564,7 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
       ctx.beginPath();
       ctx.ellipse(-2, -48 + Math.sin(t * 2) * 2, 22, 6, -0.15, 0, TAU);
       ctx.lineWidth = 6;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       ctx.lineWidth = 3.5;
       ctx.strokeStyle = F ? '#fff' : '#ffe27a';
@@ -572,12 +580,15 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
     ctx.ellipse(-20 + p * 40, -24, 5, 2.5, -0.4, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 1;
-  } else if (style !== 'careca') {
-    ctx.globalAlpha = 0.5;
-    ctx.strokeStyle = C(c2);
-    ctx.lineWidth = 3;
+  } else if (style !== 'careca' && !F) {
+    // madeixas de brilho dentro da calota
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = c2;
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.arc(-2, -6, 22, Math.PI * 1.25, Math.PI * 1.45);
+    ctx.arc(0, 0, HEAD_R - 2, Math.PI * 1.22, Math.PI * 1.42);
+    ctx.moveTo(-14, -18);
+    ctx.quadraticCurveTo(-8, -24, 0, -25);
     ctx.stroke();
     ctx.globalAlpha = 1;
   }
@@ -587,7 +598,7 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
 
 function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, L: Look, expr: Expr, skin: string, power: boolean) {
   if (expr === 'ko') {
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(x - r, y - r);
@@ -598,7 +609,7 @@ function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, L: 
     return;
   }
   if (expr === 'hurt') {
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(x - r, y - r * 0.8);
@@ -618,7 +629,7 @@ function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, L: 
   ctx.fillStyle = power ? '#fffbe0' : '#ffffff';
   ctx.fill();
   ctx.lineWidth = 2;
-  ctx.strokeStyle = OUT;
+  ctx.strokeStyle = OC();
   ctx.stroke();
   if (power) {
     const prev = ctx.globalCompositeOperation;
@@ -649,7 +660,7 @@ function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, L: 
     ctx.beginPath();
     ctx.rect(x - rx - 1, y - ry - 1, rx * 2 + 2, ry * 2 * lid + 1);
     ctx.fill();
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x - rx, y - ry + ry * 2 * lid);
@@ -659,7 +670,7 @@ function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, L: 
   if (expr === 'happy') {
     ctx.fillStyle = skin;
     ctx.fillRect(x - rx - 1, y + ry * 0.2, rx * 2 + 2, ry);
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(x, y + ry * 0.25, rx, Math.PI, 0, true);
@@ -670,53 +681,42 @@ function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, L: 
 function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number, hairC: string) {
   const skin = C(L.skin);
   const power = expr === 'power';
-  // orelha
+  // orelha (lado do crânio, atrás da patilha)
   ctx.beginPath();
-  ctx.ellipse(-16, 6, 5, 7, 0.2, 0, TAU);
-  ctx.fillStyle = C(L.skinShade);
-  ctx.fill();
-  ctx.lineWidth = 2.5;
-  ctx.strokeStyle = OUT;
-  ctx.stroke();
-  // bochecha
-  ctx.globalAlpha = 0.25;
-  ctx.fillStyle = '#ff6a6a';
-  ctx.beginPath();
-  ctx.arc(10, 9, 5, 0, TAU);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  // nariz
-  ctx.beginPath();
-  ctx.moveTo(24, -4);
-  ctx.quadraticCurveTo(35, 3, 31, 8);
-  ctx.quadraticCurveTo(28, 11, 23, 8);
+  ctx.ellipse(-10, 5, 5.5, 7.5, 0.15, 0, TAU);
   ctx.fillStyle = skin;
   ctx.fill();
-  ctx.lineWidth = 2.2;
-  ctx.strokeStyle = OUT;
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = OC();
   ctx.stroke();
   if (!F) {
-    ctx.fillStyle = '#ffffff';
-    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = L.skinShade;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(29, 2, 1.8, 0, TAU);
+    ctx.arc(-9.5, 5.5, 3, -1.9, 1.6);
+    ctx.stroke();
+    // bochecha
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = '#ff5a6a';
+    ctx.beginPath();
+    ctx.ellipse(11, 9, 5, 3.4, 0, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 1;
   }
 
   const blink = expr === 'normal' && t % 3.7 < 0.11;
   if (blink) {
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.moveTo(1, -1);
     ctx.lineTo(11, -1);
-    ctx.moveTo(15, -1);
-    ctx.lineTo(23, -1);
+    ctx.moveTo(15, -1.5);
+    ctx.lineTo(23, -1.5);
     ctx.stroke();
   } else {
     eye(ctx, 6, -1, 5, L, expr, skin, power);
-    eye(ctx, 19, -1.5, 4, L, expr, skin, power);
+    eye(ctx, 19, -1.5, 4.2, L, expr, skin, power);
   }
 
   // sobrancelhas
@@ -735,58 +735,82 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
     ctx.stroke();
   }
 
+  // nariz (dentro do contorno da cara, vista 3/4)
+  ctx.beginPath();
+  ctx.moveTo(19.5, 3.5);
+  ctx.quadraticCurveTo(27, 9.5, 22.5, 13);
+  ctx.quadraticCurveTo(19, 14.5, 16.5, 11.7);
+  ctx.quadraticCurveTo(19, 8.5, 19.5, 3.5);
+  ctx.fillStyle = F ? '#fff' : shade(L.skin, -0.06);
+  ctx.fill();
+  ctx.lineWidth = 2.2;
+  ctx.strokeStyle = OC();
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(21, 5);
+  ctx.quadraticCurveTo(27, 9.5, 22.5, 13);
+  ctx.quadraticCurveTo(19, 14.5, 16.5, 11.7);
+  ctx.stroke();
+  if (!F) {
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(22, 8, 1.6, 0, TAU);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
   // boca
   const mouth = expr === 'hurt' || expr === 'ko' ? 'ai' : expr === 'angry' || expr === 'power' ? 'dentes' : expr === 'happy' ? 'grito' : L.mouth;
   ctx.lineWidth = 2.2;
-  ctx.strokeStyle = OUT;
-  ctx.lineCap = 'round';
+  ctx.strokeStyle = OC();
   switch (mouth) {
     case 'sorriso':
       ctx.beginPath();
-      ctx.arc(15, 9, 6, 0.2, Math.PI - 0.5);
+      ctx.arc(13, 15, 5, 0.25, Math.PI - 0.55);
       ctx.stroke();
       break;
     case 'serio':
       ctx.beginPath();
-      ctx.moveTo(10, 14);
-      ctx.lineTo(20, 13);
+      ctx.moveTo(9, 19);
+      ctx.lineTo(18, 18.5);
       ctx.stroke();
       break;
     case 'maroto':
       ctx.beginPath();
-      ctx.moveTo(9, 14);
-      ctx.quadraticCurveTo(16, 15, 21, 10);
+      ctx.moveTo(8, 19);
+      ctx.quadraticCurveTo(14, 20, 19, 15.5);
       ctx.stroke();
       break;
     case 'dentes':
       ctx.fillStyle = '#fff';
       ctx.beginPath();
-      ctx.rect(9, 11, 12, 6);
+      ctx.roundRect(7.5, 16, 11, 5.5, 2);
       ctx.fill();
       ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(9, 14);
-      ctx.lineTo(21, 14);
+      ctx.moveTo(8, 18.7);
+      ctx.lineTo(18.5, 18.7);
       ctx.stroke();
       break;
     case 'grito':
       ctx.fillStyle = '#5a1020';
       ctx.beginPath();
-      ctx.ellipse(15, 13, 5.5, 5, 0, 0, TAU);
+      ctx.ellipse(13.5, 18, 4.6, 4.2, 0, 0, TAU);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#ff6a7a';
       ctx.beginPath();
-      ctx.ellipse(15, 16, 3, 1.8, 0, 0, TAU);
+      ctx.ellipse(13.5, 20.2, 2.6, 1.5, 0, 0, TAU);
       ctx.fill();
       break;
     case 'ai':
       ctx.beginPath();
-      ctx.moveTo(9, 14);
-      ctx.lineTo(12, 11);
-      ctx.lineTo(15, 14);
-      ctx.lineTo(18, 11);
-      ctx.lineTo(21, 14);
+      ctx.moveTo(8, 19);
+      ctx.lineTo(10.5, 16.5);
+      ctx.lineTo(13, 19);
+      ctx.lineTo(15.5, 16.5);
+      ctx.lineTo(18, 19);
       ctx.stroke();
       break;
   }
@@ -796,47 +820,49 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
     ctx.fillStyle = hairC;
     switch (L.beard) {
       case 'curta':
-        ctx.globalAlpha = 0.45;
+        ctx.globalAlpha = 0.4;
         ctx.beginPath();
-        ctx.moveTo(-4, 10);
-        ctx.quadraticCurveTo(4, 30, 24, 18);
-        ctx.quadraticCurveTo(14, 22, 8, 16);
-        ctx.quadraticCurveTo(2, 12, -4, 10);
+        ctx.moveTo(-4, 12);
+        ctx.quadraticCurveTo(0, 28, 12, 29);
+        ctx.quadraticCurveTo(21, 28, 23, 19);
+        ctx.quadraticCurveTo(17, 22, 13, 19);
+        ctx.quadraticCurveTo(5, 19, -4, 12);
         ctx.fill();
         ctx.globalAlpha = 1;
         break;
       case 'bigode':
         ctx.beginPath();
-        ctx.moveTo(8, 10);
-        ctx.quadraticCurveTo(16, 6, 24, 10);
-        ctx.quadraticCurveTo(26, 14, 22, 13);
-        ctx.quadraticCurveTo(16, 10, 10, 13);
-        ctx.quadraticCurveTo(6, 14, 8, 10);
+        ctx.moveTo(7, 15);
+        ctx.quadraticCurveTo(14, 11.5, 21, 14.5);
+        ctx.quadraticCurveTo(22.5, 17.5, 19, 16.5);
+        ctx.quadraticCurveTo(14, 14.5, 9, 17);
+        ctx.quadraticCurveTo(5.5, 17.5, 7, 15);
         ctx.fill();
         break;
       case 'cavanhaque':
         ctx.beginPath();
-        ctx.moveTo(10, 18);
-        ctx.quadraticCurveTo(16, 30, 22, 18);
-        ctx.quadraticCurveTo(16, 21, 10, 18);
+        ctx.moveTo(9, 22);
+        ctx.quadraticCurveTo(14, 32, 19, 22);
+        ctx.quadraticCurveTo(14, 24.5, 9, 22);
         ctx.fill();
         ctx.beginPath();
-        ctx.moveTo(9, 10);
-        ctx.quadraticCurveTo(16, 7, 23, 10);
-        ctx.lineTo(22, 12);
-        ctx.quadraticCurveTo(16, 10, 10, 12);
+        ctx.moveTo(8, 15);
+        ctx.quadraticCurveTo(14, 12, 20, 14.5);
+        ctx.lineTo(19.5, 16.3);
+        ctx.quadraticCurveTo(14, 14.5, 8.5, 16.8);
         ctx.fill();
         break;
       case 'grande':
         ctx.beginPath();
-        ctx.moveTo(-6, 6);
-        ctx.quadraticCurveTo(-4, 34, 14, 38);
-        ctx.quadraticCurveTo(30, 32, 26, 12);
-        ctx.quadraticCurveTo(16, 18, 8, 12);
-        ctx.quadraticCurveTo(2, 14, -6, 6);
+        ctx.moveTo(-5, 8);
+        ctx.quadraticCurveTo(-3, 33, 13, 37);
+        ctx.quadraticCurveTo(26, 33, 24, 13);
+        ctx.quadraticCurveTo(16, 18, 14.5, 18);
+        ctx.quadraticCurveTo(8, 18, 5, 12);
+        ctx.quadraticCurveTo(0, 13, -5, 8);
         ctx.fill();
         ctx.lineWidth = 2;
-        ctx.strokeStyle = OUT;
+        ctx.strokeStyle = OC();
         ctx.stroke();
         break;
     }
@@ -853,7 +879,7 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
       ctx.fillStyle = C(c1);
       ctx.fill();
       ctx.lineWidth = 3;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       // contornos dos olhos
       ctx.fillStyle = C(c2);
@@ -878,7 +904,7 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
       eye(ctx, 6, -1, 5, L, expr, C(c2), expr === 'power');
       eye(ctx, 19, -1.5, 4, L, expr, C(c2), expr === 'power');
       ctx.lineWidth = 2.2;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.beginPath();
       if (expr === 'hurt' || expr === 'ko') {
         ctx.moveTo(10, 14);
@@ -933,7 +959,7 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
       ctx.closePath();
       ctx.fill();
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       // chifres
       for (const [x, d] of [[0, -1], [16, 1]] as const) {
@@ -970,7 +996,7 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
       ctx.closePath();
       ctx.fill();
       ctx.lineWidth = 2.5;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.stroke();
       const prev = ctx.globalCompositeOperation;
       ctx.globalCompositeOperation = 'lighter';
@@ -986,13 +1012,14 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
   }
 }
 
+/** Crânio redondo + maxilar e queixo virados para a frente. */
 function headPath(ctx: CanvasRenderingContext2D) {
   ctx.beginPath();
-  ctx.moveTo(-12, 23);
-  ctx.arc(0, 0, HEAD_R, 2.05, Math.PI * 2 - 0.25);
-  ctx.bezierCurveTo(29, 0, 29, 18, 21, 26);
-  ctx.quadraticCurveTo(14, 32, 4, 30);
-  ctx.quadraticCurveTo(-6, 29, -12, 23);
+  ctx.moveTo(-14, 22);
+  ctx.arc(0, 0, HEAD_R, 2.14, Math.PI * 2 - 0.42);
+  ctx.bezierCurveTo(27.5, -4, 28, 14, 22, 23);
+  ctx.quadraticCurveTo(16, 31, 6, 31);
+  ctx.quadraticCurveTo(-6, 30, -14, 22);
   ctx.closePath();
 }
 
@@ -1006,33 +1033,30 @@ function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number)
   }
   headPath(ctx);
   ctx.lineWidth = OW;
-  ctx.strokeStyle = OUT;
+  ctx.strokeStyle = OC();
   ctx.stroke();
   ctx.fillStyle = C(L.skin);
   ctx.fill();
   if (!F) {
-    // sombra do maxilar e da nuca
-    ctx.globalAlpha = 0.55;
+    // sombreamento cel recortado pela forma da cabeça
+    ctx.save();
+    headPath(ctx);
+    ctx.clip();
     ctx.fillStyle = L.skinShade;
+    ctx.globalAlpha = 0.55;
     ctx.beginPath();
-    ctx.moveTo(-24, 10);
-    ctx.quadraticCurveTo(-14, 28, 6, 29);
-    ctx.quadraticCurveTo(16, 29, 22, 22);
-    ctx.quadraticCurveTo(8, 24, -4, 18);
-    ctx.quadraticCurveTo(-16, 12, -24, 10);
+    ctx.arc(-34, 6, 26, 0, TAU);
     ctx.fill();
-    ctx.globalAlpha = 0.3;
+    ctx.globalAlpha = 0.45;
     ctx.beginPath();
-    ctx.arc(0, 0, HEAD_R - 1, Math.PI * 0.62, Math.PI * 1.15);
-    ctx.quadraticCurveTo(-16, 0, -18, 16);
+    ctx.ellipse(4, 42, 26, 15, -0.15, 0, TAU);
     ctx.fill();
-    // brilho na testa
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.ellipse(12, -16, 7, 3.5, -0.4, 0, TAU);
+    ctx.ellipse(10, -17, 8, 4, -0.35, 0, TAU);
     ctx.fill();
-    ctx.globalAlpha = 1;
+    ctx.restore();
   }
   drawFace(ctx, L, expr, t, C(c1));
   if (L.mask) drawMask(ctx, L.mask, L, expr, t);
@@ -1101,7 +1125,7 @@ function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: number, 
       ctx.beginPath();
       ctx.ellipse(gx, gy, 13.5, 12, ang - Math.PI / 2, 0, TAU);
       ctx.lineWidth = 3;
-      ctx.strokeStyle = OUT;
+      ctx.strokeStyle = OC();
       ctx.fillStyle = C(c1);
       ctx.fill();
       ctx.stroke();
@@ -1200,7 +1224,7 @@ function torsoPath(ctx: CanvasRenderingContext2D, s: Skel, hw: number, sw: numbe
 
 function fillOut(ctx: CanvasRenderingContext2D, color: string) {
   ctx.lineWidth = OW;
-  ctx.strokeStyle = OUT;
+  ctx.strokeStyle = OC();
   ctx.stroke();
   ctx.fillStyle = C(color);
   ctx.fill();
@@ -1313,7 +1337,7 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     ctx.fillStyle = C(L.skin);
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
     if (o.pattern === 'scales') {
       const glow = o.anim === 'glow' ? 0.45 + Math.sin(t * 3) * 0.3 : 0.5;
@@ -1345,7 +1369,7 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     ctx.fillStyle = C(L.skin);
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
     seg(ctx, hx + nx * 9 + ux * 6, hy + ny * 9 + uy * 6, s.x[J_SH] + nx * 13, s.y[J_SH] + ny * 13, 4, c2, false);
     if (o.pattern === 'lightning') {
@@ -1371,7 +1395,7 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     ctx.fillStyle = C(c2);
     ctx.fill();
     ctx.lineWidth = 2.5;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
     ctx.strokeStyle = C(c3);
     ctx.lineWidth = 2;
@@ -1455,7 +1479,7 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     ctx.lineTo(hx - nx * 21 - ux * 4, hy - ny * 21 - uy * 4);
     ctx.closePath();
     ctx.lineWidth = OW;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
     ctx.fillStyle = C(tc);
     ctx.fill();
@@ -1504,7 +1528,22 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
  * O chamador trata da translação, espelhamento e escala.
  */
 export function drawFighter(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) {
+  if (o.rim && !o.flash) {
+    // silhueta desviada para trás/cima: fica uma orla colorida à volta do corpo
+    F = true;
+    SIL = o.rim;
+    ctx.save();
+    ctx.translate(-2.6, -2.2);
+    drawBody(ctx, L, s, o);
+    ctx.restore();
+    SIL = null;
+  }
   F = o.flash;
+  drawBody(ctx, L, s, o);
+  F = false;
+}
+
+function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) {
   const t = o.t;
   const X = s.x;
   const Y = s.y;
@@ -1545,7 +1584,7 @@ export function drawFighter(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: 
     ctx.beginPath();
     capsule(ctx, kx + (X[J_HIP] - kx) * 0.18, ky + (Y[J_HIP] - ky) * 0.18, kx + (X[J_FF] - kx) * 0.2, ky + (Y[J_FF] - ky) * 0.2, [10.5, 11, 10]);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = OUT;
+    ctx.strokeStyle = OC();
     ctx.stroke();
     ctx.fillStyle = C(out.c2 ?? '#fff');
     ctx.fill();

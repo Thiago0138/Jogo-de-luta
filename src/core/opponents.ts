@@ -107,8 +107,10 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     app.hair = gear('hair', maxTier, r) ?? app.hair;
     app.hairColor = gear('hairColor', maxTier, r) ?? app.hairColor;
   }
+  let name = randomName(r);
+  for (let i = 0; i < 5 && name === S.name; i++) name = randomName(r);
   return {
-    name: o.champion ? `${randomName(r)}` : randomName(r),
+    name,
     title: o.champion ? 'Campeão' : arch.name,
     level: lvl,
     stats,
