@@ -1,10 +1,9 @@
 /**
- * O jogo é pensado para a horizontal. Em telemóveis na vertical mostra um aviso para rodar o
- * ecrã (o CSS decide quando aparece); "Continuar na vertical" esconde-o até fechar o separador.
- * Quando o jogo está instalado (PWA/ecrã inteiro) tenta também bloquear a orientação.
+ * Nos telemóveis o jogo joga-se só na horizontal. Na vertical, um aviso em ecrã inteiro (sem
+ * forma de o fechar) pede para rodar o telemóvel; o CSS decide quando aparece, por isso tablets
+ * e computadores nunca o veem. Com o jogo instalado (PWA/ecrã inteiro) tenta bloquear a orientação.
  */
 
-const KEY = 'rr-portrait-ok';
 const O = 'stroke="#1a1220" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"';
 
 const ART = `<svg class="rh-art" viewBox="0 0 200 200" aria-hidden="true">
@@ -29,32 +28,13 @@ const ART = `<svg class="rh-art" viewBox="0 0 200 200" aria-hidden="true">
   </g>
 </svg>`;
 
-function storageOk(): boolean {
-  try {
-    return sessionStorage.getItem(KEY) === '1';
-  } catch {
-    return false;
-  }
-}
-
 export function installRotateHint(): void {
-  if (storageOk()) document.documentElement.classList.add('portrait-ok');
   const box = document.createElement('div');
   box.className = 'rotate-hint';
-  box.setAttribute('role', 'dialog');
-  box.setAttribute('aria-label', 'Roda o telemóvel');
+  box.setAttribute('role', 'alert');
   box.innerHTML = `${ART}
     <h2>Roda o telemóvel <span>para jogar na horizontal</span></h2>
-    <p>O ringue fica muito maior e vês melhor as lutas.</p>
-    <button class="btn btn-ghost sm rh-cont">Continuar na vertical</button>`;
-  (box.querySelector('.rh-cont') as HTMLElement).onclick = () => {
-    try {
-      sessionStorage.setItem(KEY, '1');
-    } catch {
-      /* sem armazenamento: esconde só agora */
-    }
-    document.documentElement.classList.add('portrait-ok');
-  };
+    <p>No telemóvel, o Reis do Ringue joga-se só na horizontal: o ringue fica maior e vês melhor as lutas.</p>`;
   document.body.appendChild(box);
   tryLockLandscape();
   // alguns browsers só deixam bloquear depois de um toque

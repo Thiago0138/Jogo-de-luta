@@ -407,7 +407,9 @@ export class FightScene {
       desired *= 1 - 0.3 * cw;
     }
     const zx = this.W / desired;
-    const zy = this.H / (portrait ? 820 : 640) * (1 + 0.3 * cw);
+    // telemóvel na horizontal (ecrã baixo): aproxima um pouco para os lutadores não ficarem pequenos
+    const refH = portrait ? 820 : this.H < 460 ? 580 : 640;
+    const zy = this.H / refH * (1 + 0.3 * cw);
     const z = Math.min(zx, zy) * (1 + F.zoomPunch);
     this.zoom += (z - this.zoom) * k;
     this.camX += (tx - this.camX) * k;

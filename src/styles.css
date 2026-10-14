@@ -43,6 +43,9 @@ body {
   font-family: var(--body);
   overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
+  /* o iOS aumenta o texto sozinho na horizontal: os menus pareciam "ampliados" */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -1688,7 +1691,7 @@ span.rar-celestial,
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: 40vh;
+  max-height: 40dvh;
   overflow-y: auto;
   margin-bottom: 12px;
 }
@@ -1733,7 +1736,8 @@ span.rar-celestial,
   border: 1px solid var(--line);
   padding: 10px;
   font-family: ui-monospace, monospace;
-  font-size: 12px;
+  /* 16px evita o zoom automático do iOS ao tocar no campo */
+  font-size: 16px;
   resize: none;
   margin-bottom: 10px;
   word-break: break-all;
@@ -2043,10 +2047,10 @@ span.rar-celestial,
 .vs-art {
   position: relative;
   width: min(40vw, 300px);
-  height: min(46vh, 340px);
+  height: min(46dvh, 340px);
 }
 .vs-fighter.second .vs-art {
-  height: min(22vh, 160px);
+  height: min(22dvh, 160px);
   width: min(26vw, 160px);
   opacity: 0.85;
 }
@@ -3069,7 +3073,7 @@ span.rar-celestial,
   display: none;
 }
 @media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
-  html:not(.portrait-ok) .rotate-hint {
+  .rotate-hint {
     position: fixed;
     inset: 0;
     z-index: 1000;
@@ -3140,9 +3144,6 @@ span.rar-celestial,
   font-weight: 700;
   line-height: 1.4;
 }
-.rotate-hint .rh-cont {
-  margin-top: 10px;
-}
 
 /* ───────────── Telemóvel na horizontal ───────────── */
 @media (orientation: landscape) and (max-height: 520px) {
@@ -3160,7 +3161,7 @@ span.rar-celestial,
     flex-direction: column;
     justify-content: center;
     gap: 2px;
-    width: calc(78px + var(--safe-l));
+    width: calc(74px + var(--safe-l));
     padding: calc(6px + var(--safe-t)) 6px calc(6px + var(--safe-b)) calc(6px + var(--safe-l));
     border-top: 0;
     border-bottom: 0;
@@ -3248,7 +3249,7 @@ span.rar-celestial,
   /* Ringue: lutador à esquerda, ações à direita */
   .page-home {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
     grid-template-rows: auto minmax(0, 1fr);
     gap: 0 12px;
     align-items: start;
@@ -3335,9 +3336,28 @@ span.rar-celestial,
     font-size: 12px;
   }
   .chest-slot span {
-    font-size: 10px;
+    font-size: 9px;
+    letter-spacing: -0.2px;
     max-width: 100%;
     white-space: nowrap;
+    overflow: hidden;
+  }
+  .pb-txt {
+    min-width: 0;
+  }
+  .play-btn:not(.solo) .pb-txt b {
+    white-space: nowrap;
+    font-size: 17px;
+  }
+  .play-btn:not(.solo) .pb-txt small {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.2;
+  }
+  .play-btn:not(.solo) {
+    gap: 8px;
   }
   .cs-art {
     width: 40px;
@@ -3375,6 +3395,20 @@ span.rar-celestial,
   }
   .stat-list {
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+  .rar-legend {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  }
+  .m-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 8px;
+  }
+  .m-list > :not(.mission) {
+    grid-column: 1 / -1;
+  }
+  .mission {
+    padding: 10px 12px;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
@@ -3473,6 +3507,9 @@ span.rar-celestial,
     grid-column: 1;
     grid-row: 1 / span 2;
   }
+  .cr-rot {
+    bottom: calc(8px + var(--safe-b));
+  }
   .cr-dice {
     width: 44px;
     height: 44px;
@@ -3532,6 +3569,9 @@ span.rar-celestial,
   }
 
   /* VS */
+  .versus {
+    padding: 0 var(--safe-r) 0 var(--safe-l);
+  }
   .vs-title {
     top: calc(8px + var(--safe-t));
     font-size: 24px;
@@ -3583,10 +3623,10 @@ span.rar-celestial,
     padding: 6px 14px;
   }
   .fight-caption b {
-    font-size: 15px;
+    font-size: 14px;
   }
   .fight-caption.hot b {
-    font-size: 17px;
+    font-size: 16px;
   }
   /* na entrada o HUD está escondido: a dica sobe para o topo e não colide com os botões */
   .ent-hint {
@@ -3683,9 +3723,17 @@ span.rar-celestial,
   .chest-label span {
     font-size: 13px;
   }
+  .chest-label span {
+    color: #d8cff0;
+    text-shadow: 0 2px 0 var(--ink);
+  }
   .chest-hint {
-    bottom: calc(14% + var(--safe-b));
-    font-size: 22px;
+    bottom: calc(8px + var(--safe-b));
+    font-size: 20px;
+    padding: 6px 40px;
+    border-radius: 999px;
+    background: rgba(14, 8, 28, 0.94);
+    border: 1px solid var(--line);
   }
   .chest-skip {
     bottom: calc(10px + var(--safe-b));
