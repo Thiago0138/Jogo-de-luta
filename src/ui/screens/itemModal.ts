@@ -134,16 +134,10 @@ export function priceHtml(d: ItemDef, discount = 0): string {
 
 const VISUAL = ['hair', 'hairColor', 'outfit', 'gloves', 'mask', 'aura'];
 
-/**
- * Janela de detalhe com pré-visualização ao vivo.
- * `equipTo`: quando vem do escolhedor de um espaço, pergunta se quer equipar NESSE espaço.
- */
-export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, equipTo?: { slot: string; equip: () => void }): void {
+/** Pré-visualização ao vivo de um item (lutador a rodar, entrada completa ou demonstração no ringue). */
+export function itemArt(id: string): HTMLElement {
   const d = item(id);
-  const r = RARITIES[d.rarity];
-  const body = el('div', `item-detail r-${d.rarity}`);
-  const art = el('div', 'id-art');
-  body.appendChild(art);
+  const art = el('div', `id-art r-${d.rarity}`);
   if (VISUAL.includes(d.kind)) {
     const app = { ...S.appearance };
     const lo = { ...S.loadout };
@@ -174,6 +168,18 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, e
       art.appendChild(th);
     }
   }
+  return art;
+}
+
+/**
+ * Janela de detalhe com pré-visualização ao vivo.
+ * `equipTo`: quando vem do escolhedor de um espaço, pergunta se quer equipar NESSE espaço.
+ */
+export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, equipTo?: { slot: string; equip: () => void }): void {
+  const d = item(id);
+  const r = RARITIES[d.rarity];
+  const body = el('div', `item-detail r-${d.rarity}`);
+  body.appendChild(itemArt(id));
   const n = count(id);
   const info = el('div', 'id-info');
   info.innerHTML = `

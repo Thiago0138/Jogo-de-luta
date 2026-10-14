@@ -8,6 +8,16 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.11.1',
+    date: '2026-10-14',
+    title: 'Mission details',
+    items: [
+      'Tap any mission (especially the Legendary Challenges) to open it in detail: your progress, how to advance it and everything you get.',
+      'Item rewards show a live preview, their rarity, type and description, and whether they are exclusive to that challenge; chest rewards open their exact drop rates.',
+      'You can claim a completed reward straight from the detail window.',
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-10-14',
     title: 'Signature moments',

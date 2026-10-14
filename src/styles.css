@@ -4286,3 +4286,74 @@ button.pr-row {
   border: 1px solid rgba(58, 160, 255, 0.4);
   font-weight: 700;
 }
+
+/* ───── Detalhe de missão ───── */
+.mission {
+  cursor: pointer;
+}
+.m-go {
+  font-size: 22px;
+  opacity: 0.45;
+  align-self: center;
+}
+.md-state {
+  font-weight: 800;
+  margin-bottom: 6px;
+  color: var(--gold);
+}
+.md-state.ok {
+  color: var(--green);
+}
+.md-state svg {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+.md-bar {
+  margin-bottom: 6px;
+}
+.md-rw {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.md-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--rc) 55%, transparent);
+  background: color-mix(in srgb, var(--rc) 10%, transparent);
+}
+.md-item .id-art {
+  height: 180px;
+}
+.md-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+.md-info > b {
+  font-size: 18px;
+  color: var(--rc);
+}
+.md-info p {
+  margin: 0;
+  font-size: 13px;
+}
+.md-tags {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.md-info svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+}
+.modal.mission-modal {
+  width: min(560px, 100%);
+}
