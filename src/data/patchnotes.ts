@@ -8,6 +8,16 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.6.1',
+    date: '2026-10-14',
+    title: 'Som no telemóvel',
+    items: [
+      'Corrigido: a música e os sons não arrancavam em alguns telemóveis. O áudio liga-se ao primeiro toque em qualquer sítio e volta a ligar-se depois de mudares de app.',
+      'iPhone: o jogo ouve-se mesmo com o interruptor de silêncio ligado (como num vídeo).',
+      'O jogo atualiza-se sozinho para a versão mais recente quando a abres.',
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-10-14',
     title: 'Ícones novos e saídas realistas no Tag Team',

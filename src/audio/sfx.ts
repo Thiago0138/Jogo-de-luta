@@ -34,12 +34,68 @@ export function setAmbient(on: boolean): void {
   if (!on) stopCrowd();
 }
 
+let silentEl: HTMLAudioElement | null = null;
+
+/**
+ * iPhone: com o interruptor de silêncio ligado o WebAudio fica mudo. Pedir a sessão de áudio
+ * "playback" (iOS 17+) e tocar um <audio> silencioso em loop faz o jogo soar como um vídeo.
+ */
+function iosPlayback(): void {
+  try {
+    const nav = navigator as unknown as { audioSession?: { type: string } };
+    if (nav.audioSession) nav.audioSession.type = 'playback';
+  } catch {
+    /* sem suporte */
+  }
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes('Mac') && navigator.maxTouchPoints > 1);
+  if (!ios) return;
+  if (silentEl) {
+    if (silentEl.paused) void silentEl.play().catch(() => {});
+    return;
+  }
+  // 0,1 s de silêncio em WAV (8 kHz, 8 bits)
+  const n = 800;
+  const bytes = new Uint8Array(44 + n);
+  const dv = new DataView(bytes.buffer);
+  const w = (o: number, s: string) => [...s].forEach((c, i) => (bytes[o + i] = c.charCodeAt(0)));
+  w(0, 'RIFF');
+  dv.setUint32(4, 36 + n, true);
+  w(8, 'WAVEfmt ');
+  dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true);
+  dv.setUint16(22, 1, true);
+  dv.setUint32(24, 8000, true);
+  dv.setUint32(28, 8000, true);
+  dv.setUint16(32, 1, true);
+  dv.setUint16(34, 8, true);
+  w(36, 'data');
+  dv.setUint32(40, n, true);
+  bytes.fill(128, 44);
+  let bin = '';
+  bytes.forEach((b) => (bin += String.fromCharCode(b)));
+  silentEl = new Audio('data:audio/wav;base64,' + btoa(bin));
+  silentEl.loop = true;
+  silentEl.setAttribute('playsinline', '');
+  void silentEl.play().catch(() => {});
+}
+
+/** Ativa o áudio em qualquer toque/tecla (e volta a ativá-lo se o sistema o suspender). */
+export function installAudioUnlock(): void {
+  const h = () => unlockAudio();
+  for (const e of ['pointerdown', 'touchend', 'click', 'keydown']) document.addEventListener(e, h, { capture: true, passive: true });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && ac && ac.state !== 'running') void ac.resume().catch(() => {});
+  });
+}
+
 /** Tem de ser chamado num gesto do utilizador (requisito dos browsers). */
 export function unlockAudio(): void {
   if (ac) {
-    if (ac.state === 'suspended') void ac.resume();
+    if (ac.state !== 'running') void ac.resume().catch(() => {});
+    iosPlayback();
     return;
   }
+  iosPlayback();
   const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return;
   ac = new Ctor();

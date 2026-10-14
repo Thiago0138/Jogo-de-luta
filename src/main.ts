@@ -1,7 +1,7 @@
 import '@fontsource/luckiest-guy/400.css';
 import './styles.css';
 import { S } from './core/state';
-import { setAmbient, setSound, setVolume } from './audio/sfx';
+import { installAudioUnlock, setAmbient, setSound, setVolume } from './audio/sfx';
 import { music } from './audio/music';
 import { mountApp } from './ui/app';
 import { openCreator } from './ui/screens/creator';
@@ -9,6 +9,7 @@ import { modal } from './ui/dom';
 import { ico } from './ui/icons';
 
 async function boot(): Promise<void> {
+  installAudioUnlock();
   setVolume(S.settings.volume);
   setSound(S.settings.sound);
   music.setVolume(S.settings.bgmVol);
@@ -44,8 +45,24 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  // havendo uma versão nova, o service worker novo assume e a página recarrega sozinha uma vez
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded) return;
+    reloaded = true;
+    location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((reg) => {
+        void reg.update().catch(() => {});
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) void reg.update().catch(() => {});
+        });
+      })
+      .catch(() => {});
   });
 }
 
