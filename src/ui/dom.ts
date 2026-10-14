@@ -40,7 +40,9 @@ export interface ModalAction {
 }
 
 /** Abre um modal. Devolve uma função para o fechar. */
-export function modal(title: string, body: HTMLElement | string, actions: ModalAction[] = [{ label: 'Fechar' }], cls = ''): () => void {
+export function modal(
+  title: string, body: HTMLElement | string, actions: ModalAction[] = [{ label: 'Fechar' }], cls = '', onClose?: () => void,
+): () => void {
   const back = el('div', 'modal-back');
   const box = el('div', `modal ${cls}`);
   box.innerHTML = `<div class="modal-head"><h3>${title}</h3><button class="x" aria-label="Fechar">${ico('close')}</button></div>`;
@@ -49,7 +51,12 @@ export function modal(title: string, body: HTMLElement | string, actions: ModalA
   else content.appendChild(body);
   box.appendChild(content);
   const foot = el('div', 'modal-foot');
+  let closed = false;
   const close = () => {
+    if (!closed) {
+      closed = true;
+      onClose?.();
+    }
     back.classList.add('out');
     setTimeout(() => back.remove(), 180);
   };

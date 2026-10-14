@@ -10,6 +10,9 @@ import { Announcer } from '../audio/announcer';
 import { music } from '../audio/music';
 import { ANIMS, sample } from './anims';
 import { Skel, newPose, solve } from '../render/pose';
+import { ico } from '../ui/icons';
+import { esc } from '../ui/dom';
+import { openSettings } from '../ui/screens/settings';
 
 export interface SceneOpts {
   speed: 1 | 2;
@@ -41,6 +44,8 @@ export class FightScene {
   private root: HTMLElement;
   private raf = 0;
   private last = 0;
+  /** Pausa (definições abertas a meio da luta). */
+  private paused = false;
   private W = 0;
   private H = 0;
   private dpr = 1;
@@ -181,7 +186,7 @@ export class FightScene {
 
     const ctr = document.createElement('div');
     ctr.className = 'fight-ctrl';
-    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">🔊<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost mic${S.settings.announcer ? '' : ' off'}" aria-label="Narrador" title="Narrador">🎙️</button><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ⏭</button>`;
+    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">${ico('speaker')}<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost mic${S.settings.announcer ? '' : ' off'}" aria-label="Narrador" title="Narrador">${ico('mic')}</button><button class="btn-ghost cfg" aria-label="Definições" title="Definições">${ico('gear')}</button><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ${ico('skip')}</button>`;
     const vol = ctr.querySelector('.fight-vol input') as HTMLInputElement;
     vol.oninput = () => {
       S.settings.volume = Number(vol.value) / 100;
@@ -196,6 +201,19 @@ export class FightScene {
       if (!S.settings.announcer && this.capEl) this.capEl.classList.remove('on');
       commit();
       sfx.click();
+    };
+    (ctr.querySelector('.cfg') as HTMLButtonElement).onclick = () => {
+      sfx.click();
+      // a luta fica em pausa enquanto as definições estão abertas
+      this.paused = true;
+      openSettings(() => {
+        this.paused = false;
+        this.last = performance.now();
+        this.announcer.setEnabled(S.settings.announcer);
+        mic.classList.toggle('off', !S.settings.announcer);
+        setVolume(S.settings.volume);
+        vol.value = String(Math.round(S.settings.volume * 100));
+      });
     };
     const sp = ctr.querySelector('.sp') as HTMLButtonElement;
     sp.onclick = () => {
@@ -269,7 +287,7 @@ export class FightScene {
         const b = other ? (other.state === 'out' ? -2 : Math.round((other.hp / other.maxHp) * 100)) : -2;
         if (b !== L.bench && other) {
           L.bench = b;
-          h.bench.textContent = (other.state === 'out' ? '✖ ' : '🤝 ') + other.spec.name;
+          h.bench.innerHTML = ico(other.state === 'out' ? 'close' : 'tag') + ' ' + esc(other.spec.name);
           h.benchHp.style.transform = `scaleX(${Math.max(0, b) / 100})`;
           h.bench.parentElement!.classList.toggle('out', other.state === 'out');
         }
@@ -318,6 +336,10 @@ export class FightScene {
         this.resize();
       }
     }
+    if (this.paused) {
+      this.render(0);
+      return;
+    }
     const step = dt * this.speed;
     // sub-passos para estabilidade a 2x
     const n = step > 0.034 ? 2 : 1;
@@ -340,7 +362,7 @@ export class FightScene {
       this.capEl.className = 'fight-caption';
       this.root.appendChild(this.capEl);
     }
-    this.capEl.innerHTML = `<span>🎙️</span><b></b>`;
+    this.capEl.innerHTML = `<span>${ico('mic')}</span><b></b>`;
     (this.capEl.querySelector('b') as HTMLElement).textContent = text;
     this.capEl.classList.toggle('hot', prio >= 6);
     this.capEl.classList.remove('on');
@@ -446,10 +468,11 @@ export class FightScene {
 
     // sombras suaves de contacto
     const shadow = glowSprite('#000000');
-    for (const f of F.fighters) {
-      if (f.state === 'out' || f.hidden) continue;
+    const all = F.extras.length ? F.fighters.concat(F.extras) : F.fighters;
+    for (const f of all) {
+      if ((f.state === 'out' && !f.exiting) || f.hidden || f.z < -5) continue;
       const s = Math.max(0.3, 1 - f.z / 400);
-      const lying = f.state === 'down' || f.state === 'ko';
+      const lying = f.state === 'down' || f.state === 'ko' || (f.exiting && Math.abs(f.pose.rot) > 1);
       ctx.globalAlpha = 0.7 * s;
       const w = (lying ? 190 : 120) * s;
       ctx.drawImage(shadow, F.hipX(f) - w / 2 + (lying ? -f.facing * 30 : 0), -12 * s, w, 26 * s);
@@ -459,7 +482,7 @@ export class FightScene {
     for (const b of F.beams) this.drawBeam(ctx, b.x, b.w, b.life / b.max, b.color);
 
     // lutadores ordenados
-    const list = F.fighters.slice().sort((p, q) => this.order(p) - this.order(q));
+    const list = all.slice().sort((p, q) => this.order(p) - this.order(q));
     for (const f of list) {
       if (f.hidden) continue;
       this.drawSmear(ctx, f);
@@ -744,6 +767,8 @@ export class FightScene {
   }
 
   private order(f: Fighter): number {
+    // a sair do ringue (eliminado / árbitro): atrás de quem está a lutar; o árbitro à frente de quem leva
+    if (f.exiting) return f.referee ? -1.5 : -1.6;
     if (f.state === 'out') return -3;
     if (f.state === 'apron') return -2;
     if (f.state === 'down' || f.state === 'ko') return -1 + f.layer;
@@ -756,7 +781,7 @@ export class FightScene {
     const k = F.scale(f);
     const x = F.hipX(f);
     const y = F.hipY(f);
-    const opts = { t: F.t + f.slot * 1.3, expr: f.expr, flash: f.flashT > 0, glow: f.glow, low: this.low, rim: this.low ? null : f.team === 0 ? '#ff6f93' : '#6fbaff' };
+    const opts = { t: F.t + f.slot * 1.3, expr: f.expr, flash: f.flashT > 0, glow: f.glow, low: this.low, rim: this.low ? null : f.referee ? '#dfe6ff' : f.team === 0 ? '#ff6f93' : '#6fbaff' };
     if (f.ghost) {
       for (let g = 2; g >= 1; g--) {
         ctx.save();
@@ -771,7 +796,7 @@ export class FightScene {
     ctx.translate(x, y);
     ctx.scale(k * f.facing, k);
     if (f.wings) this.drawWings(ctx, F.t, f.skel.x[J_HEAD], f.skel.y[J_HEAD]);
-    if (f.state === 'out') ctx.globalAlpha = 0.55;
+    if (f.state === 'out' && !f.exiting) ctx.globalAlpha = 0.55;
     drawFighter(ctx, f.spec.look, f.skel, opts);
     ctx.restore();
     // marcador de equipa por cima da cabeça do jogador
@@ -1066,7 +1091,7 @@ export class FightScene {
     ctx.scale(pop, pop);
     ctx.font = `${Math.round(fs)}px ${FONT}`;
     ctx.lineWidth = fs * 0.2;
-    const label = `${c.icon} ${c.move.toUpperCase()}!`;
+    const label = `${c.move.toUpperCase()}!`;
     ctx.strokeText(label, 0, 0);
     const tg = ctx.createLinearGradient(0, -fs / 2, 0, fs / 2);
     tg.addColorStop(0, '#ffffff');
@@ -1196,13 +1221,13 @@ export class FightScene {
     ctx.rotate(-0.04 * dir);
     ctx.font = `${Math.round(fs * 1.15)}px ${FONT}`;
     ctx.lineWidth = fs * 0.24;
-    ctx.strokeText(`${c.icon} ${c.move.toUpperCase()}`, 0, 0);
+    ctx.strokeText(c.move.toUpperCase(), 0, 0);
     const tg = ctx.createLinearGradient(0, -fs * 0.6, 0, fs * 0.6);
     tg.addColorStop(0, '#ffffff');
     tg.addColorStop(0.5, c.color);
     tg.addColorStop(1, c.color);
     ctx.fillStyle = tg;
-    ctx.fillText(`${c.icon} ${c.move.toUpperCase()}`, 0, 0);
+    ctx.fillText(c.move.toUpperCase(), 0, 0);
     ctx.restore();
     ctx.restore();
   }

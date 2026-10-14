@@ -8,7 +8,7 @@ import { render } from '../app';
 import { el, esc, modal } from '../dom';
 import { ico } from '../icons';
 
-export function openSettings(): void {
+export function openSettings(onClose?: () => void): void {
   const b = el('div', 'settings');
   const s = S.settings;
   b.innerHTML = `
@@ -96,7 +96,7 @@ export function openSettings(): void {
       { label: 'Apagar tudo', cls: 'btn-red', onClick: () => resetSave() },
     ]);
   };
-  modal('Definições', b);
+  modal('Definições', b, undefined, '', onClose);
 }
 
 /** Frase curta para ouvir o volume do narrador. */

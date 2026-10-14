@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.6.0',
+    date: '2026-10-14',
+    title: 'Ícones novos e saídas realistas no Tag Team',
+    items: [
+      'Tag Team: quem é eliminado já não sai a deslizar. Levanta-se a cambalear e sai pelas cordas, ou o árbitro entra no ringue e leva-o para fora.',
+      'Novo árbitro com camisa às riscas.',
+      'Adeus emojis: todos os menus têm agora ícones desenhados à mão no estilo do jogo (moedas, gemas, troféus, baús, atributos, definições, separadores…).',
+      'Emblemas de liga em forma de escudo, com a cor e o símbolo de cada liga.',
+      'Miniaturas ilustradas: os golpes mostram o teu lutador a aplicá-los num adversário, os supers mostram a pose e o efeito, e as entradas mostram o cenário (holofote, discoteca, fumo, lasers, fogo, foguetes, trovoada, passadeira real…).',
+      'Os menus já não voltam ao início quando equipas algo: mantêm o separador, o scroll e a rotação do lutador.',
+      'Definições durante a luta: novo botão ⚙ que põe o combate em pausa.',
+      'Sons totalmente refeitos: socos com estalo de cabedal e impacto, quedas no ringue com estrondo das tábuas e das molas, ressalto nas cordas, sino de boxe real e reverberação de pavilhão.',
+      'Público novo: acabou o ruído tipo chuva. Agora ouves vozes, gritos, palmas e "uuuh!" nos golpes brutais.',
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-10-14',
     title: 'Trajes épicos, rotação 360° e narrador em inglês',

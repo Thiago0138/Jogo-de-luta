@@ -2,10 +2,12 @@ import { ITEMS } from '../data/items';
 import { emptyTally, type Tally } from '../data/missions';
 import { maxHp } from '../data/stats';
 import { sfx, crowdLevel } from '../audio/sfx';
-import { HEAD_R, J_BH, J_FF, J_FH, J_HEAD, J_NECK, J_HIP, Skel, clamp, copyPose, newPose, solve } from '../render/pose';
-import { ANIMS, sample, type AnimName } from './anims';
+import { HEAD_R, J_BF, J_BH, J_FE, J_FF, J_FH, J_HEAD, J_NECK, J_HIP, J_SH, Skel, clamp, copyPose, newPose, solve, type Pose } from '../render/pose';
+import { ANIMS, armIK, headLocal, sample, torsoLocal, type AnimName } from './anims';
+import { resolveLook } from '../render/look';
+import { baseStats } from '../data/stats';
 import { APRON_X, BACK_X, BACK_Y, FRONT_X, FRONT_Y, POST_H, RING, ROPE_H, newRopes, pushRope, updateRopes, type RopeState } from './arena';
-import { Fighter, type FighterSpec, type Script, type Yield } from './fighter';
+import { Fighter, type FighterSpec, type Loco, type Script, type Yield } from './fighter';
 import { PK, Particles, type Banner, type Beam, type Bolt, type PopText, type Proj, type Wave } from './fx';
 
 export type Mode = 'solo' | 'tag' | 'champion';
@@ -37,6 +39,27 @@ const FRAME = 1e-4;
 const BURST_WORDS = ['POW!', 'BAM!', 'CRACK!', 'BOOM!', 'WHAM!', 'SMASH!', 'KAPOW!'];
 const GRAV = 2200;
 const WALK = 150;
+/** x das cordas laterais à profundidade dos lutadores e alturas das cordas do meio/de cima. */
+const ROPE_X = 498;
+const ROPE_MID = 84;
+const ROPE_TOP = 123;
+/** Para lá disto (em |x|) um lutador já saiu de cena. */
+const OFFSTAGE = 880;
+/** Altura do ringue: o chão do pavilhão fica este tanto abaixo do tapete (z negativo). */
+const FLOOR_Z = -92;
+
+type Pt = [number, number];
+type HandT = ((p: Pose) => Pt) | null;
+
+/**
+ * Mãos presas a alvos (IK), com transição suave quando o alvo muda ou é largado.
+ * Os alvos são devolvidos em coordenadas locais do esqueleto (ver armIK).
+ */
+interface Grip {
+  set(front: HandT | undefined, back: HandT | undefined): void;
+  front: HandT;
+  back: HandT;
+}
 
 type StrikeKind = 'punch' | 'kick' | 'grapple' | 'aerial' | 'ground' | 'super' | 'assist';
 
@@ -112,6 +135,8 @@ const SUPER_COLORS: Record<string, string> = {
 export class Fight {
   mode: Mode;
   fighters: Fighter[] = [];
+  /** Figurantes só visuais (árbitro a ir buscar um eliminado): desenhados como lutadores, sem lógica de luta. */
+  extras: Fighter[] = [];
   teams: [Fighter[], Fighter[]] = [[], []];
   active: [Fighter, Fighter];
   t = 0;
@@ -304,7 +329,7 @@ export class Fight {
     this.beams.push(beam);
     this.stage = { disco: 0, carpet: 0, portal: 0, scan: null, side, flicker: 0 };
     this.emit('entrance', f, undefined, d.name);
-    this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.icon} ${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.8, 0.75);
+    this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.8, 0.75);
     sfx.cheer(1);
     this.addHype(0.4);
     const follow = () => {
@@ -977,6 +1002,8 @@ export class Fight {
     }
 
     for (const f of this.fighters) this.updateFighter(f, dt);
+    for (const e of this.extras) this.updateExtra(e, dt);
+    if (this.extras.length) this.extras = this.extras.filter((e) => !e.hidden);
     if (this.darkenTarget > 0 && !this.fighters.some((f) => f.glow)) this.darkenTarget = 0;
     this.resolveOverlap();
     updateRopes(this.ropes, dt);
@@ -1063,7 +1090,7 @@ export class Fight {
       return;
     }
     if (f.state === 'out') {
-      f.animate(dt, this.t);
+      this.updateExtra(f, dt);
       return;
     }
     if (f.furyT > 0) f.furyT -= dt;
@@ -1151,8 +1178,15 @@ export class Fight {
     f.animate(dt * animK, this.t, (f.override ? f.override.rot : 0) + f.spinAng);
   }
 
-  private runScript(f: Fighter, dt: number): void {
-    const s = this.spd(f);
+  /** Eliminado a sair do ringue / árbitro: só script, deslocação e animação (nada de lógica de luta). */
+  private updateExtra(f: Fighter, dt: number): void {
+    if (f.script) this.runScript(f, dt, 1);
+    // a altura (z) é toda conduzida pelos scripts: < 0 = no chão do pavilhão, fora do ringue
+    if (!f.override) f.x += f.vx * dt;
+    f.animate(dt, this.t, f.override ? f.override.rot : 0);
+  }
+
+  private runScript(f: Fighter, dt: number, s = this.spd(f)): void {
     if (typeof f.wait === 'number') {
       f.wait -= dt * s;
       if (f.wait > 0) return;
@@ -1743,7 +1777,8 @@ export class Fight {
     this.shake(8 + big * 6, 0.3 + big * 0.1);
     this.dust(o.x, 10 + big * 8, 90);
     this.parts.spawn(PK.Ring, o.x, 0, 0, 0, 0.45, 140 + big * 80, '#ffffff', 0);
-    sfx.thud();
+    sfx.slam(0.85 + big * 0.45);
+    if (big > 0.5) sfx.oooh(0.8 + big * 0.4);
     this.addHype(0.1 + big * 0.1);
   }
 
@@ -1915,7 +1950,7 @@ export class Fight {
     }
     f.x = x0;
     pushRope(this.ropes, side, -dir * 500);
-    sfx.whoosh();
+    sfx.ropes();
     f.noClamp = false;
     f.facing = -dir as 1 | -1;
     f.play('run');
@@ -2435,7 +2470,8 @@ export class Fight {
     if (Math.random() < 0.6) {
       for (let i = 0; i < 4; i++) this.parts.spawn(PK.Sweat, hx, hy, dir * (100 + Math.random() * 200), -150 - Math.random() * 200, 0.6, 2.5, '#bfe6ff', 1400);
     }
-    sfx.hit(heavy);
+    sfx.punch(heavy ? 1 : o.kind === 'kick' ? 0.75 : 0.55, !!o.body);
+    if (crit || (heavy && o.kind === 'super')) sfx.oooh(crit ? 0.7 : 1);
     if (heavy && o.kind !== 'assist') {
       this.bursts.push({ x: hx, y: hy - 10, text: BURST_WORDS[Math.floor(Math.random() * BURST_WORDS.length)], life: 0.42, max: 0.42, color: crit ? '#ffd23d' : o.color ?? '#ff5a5a', rot: (Math.random() - 0.5) * 0.5 });
       if (this.bursts.length > 4) this.bursts.shift();
@@ -2519,7 +2555,7 @@ export class Fight {
   private *fallLand(f: Fighter): Script {
     yield () => f.z <= 0;
     this.dust(f.x, 8);
-    sfx.thud();
+    sfx.slam(0.85);
     this.shake(5, 0.15);
     if (f.state === 'ko') f.play('lieKO');
     else {
@@ -2562,7 +2598,7 @@ export class Fight {
     if (next && this.phase === 'fight') {
       this.banner('ELIMINADO!', def.spec.name, '#ff5a5a', 1.6);
       this.emit('elim', def, att);
-      def.run(this.eliminate(def, next));
+      def.run(this.eliminate(def, next, Math.random() < 0.5));
       def.state = 'ko';
     } else {
       this.banner('K.O.!', '', '#ff3d6e', 1.8, 1.5);
@@ -2597,24 +2633,404 @@ export class Fight {
     f.downT = 0;
   }
 
-  private *eliminate(f: Fighter, next: Fighter): Script {
+  /**
+   * Eliminado no tag team: fica no tapete um momento, o parceiro entra logo (a luta continua)
+   * e o eliminado sai do ringue a pé, zonzo, ou levado pelo árbitro. A saída é só visual.
+   */
+  private *eliminate(f: Fighter, next: Fighter, byRef: boolean): Script {
     yield () => f.z <= 0;
     f.play('lieKO');
     yield 1.6;
-    // sai do ringue
-    f.noClamp = true;
-    const side = f.team === 0 ? -1 : 1;
-    let t = 0;
-    const x0 = f.x;
-    while (t < 0.6) {
-      t += this.dt;
-      f.x = x0 + (side * (APRON_X + 60) - x0) * (t / 0.6);
-      yield FRAME;
-    }
+    f.vx = 0;
     f.setState('out');
+    f.exiting = true;
+    f.noClamp = true;
     this.active[f.team] = next;
     next.stop();
     next.run(this.enterRing(next));
+    try {
+      if (byRef) yield* this.refFetch(f);
+      else yield* this.selfExit(f);
+    } finally {
+      f.exiting = false;
+      f.footLock = false;
+      f.poseHook = null;
+      f.cadence = 1;
+      f.hidden = true;
+      f.x = Math.sign(f.x || 1) * (OFFSTAGE + 100);
+    }
+  }
+
+  /** Lado das cordas mais próximas (perto do centro: o canto da própria equipa). */
+  private exitSide(f: Fighter): 1 | -1 {
+    if (Math.abs(f.x) < 60) return f.team === 0 ? -1 : 1;
+    return f.x > 0 ? 1 : -1;
+  }
+
+  /** Mundo → coordenadas locais do esqueleto de f. */
+  private toLocal(f: Fighter, wx: number, wy: number): Pt {
+    const k = this.scale(f);
+    return [((wx - this.hipX(f)) * f.facing) / k, (wy - this.hipY(f)) / k];
+  }
+
+  /** Ponto local do esqueleto de o (pose atual) → mundo. */
+  private toWorld(o: Fighter, l: Pt): Pt {
+    const k = this.scale(o);
+    return [this.hipX(o) + o.facing * l[0] * k, this.hipY(o) + l[1] * k];
+  }
+
+  private makeGrip(f: Fighter): Grip {
+    const hands = [true, false].map((front) => ({
+      front,
+      t: null as HandT,
+      w: 0,
+      u: 1,
+      from: [0, 0] as Pt,
+      last: [0, 0] as Pt,
+    }));
+    const g: Grip = {
+      front: null,
+      back: null,
+      set: (front, back) => {
+        [front, back].forEach((nt, i) => {
+          if (nt === undefined) return;
+          const h = hands[i];
+          if (nt && h.w > 0) {
+            // parte de onde a mão está agora
+            const j = h.front ? J_FH : J_BH;
+            h.from = [f.skel.x[j], f.skel.y[j]];
+            h.u = 0;
+          }
+          h.t = nt;
+        });
+        g.front = hands[0].t;
+        g.back = hands[1].t;
+      },
+    };
+    f.poseHook = (p) => {
+      const dt = this.dt;
+      for (const h of hands) {
+        h.w = clamp(h.w + (h.t ? 1 : -1) * dt * 4, 0, 1);
+        if (h.w <= 0) continue;
+        let tg = h.t ? h.t(p) : h.last;
+        h.last = tg;
+        if (h.u < 1) {
+          h.u = Math.min(1, h.u + dt / 0.3);
+          const e = h.u * h.u * (3 - 2 * h.u);
+          tg = [h.from[0] + (tg[0] - h.from[0]) * e, h.from[1] + (tg[1] - h.from[1]) * e];
+        }
+        armIK(p, h.front, tg[0], tg[1], h.w * h.w * (3 - 2 * h.w));
+      }
+    };
+    return g;
+  }
+
+  /** Mão na cabeça e a outra nas costelas (zonzo). */
+  private readonly onHead: HandT = (p) => {
+    const [hx, hy] = headLocal(p);
+    return [hx + 3, hy - 13];
+  };
+
+  private readonly onRibs: HandT = (p) => torsoLocal(p, 24, 20);
+
+  /** Caminha (pé de apoio fixo no chão) até x. 'walkBack' recua sem se virar. */
+  private *stroll(f: Fighter, tx: number, anim: Loco = 'walk', maxT = 14): Script {
+    f.footLock = true;
+    f.vx = 0;
+    const dir = tx > f.x ? 1 : -1;
+    // um passo curto para trás não precisa de meia-volta
+    if (anim === 'walk' && f.facing !== dir && Math.abs(tx - f.x) < 60) anim = 'walkBack';
+    if (anim !== 'walkBack' && f.facing !== dir) {
+      f.blendIn(0.3, true);
+      f.facing = dir;
+    }
+    f.play(anim, 1, false);
+    let t = 0;
+    // pára num momento em que os pés estão juntos (assim a pose seguinte não arrasta o pé de apoio)
+    const together = () => Math.abs(f.skel.x[J_FF] - f.skel.x[J_BF]) < 22;
+    while ((tx - f.x) * dir > 2 && t < maxT) {
+      if ((tx - f.x) * dir < 26 && together()) break;
+      t += this.dt;
+      yield FRAME;
+    }
+    while ((f.x - tx) * dir < 14 && !together() && t < maxT) {
+      t += this.dt;
+      yield FRAME;
+    }
+  }
+
+  /** Passa entre as cordas laterais do lado `side`, no sentido para onde está virado. */
+  private *throughRopes(f: Fighter, side: number, g: Grip): Script {
+    f.footLock = true;
+    f.vx = 0;
+    f.play('ropeStep');
+    sfx.ropes();
+    f.blendIn(0.25);
+    const pf = g.front;
+    const pb = g.back;
+    const rx = side * ROPE_X;
+    let t = 0;
+    // enquanto se agacha as pernas ficam como estavam (a meio do passo), sem arrastar os pés;
+    // depois seguem a animação
+    const legs = [f.pose.fl1, f.pose.fl2, f.pose.bl1, f.pose.bl2];
+    const base = f.poseHook;
+    f.poseHook = (p) => {
+      const u = clamp((t - 0.3) / 0.45, 0, 1);
+      const w = 1 - u * u * (3 - 2 * u);
+      if (w > 0) {
+        p.fl1 += (legs[0] - p.fl1) * w;
+        p.fl2 += (legs[1] - p.fl2) * w;
+        p.bl1 += (legs[2] - p.bl1) * w;
+        p.bl2 += (legs[3] - p.bl2) * w;
+      }
+      base?.(p);
+    };
+    let grabbed = false;
+    let released = false;
+    let pushed = false;
+    while (t < 2.5) {
+      t += this.dt;
+      if (!grabbed && !released && t > 0.1) {
+        grabbed = true;
+        g.set(
+          () => this.toLocal(f, rx + f.facing * 6, -ROPE_MID),
+          () => this.toLocal(f, rx - f.facing * 4, -ROPE_TOP),
+        );
+      }
+      if (!pushed && t > 0.8) {
+        pushed = true;
+        pushRope(this.ropes, side > 0 ? 1 : 0, 130);
+        sfx.whoosh();
+      }
+      if (grabbed && t > 1.9) {
+        grabbed = false;
+        released = true;
+        g.set(pf, pb);
+      }
+      yield FRAME;
+    }
+    f.poseHook = base;
+    if (grabbed) g.set(pf, pb);
+  }
+
+  /** Salto curto (descer do avental para o chão ou subir para o avental); x e z conduzidos à mão. */
+  private *hop(fs: Fighter[], dx: number, z1: number, up: boolean): Script {
+    const dur = up ? 0.55 : 0.5;
+    const st = fs.map((f) => {
+      f.footLock = false;
+      f.vx = 0;
+      f.play(up ? 'stepUp' : 'hopDown');
+      return { f, x0: f.x, z0: f.z };
+    });
+    // controlo da curva (quadrática) para passar ~14 acima do ponto mais alto
+    let t = 0;
+    while (t < dur) {
+      t += this.dt;
+      const u = clamp(t / dur, 0, 1);
+      for (const s of st) {
+        const pk = Math.max(s.z0, z1) + 14;
+        const c = 2 * pk - (s.z0 + z1) / 2;
+        s.f.x = s.x0 + dx * (u * u * (3 - 2 * u));
+        s.f.z = (1 - u) * (1 - u) * s.z0 + 2 * u * (1 - u) * c + u * u * z1;
+        s.f.vz = 0;
+      }
+      yield FRAME;
+    }
+    for (const s of st) s.f.z = z1;
+    if (!up) sfx.thud();
+    yield up ? 0.05 : 0.3;
+  }
+
+  /** Levanta-se sozinho, zonzo, e sai do ringue pelo próprio pé. */
+  private *selfExit(f: Fighter): Script {
+    const side = this.exitSide(f);
+    const g = this.makeGrip(f);
+    yield 0.1 + Math.random() * 0.5;
+    f.setExpr('hurt', 999);
+    f.play('groggy', 1.2);
+    f.blendIn(0.3);
+    yield 4.5 / 1.2;
+    f.play('dazed');
+    g.set(this.onHead, this.onRibs);
+    yield 0.6 + Math.random() * 0.4;
+    yield* this.stroll(f, side * (ROPE_X - 45), 'limp');
+    yield* this.throughRopes(f, side, g);
+    // desce do avental para o chão e vai-se embora
+    if ((side * (APRON_X + 6) - f.x) * side > 4) yield* this.stroll(f, side * (APRON_X + 6), 'limp');
+    f.play('dazed');
+    yield 0.3;
+    yield* this.hop([f], side * 46, FLOOR_Z, false);
+    f.play('dazed');
+    yield 0.4;
+    yield* this.stroll(f, side * OFFSTAGE, 'limp');
+  }
+
+  private makeReferee(): Fighter {
+    const pick = <T>(a: T[]) => a[Math.floor(Math.random() * a.length)];
+    const look = resolveLook(
+      {
+        skin: Math.floor(Math.random() * 7),
+        hair: pick(['h_careca', 'h_curto', 'h_curto', 'h_careca']),
+        hairColor: pick(['hc_preto', 'hc_castanho', 'hc_grisalho', 'hc_preto', 'hc_loiro']),
+        eyes: 'normal',
+        eyeColor: Math.floor(Math.random() * 4),
+        brows: pick(['normal', 'grossas']),
+        mouth: 'serio',
+        beard: pick(['nenhuma', 'nenhuma', 'bigode', 'curta']),
+        height: 0.96 + Math.random() * 0.04,
+      },
+      { outfit: '', gloves: '', mask: null, aura: null },
+    );
+    // camisa às riscas preto e branco, calças e sapatos pretos, mãos nuas
+    look.outfit = { style: 'ref', c1: '#17171c', c2: '#0c0c10', boots: '#111114' };
+    look.gloves = { style: 'fita', c1: look.skin, c2: look.skinShade };
+    look.mask = null;
+    look.aura = null;
+    const spec: FighterSpec = { name: 'Árbitro', level: 1, stats: baseStats(), look, supers: [], passives: [], isPlayer: false };
+    const r = new Fighter(spec, 0, 7, 1);
+    r.setState('out');
+    r.exiting = true;
+    r.referee = true;
+    r.noClamp = true;
+    r.play('guard');
+    return r;
+  }
+
+  /** O árbitro entra, ajuda o eliminado a levantar-se e leva-o para fora do ringue ao ombro. */
+  private *refFetch(f: Fighter): Script {
+    const side = this.exitSide(f);
+    const g = this.makeGrip(f);
+    const r = this.makeReferee();
+    const rg = this.makeGrip(r);
+    r.x = side * 800;
+    r.z = FLOOR_Z;
+    r.facing = -side as 1 | -1;
+    this.extras.push(r);
+    try {
+      // sobe para o avental e entra pelas cordas
+      r.cadence = 1.25;
+      yield* this.stroll(r, side * (APRON_X + 44));
+      r.cadence = 1;
+      yield* this.hop([r], -side * 50, 0, true);
+      r.play('guard');
+      yield* this.stroll(r, side * (ROPE_X + 40));
+      yield* this.throughRopes(r, side, rg);
+      // vai até aos ombros do lutador
+      const sx = clamp(this.jx(f, J_SH) + side * 46, -(RING - 12), RING - 12);
+      yield* this.stroll(r, sx, (sx - r.x) * r.facing >= 0 ? 'walk' : 'walkBack');
+      if (r.facing !== -side) {
+        r.blendIn(0.3, true);
+        r.facing = -side as 1 | -1;
+      }
+      r.play('refSquat');
+      rg.set(
+        () => this.toLocal(r, this.jx(f, J_SH), this.jy(f, J_SH)),
+        () => this.toLocal(r, this.jx(f, J_FE), this.jy(f, J_FE)),
+      );
+      yield 0.8;
+      // levanta-o
+      f.setExpr('hurt', 999);
+      f.play('groggy', 1.6);
+      f.at = 1.0;
+      f.blendIn(0.35);
+      r.play('refLift');
+      yield 3.5 / 1.6;
+      f.play('dazed');
+      rg.set(null, null);
+      yield 0.35;
+      // ombro a ombro, virados para as cordas
+      for (const x of [f, r]) {
+        if (x.facing !== side) {
+          x.blendIn(0.3, true);
+          x.facing = side;
+        }
+      }
+      g.set(this.onHead, this.onRibs);
+      r.play('guard');
+      yield 0.3;
+      const gap = 26;
+      const meet = side * (ROPE_X - 110);
+      if ((meet - f.x) * side > 10) yield* this.shoulderWalk(f, r, g, rg, side, meet, gap);
+      // o árbitro segura as cordas abertas e o lutador passa (por trás dele)
+      g.set(this.onHead, this.onRibs);
+      rg.set(null, null);
+      f.play('dazed');
+      yield* this.stroll(r, side * (ROPE_X - 40));
+      if (r.facing !== side) {
+        r.blendIn(0.3, true);
+        r.facing = side as 1 | -1;
+      }
+      r.play('refHold');
+      rg.set(
+        () => this.toLocal(r, side * (ROPE_X + 2), -ROPE_MID - 12),
+        () => this.toLocal(r, side * (ROPE_X - 4), -ROPE_TOP - 4),
+      );
+      pushRope(this.ropes, side > 0 ? 1 : 0, 90);
+      yield 0.5;
+      yield* this.stroll(f, side * (ROPE_X - 45), 'limp');
+      yield* this.throughRopes(f, side, g);
+      // espera pelo árbitro do lado de fora
+      r.script = this.refFollow(r, rg, side);
+      r.wait = 0;
+      if ((side * (APRON_X + 14) - f.x) * side > 4) yield* this.stroll(f, side * (APRON_X + 14), 'limp');
+      f.play('dazed');
+      yield () => !r.script;
+      // juntos até à beira do avental, descem para o chão e saem
+      yield* this.shoulderWalk(f, r, g, rg, side, side * (APRON_X + 30), gap);
+      yield* this.hop([f, r], side * 46, FLOOR_Z, false);
+      f.play('dazed');
+      r.play('guard');
+      yield 0.2;
+      yield* this.shoulderWalk(f, r, g, rg, side, side * OFFSTAGE, gap);
+    } finally {
+      r.hidden = true;
+      r.exiting = false;
+    }
+  }
+
+  /** Árbitro: larga as cordas, passa-as e põe-se ao lado do lutador. */
+  private *refFollow(r: Fighter, rg: Grip, side: number): Script {
+    rg.set(null, null);
+    yield 0.3;
+    r.play('guard');
+    yield* this.throughRopes(r, side, rg);
+  }
+
+  /** Os dois a andar juntos: o braço do lutador sobre os ombros do árbitro, que o segura pela cintura. */
+  private *shoulderWalk(f: Fighter, r: Fighter, g: Grip, rg: Grip, side: number, tx: number, gap: number): Script {
+    for (const x of [f, r]) {
+      if (x.facing !== side) {
+        x.blendIn(0.3, true);
+        x.facing = side as 1 | -1;
+      }
+    }
+    // ajusta a posição do árbitro ao lado do lutador
+    const want = f.x + side * gap;
+    if (Math.abs(want - r.x) > 6) yield* this.stroll(r, want, (want - r.x) * r.facing >= 0 ? 'walk' : 'walkBack', 3);
+    r.play('guard');
+    g.set(() => {
+      const n = this.toLocal(f, this.jx(r, J_NECK), this.jy(r, J_NECK) + 4 * this.scale(r));
+      return n;
+    }, this.onRibs);
+    rg.set(
+      () => this.toLocal(r, this.jx(f, J_FH), this.jy(f, J_FH)),
+      () => this.toLocal(r, ...this.toWorld(f, torsoLocal(f.pose, 22, -17))),
+    );
+    yield 0.45;
+    f.footLock = true;
+    r.footLock = true;
+    f.play('limp', 1, false);
+    r.play('walk', 1, false);
+    let t = 0;
+    while ((tx - f.x) * side > 2 && t < 14) {
+      t += this.dt;
+      const err = (r.x - f.x) * side - gap;
+      const want = clamp(0.58 - err * 0.03, 0.15, 1.2);
+      r.cadence += (want - r.cadence) * Math.min(1, this.dt * 4);
+      yield FRAME;
+    }
+    r.cadence = 1;
+    r.play('guard');
   }
 
   private *enterRing(f: Fighter): Script {
@@ -2818,7 +3234,7 @@ export class Fight {
     if (f.spec.isPlayer) this.tally.supers++;
     this.superBudget = o.maxHp * (0.1 + (power - 1) * 0.12);
     // cut-in cinematográfico
-    this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: d?.icon ?? '💥', color, team: f.team, t: 0, max: 1.25 };
+    this.cutin = { name: f.spec.name, move: d?.name ?? 'Super', icon: '', color, team: f.team, t: 0, max: 1.25 };
     this.emit('super', f, o, d?.name);
     f.play('charge');
     f.glow = color;

@@ -1,9 +1,9 @@
 import type { Stats } from '../data/stats';
 import { ITEMS } from '../data/items';
 import type { Look } from '../render/look';
-import { POSE_KEYS, Skel, copyPose, easeInOut, newPose, solve, type Pose } from '../render/pose';
+import { J_BF, J_FF, POSE_KEYS, Skel, copyPose, easeInOut, newPose, solve, type Pose } from '../render/pose';
 import type { Expr } from '../render/fighter';
-import { ANIMS, locomotion, sample, type AnimName } from './anims';
+import { ANIMS, limp, locomotion, sample, type AnimName } from './anims';
 
 export interface FighterSpec {
   name: string;
@@ -40,6 +40,9 @@ export type FState =
 export type Yield = number | (() => boolean);
 export type Script = Generator<Yield, void, unknown>;
 
+/** Animações procedimentais de marcha. */
+export type Loco = 'walk' | 'run' | 'walkBack' | 'limp';
+
 export class Fighter {
   spec: FighterSpec;
   team: 0 | 1;
@@ -55,7 +58,7 @@ export class Fighter {
   state: FState = 'idle';
   stateT = 0;
 
-  anim: AnimName | 'walk' | 'run' | 'walkBack' = 'guard';
+  anim: AnimName | Loco = 'guard';
   at = 0;
   animSpeed = 1;
   phase = 0;
@@ -113,6 +116,26 @@ export class Fighter {
   /** Adversário agarrado (para o libertar se este lutador for interrompido). */
   holding: Fighter | null = null;
   tagCooldown = 0;
+  /**
+   * A sair do ringue depois de eliminado (tag team) ou árbitro: só visual, ninguém lhe bate
+   * nem colide com ele; a cena desenha-o normalmente (não esbatido como os 'out').
+   */
+  exiting = false;
+  referee = false;
+  /**
+   * Pé de apoio preso ao chão: a anca avança pelo que as pernas fazem (sem deslizar no tapete).
+   * Usado ao caminhar/passar as cordas na saída do ringue.
+   */
+  footLock = false;
+  private lockFoot = -1;
+  private lockX = 0;
+  private lockFacing = 1;
+  private prevFX = 0;
+  private prevBX = 0;
+  /** Multiplicador da cadência da marcha (para dois a andarem juntos). */
+  cadence = 1;
+  /** Ajuste final da pose antes de resolver o esqueleto (ex.: mãos presas a outro corpo). */
+  poseHook: ((p: Pose) => void) | null = null;
   assistCd = 3;
   diveCd = 0;
   tauntCd = 0;
@@ -157,7 +180,7 @@ export class Fighter {
     return null;
   }
 
-  play(a: AnimName | 'walk' | 'run' | 'walkBack', speed = 1, restart = true): void {
+  play(a: AnimName | Loco, speed = 1, restart = true): void {
     if (!restart && this.anim === a) return;
     // pequena transição para não haver saltos de pose entre animações
     // (se já houver uma transição em curso, continua a partir dela)
@@ -222,6 +245,36 @@ export class Fighter {
     this.blendT = this.blendMax = dur;
   }
 
+  /** Mantém o pé mais baixo (o de apoio) parado no mundo, deslocando a anca. */
+  private plantFoot(): void {
+    const sk = this.skel;
+    const k = this.spec.look.height;
+    let foot = this.lockFoot;
+    const vf = sk.x[J_FF] - this.prevFX;
+    const vb = sk.x[J_BF] - this.prevBX;
+    this.prevFX = sk.x[J_FF];
+    this.prevBX = sk.x[J_BF];
+    if (foot < 0 || this.lockFacing !== this.facing) foot = sk.y[J_FF] >= sk.y[J_BF] ? J_FF : J_BF;
+    else {
+      const other = foot === J_FF ? J_BF : J_FF;
+      const dy = sk.y[other] - sk.y[foot];
+      // o pé que ainda vai a meio do passo (a andar no sentido contrário ao de apoio) só assenta
+      // no fim do passo, senão a anca recuaria
+      const vp = foot === J_FF ? vf : vb;
+      const vo = foot === J_FF ? vb : vf;
+      const dir = this.anim === 'walkBack' ? -1 : 1;
+      const swinging = vo * dir > 0.25 && vp * dir < 0.05;
+      if (dy > 0.6 && (!swinging || dy > 6)) foot = other;
+    }
+    const fx = this.x + this.facing * sk.x[foot] * k;
+    if (foot === this.lockFoot && this.lockFacing === this.facing) this.x += this.lockX - fx;
+    else {
+      this.lockFoot = foot;
+      this.lockX = fx;
+      this.lockFacing = this.facing;
+    }
+  }
+
   get hpRatio(): number {
     return this.hp / this.maxHp;
   }
@@ -233,8 +286,12 @@ export class Fighter {
   /** Atualiza a pose (animação) e o esqueleto. */
   animate(dt: number, t: number, extraRot = 0): void {
     this.at += dt * this.animSpeed;
-    if (this.anim === 'walk' || this.anim === 'run' || this.anim === 'walkBack') {
-      this.phase += dt * (this.anim === 'run' ? 15 : 9);
+    if (this.anim === 'limp') {
+      // ritmo irregular: o passo na perna magoada é mais curto
+      this.phase += dt * 6.4 * this.cadence * (1 - 0.28 * Math.cos(this.phase));
+      limp(this.pose, this.phase);
+    } else if (this.anim === 'walk' || this.anim === 'run' || this.anim === 'walkBack') {
+      this.phase += dt * (this.anim === 'run' ? 15 : 9) * this.cadence;
       locomotion(this.pose, this.phase, this.anim === 'run', this.anim === 'walkBack');
     } else {
       sample(ANIMS[this.anim], this.at, this.pose);
@@ -253,7 +310,10 @@ export class Fighter {
       this.blendT -= dt;
     }
     if (extraRot !== 0) this.pose.rot += extraRot;
+    if (this.poseHook) this.poseHook(this.pose);
     solve(this.pose, this.skel);
+    if (this.footLock && !this.override) this.plantFoot();
+    else this.lockFoot = -1;
     if (this.flashT > 0) this.flashT -= dt;
     if (this.exprT > 0) {
       this.exprT -= dt;

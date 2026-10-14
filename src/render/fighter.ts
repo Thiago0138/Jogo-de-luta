@@ -862,6 +862,35 @@ function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
   ctx.fill();
 }
 
+const REF_WHITE = '#f2f2ef';
+
+/** Camisa de árbitro: riscas verticais pretas (recortadas pelo tronco) e gola preta. */
+function refShirt(ctx: CanvasRenderingContext2D, s: Skel) {
+  const a = s.torsoA;
+  const ux = Math.sin(a);
+  const uy = -Math.cos(a);
+  const nx = Math.cos(a);
+  const ny = Math.sin(a);
+  const hx = s.x[J_HIP];
+  const hy = s.y[J_HIP];
+  ctx.save();
+  ctx.clip();
+  ctx.strokeStyle = '#141418';
+  ctx.lineWidth = 4.2;
+  ctx.lineCap = 'butt';
+  ctx.beginPath();
+  for (let n = -24; n <= 32; n += 9) {
+    ctx.moveTo(hx + nx * n - ux * 8, hy + ny * n - uy * 8);
+    ctx.lineTo(hx + nx * n + ux * 76, hy + ny * n + uy * 76);
+  }
+  ctx.stroke();
+  ctx.restore();
+  // gola
+  const sx = s.x[J_SH];
+  const sy = s.y[J_SH];
+  seg(ctx, sx - nx * 9 + ux * 6, sy - ny * 9 + uy * 6, sx + nx * 9 + ux * 4, sy + ny * 9 + uy * 4, 5, '#141418');
+}
+
 function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   const o = L.outfit;
   const style = o.style ?? 'trunks';
@@ -877,9 +906,11 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   const hy = s.y[J_HIP];
 
   const suit = style === 'none';
-  const covered = style === 'gi' || style === 'armor' || style === 'jacket';
+  const ref = style === 'ref';
+  const covered = style === 'gi' || style === 'armor' || style === 'jacket' || ref;
   torsoPath(ctx, s, 19, 30);
-  fillOut(ctx, covered ? c1 : L.body);
+  fillOut(ctx, ref ? REF_WHITE : covered ? c1 : L.body);
+  if (ref && !PS.F) refShirt(ctx, s);
   if (suit && o.mat && !PS.F) {
     // material do fato (escamas, lava, metal…) recortado pelo tronco, com barriga clara
     ctx.save();
@@ -890,7 +921,7 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   if (!PS.F) {
     // sombra das costas (cel shading)
     ctx.globalAlpha = covered ? 0.3 : 0.5;
-    ctx.fillStyle = covered ? shade(c1, -0.35) : L.bodyShade;
+    ctx.fillStyle = covered ? shade(ref ? REF_WHITE : c1, -0.35) : L.bodyShade;
     ctx.beginPath();
     const b0x = hx - nx * 17 + ux * 4, b0y = hy - ny * 17 + uy * 4;
     const b1x = s.x[J_SH] - nx * 24, b1y = s.y[J_SH] - ny * 24;
@@ -1266,10 +1297,38 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
   const style = out.style ?? 'trunks';
   const suit = style === 'none';
   const skinB = shade(L.body, -0.15);
-  const legC = style === 'gi' ? outfitC1(out, t) : style === 'armor' ? out.boots ?? '#222' : L.body;
+  const legC = style === 'gi' || style === 'ref' ? outfitC1(out, t) : style === 'armor' ? out.boots ?? '#222' : L.body;
   const legB = shade(legC, -0.15);
   const boots = out.boots ?? '#222';
   const sleeve = style === 'gi' && !out.suit ? outfitC1(out, t) : null;
+  // mangas curtas da camisa de árbitro (brancas, com as riscas da camisa)
+  const refSleeve = (ex: number, ey: number, c: string) => {
+    if (style !== 'ref') return;
+    const mx = X[J_SH] + (ex - X[J_SH]) * 0.62;
+    const my = Y[J_SH] + (ey - Y[J_SH]) * 0.62;
+    ctx.beginPath();
+    capsule(ctx, X[J_SH], Y[J_SH], mx, my, [12.5, 12.5, 11.5]);
+    fillOut(ctx, c);
+    if (PS.F) return;
+    ctx.save();
+    ctx.clip();
+    const a = s.torsoA;
+    const ux = Math.sin(a) * 40;
+    const uy = -Math.cos(a) * 40;
+    ctx.strokeStyle = '#141418';
+    ctx.lineWidth = 4.2;
+    ctx.lineCap = 'butt';
+    ctx.beginPath();
+    for (let n = -27; n <= 27; n += 9) {
+      const cx = X[J_SH] + Math.cos(a) * n;
+      const cy = Y[J_SH] + Math.sin(a) * n;
+      ctx.moveTo(cx - ux, cy - uy);
+      ctx.lineTo(cx + ux, cy + uy);
+    }
+    ctx.stroke();
+    ctx.restore();
+    ctx.lineCap = 'round';
+  };
   const deco = out.mat ? (base: number) => (M: (t: number, s: number) => [number, number], len: number, i: number) => matPattern(ctx, out, M, len, t, base + i) : () => undefined;
 
   // peças do traje (capa, asas, cauda, ombreiras…) no referencial do tronco e da anca
@@ -1284,6 +1343,7 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
   // braço de trás
   limb(ctx, X[J_SH], Y[J_SH], X[J_BE], Y[J_BE], X[J_BH], Y[J_BH], ARM_U, ARM_L, skinB, shade(L.bodyShade, -0.15), out.mat ? deco(1) : undefined);
   if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_BE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_BE] - Y[J_SH]) * 0.8, 23, shade(sleeve, -0.15));
+  refSleeve(X[J_BE], Y[J_BE], shade(REF_WHITE, -0.15));
   drawGlove(ctx, L.gloves, X[J_BH], Y[J_BH], s.baL, t, skinB, true);
 
   // perna de trás
@@ -1318,6 +1378,7 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
   // braço da frente
   limb(ctx, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], X[J_FH], Y[J_FH], ARM_U, ARM_L, L.body, L.bodyShade, out.mat ? deco(7) : undefined);
   if (sleeve) seg(ctx, X[J_SH], Y[J_SH], X[J_SH] + (X[J_FE] - X[J_SH]) * 0.8, Y[J_SH] + (Y[J_FE] - Y[J_SH]) * 0.8, 24, sleeve);
+  refSleeve(X[J_FE], Y[J_FE], REF_WHITE);
   if (style === 'armor' && !out.shoulders) circle(ctx, X[J_SH], Y[J_SH], 13, out.c3 ?? out.c2 ?? '#aaa');
   dl.flush(0, Infinity);
   drawGlove(ctx, L.gloves, X[J_FH], Y[J_FH], s.faL, t, L.body, false);
