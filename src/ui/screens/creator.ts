@@ -13,14 +13,14 @@ import { render } from '../app';
 import { ico } from '../icons';
 
 const TABS = [
-  { id: 'skin', name: 'Pele', icon: 'skin' },
-  { id: 'hair', name: 'Cabelo', icon: 'hair' },
-  { id: 'hairColor', name: 'Cor', icon: 'palette' },
-  { id: 'eyes', name: 'Olhos', icon: 'eye' },
-  { id: 'brows', name: 'Sobrancelhas', icon: 'brows' },
-  { id: 'mouth', name: 'Boca', icon: 'lips' },
-  { id: 'beard', name: 'Barba', icon: 'beard' },
-  { id: 'body', name: 'Altura', icon: 'height' },
+  { id: 'skin', name: 'Skin', icon: 'skin' },
+  { id: 'hair', name: 'Hair', icon: 'hair' },
+  { id: 'hairColor', name: 'Color', icon: 'palette' },
+  { id: 'eyes', name: 'Eyes', icon: 'eye' },
+  { id: 'brows', name: 'Brows', icon: 'brows' },
+  { id: 'mouth', name: 'Mouth', icon: 'lips' },
+  { id: 'beard', name: 'Beard', icon: 'beard' },
+  { id: 'body', name: 'Height', icon: 'height' },
 ];
 
 /** Criador de personagem (primeira vez ou edição). */
@@ -31,14 +31,14 @@ export function openCreator(first: boolean, onDone?: () => void): void {
   const root = el('div', 'creator');
   root.innerHTML = `
     <div class="cr-head">
-      ${first ? '<div class="cr-logo">REIS DO <span>RINGUE</span></div><p>Cria o teu lutador</p>' : '<h2>Aparência</h2>'}
+      ${first ? '<div class="cr-logo">KINGS OF <span>THE RING</span></div><p>Create your fighter</p>' : '<h2>Appearance</h2>'}
     </div>
-    <div class="cr-stage"><button class="cr-dice" aria-label="Aleatório">${ico('dice')}</button></div>
+    <div class="cr-stage"><button class="cr-dice" aria-label="Random">${ico('dice')}</button></div>
     <div class="cr-panel">
       <div class="cr-tabs"></div>
       <div class="cr-opts"></div>
-      <div class="cr-name"><input maxlength="16" placeholder="Nome do lutador" value="${esc(name)}"/><button class="cr-rn" aria-label="Nome aleatório">${ico('shuffle')}</button></div>
-      <div class="cr-actions">${first ? '' : '<button class="btn btn-ghost cancel">Cancelar</button>'}<button class="btn btn-gold ok">${first ? 'Entrar no ringue!' : 'Guardar'}</button></div>
+      <div class="cr-name"><input maxlength="16" placeholder="Fighter name" value="${esc(name)}"/><button class="cr-rn" aria-label="Random name">${ico('shuffle')}</button></div>
+      <div class="cr-actions">${first ? '' : '<button class="btn btn-ghost cancel">Cancel</button>'}<button class="btn btn-gold ok">${first ? 'Enter the ring!' : 'Save'}</button></div>
     </div>`;
   document.body.appendChild(root);
 
@@ -47,7 +47,7 @@ export function openCreator(first: boolean, onDone?: () => void): void {
   const prev = new Preview(resolveLook(app, lo()), { zoom: 1.05, turn: true, key: 'creator' });
   const stage = root.querySelector('.cr-stage')!;
   stage.appendChild(prev.canvas);
-  stage.appendChild(el('div', 'cr-rot', '↔ Arrasta para rodar 360°'));
+  stage.appendChild(el('div', 'cr-rot', '↔ Drag to rotate 360°'));
   const refresh = () => {
     prev.look = resolveLook(app, lo());
   };
@@ -111,14 +111,14 @@ export function openCreator(first: boolean, onDone?: () => void): void {
         break;
       case 'body': {
         const w = el('div', 'height-ctl');
-        w.innerHTML = `<span>Baixo</span><input type="range" min="0.94" max="1.06" step="0.01" value="${app.height}"/><span>Alto</span>`;
+        w.innerHTML = `<span>Short</span><input type="range" min="0.94" max="1.06" step="0.01" value="${app.height}"/><span>Tall</span>`;
         const inp = w.querySelector('input') as HTMLInputElement;
         inp.oninput = () => {
           app.height = parseFloat(inp.value);
           refresh();
         };
         opts.appendChild(w);
-        opts.appendChild(el('p', 'muted small', 'A altura é só visual: não muda nada na luta.'));
+        opts.appendChild(el('p', 'muted small', 'Height is purely cosmetic: it has no effect in fights.'));
         break;
       }
     }
@@ -163,7 +163,7 @@ export function openCreator(first: boolean, onDone?: () => void): void {
   (root.querySelector('.ok') as HTMLElement).onclick = () => {
     name = nameIn.value.trim().replace(/\s+/g, ' ');
     if (name.length < 2) {
-      toast('Escolhe um nome com pelo menos 2 letras.', 'err');
+      toast('Pick a name with at least 2 letters.', 'err');
       return;
     }
     sfx.levelUp();

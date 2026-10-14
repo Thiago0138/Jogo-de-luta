@@ -1,6 +1,6 @@
 import { DEFAULT_APPEARANCE, type Appearance } from '../data/appearance';
 import { CHESTS, type ChestId } from '../data/chests';
-import { ITEMS, ITEM_LIST, STARTER_ITEMS, item, type ItemDef } from '../data/items';
+import { ITEMS, ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, STARTER_ITEMS, item, type ItemDef } from '../data/items';
 import { DAILY_POOL, LEGENDARY, WEEKLY_POOL, emptyTally, type MissionDef, type Reward, type Tally } from '../data/missions';
 import { LEAGUES, leagueIndex } from '../data/leagues';
 import { RARITIES, RARITY_ORDER, type Rarity } from '../data/rarity';
@@ -120,7 +120,7 @@ function fresh(): Save {
     bestStreak: 0,
     losses: 0,
     redeemed: [],
-    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta', unlockAll: true, announcer: true, announcerVol: 0.9, bgm: true, bgmVol: 0.5 },
+    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta', unlockAll: false, announcer: true, announcerVol: 0.9, bgm: true, bgmVol: 0.5 },
     seenPatch: '',
     freeChestAt: 0,
     partnerSeed: Math.floor(Math.random() * 1e9),
@@ -163,10 +163,17 @@ export const S: Save = load();
 if (!S.loadout.moves?.length) {
   S.loadout.moves = ITEM_LIST.filter((d) => d.kind === 'move' && ownsItem(d.id))
     .sort((a, b) => (b.unlockLevel ?? 0) - (a.unlockLevel ?? 0))
-    .slice(0, 6)
+    .slice(0, moveSlots())
     .map((d) => d.id);
 }
+// no máximo 2 golpes (3 a partir do nível 8)
+S.loadout.moves = S.loadout.moves.slice(0, moveSlots());
 if (!S.loadout.styles) S.loadout.styles = [];
+
+/** Espaços de golpes de assinatura: 2, e um 3.º a partir do nível 8. */
+export function moveSlots(): number {
+  return S.settings.unlockAll || S.level >= MOVE_SLOT3_LEVEL ? MOVE_SLOTS : MOVE_SLOTS - 1;
+}
 
 function ownsItem(id: string): boolean {
   if ((S.owned[id] ?? 0) > 0) return true;
@@ -315,7 +322,7 @@ export function addXp(amount: number): LevelUp | null {
       if (d.source === 'level' && d.unlockLevel === S.level) {
         if (!owns(d.id)) grant(d.id);
         unlocked.push(d.id);
-        if (d.kind === 'move' && S.loadout.moves.length < 6 && !S.loadout.moves.includes(d.id)) S.loadout.moves.push(d.id);
+        if (d.kind === 'move' && S.loadout.moves.length < moveSlots() && !S.loadout.moves.includes(d.id)) S.loadout.moves.push(d.id);
       }
     }
     const c = levelRewardChest(S.level);
@@ -539,17 +546,17 @@ export type RedeemResult = { ok: true; items: [string, number][]; from: string }
 
 export function redeemTrade(code: string): RedeemResult {
   const m = code.trim().match(/^RDR-([A-Za-z0-9_-]+)\.([a-z0-9]+)$/);
-  if (!m) return { ok: false, error: 'Código inválido.' };
-  if (hashStr(m[1] + TRADE_SALT).toString(36) !== m[2]) return { ok: false, error: 'Código corrompido ou adulterado.' };
+  if (!m) return { ok: false, error: 'Invalid code.' };
+  if (hashStr(m[1] + TRADE_SALT).toString(36) !== m[2]) return { ok: false, error: 'Code is corrupted or has been tampered with.' };
   let data: { i: [string, number][]; f: string; n: string };
   try {
     data = JSON.parse(b64d(m[1]));
   } catch {
-    return { ok: false, error: 'Código inválido.' };
+    return { ok: false, error: 'Invalid code.' };
   }
-  if (S.redeemed.includes(data.n)) return { ok: false, error: 'Este código já foi usado.' };
+  if (S.redeemed.includes(data.n)) return { ok: false, error: 'This code has already been used.' };
   const valid = data.i.filter(([id, n]) => ITEMS[id] && n > 0 && n < 100);
-  if (!valid.length) return { ok: false, error: 'O código não contém itens válidos.' };
+  if (!valid.length) return { ok: false, error: 'This code contains no valid items.' };
   for (const [id, n] of valid) grant(id, n);
   S.redeemed.push(data.n);
   commit();

@@ -13,13 +13,13 @@ import { openItem } from './itemModal';
 import { ico } from '../icons';
 
 const TABS: { id: string; name: string }[] = [
-  { id: 'featured', name: `${ico('star')} Destaques` },
+  { id: 'featured', name: `${ico('star')} Featured` },
   { id: 'skins', name: `${ico('shirt')} Skins` },
-  { id: 'moves', name: `${ico('moves')} Golpes` },
-  { id: 'entrances', name: `${ico('entrance')} Entradas` },
-  { id: 'abilities', name: `${ico('abilities')} Habilidades` },
-  { id: 'chests', name: `${ico('chest')} Baús` },
-  { id: 'gems', name: `${ico('gem')} Gemas` },
+  { id: 'moves', name: `${ico('moves')} Moves` },
+  { id: 'entrances', name: `${ico('entrance')} Entrances` },
+  { id: 'abilities', name: `${ico('abilities')} Abilities` },
+  { id: 'chests', name: `${ico('chest')} Chests` },
+  { id: 'gems', name: `${ico('gem')} Gems` },
 ];
 
 const SKIN_KINDS: ItemKind[] = ['outfit', 'gloves', 'mask', 'aura', 'hair', 'hairColor'];
@@ -41,7 +41,7 @@ export function featured(): { id: string; discount: number }[] {
 export function renderShop(page: HTMLElement, sub = 'featured'): void {
   rememberSub(sub);
   if (!TABS.some((t) => t.id === sub)) sub = 'featured';
-  page.innerHTML = `<div class="page-head"><h1>Loja</h1></div><div class="seg"></div><div class="shop-body"></div>`;
+  page.innerHTML = `<div class="page-head"><h1>Shop</h1></div><div class="seg"></div><div class="shop-body"></div>`;
   const seg = page.querySelector('.seg') as HTMLElement;
   for (const t of TABS) {
     const b = el('button', t.id === sub ? 'on' : '', t.name);
@@ -69,7 +69,7 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
     case 'featured': {
       const midnight = new Date();
       midnight.setHours(24, 0, 0, 0);
-      body.appendChild(el('div', 'banner-info', `${ico('clock')} Nova seleção em <b>${timeLeft(midnight.getTime() - Date.now())}</b>`));
+      body.appendChild(el('div', 'banner-info', `${ico('clock')} New picks in <b>${timeLeft(midnight.getTime() - Date.now())}</b>`));
       body.appendChild(dailyGift());
       body.appendChild(grid(featured()));
       break;
@@ -78,28 +78,28 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
       for (const k of SKIN_KINDS) {
         const list = shopItems([k]);
         if (!list.length) continue;
-        body.appendChild(el('h3', 'sec', { outfit: 'Trajes', gloves: 'Luvas', mask: 'Máscaras', aura: 'Auras', hair: 'Penteados premium', hairColor: 'Cores de cabelo' }[k as string] ?? k));
+        body.appendChild(el('h3', 'sec', { outfit: 'Outfits', gloves: 'Gloves', mask: 'Masks', aura: 'Auras', hair: 'Premium hairstyles', hairColor: 'Hair colors' }[k as string] ?? k));
         body.appendChild(grid(list.map((d) => ({ id: d.id, discount: 0 }))));
       }
       break;
     case 'moves': {
-      body.appendChild(el('p', 'muted small', 'Golpes de assinatura: desbloqueiam com o nível, mas podes treiná-los com moedas até 3 níveis antes. Os estilos com gemas só mudam o espetáculo — o dano é igual.'));
-      body.appendChild(el('h3', 'sec', 'Treino de golpes'));
+      body.appendChild(el('p', 'muted small', 'Signature moves unlock as you level up, but you can train them with coins up to 3 levels early. Gem styles only change the show — the damage stays the same.'));
+      body.appendChild(el('h3', 'sec', 'Move training'));
       body.appendChild(grid(ITEM_LIST.filter((d) => d.kind === 'move').map((d) => ({ id: d.id, discount: 0 }))));
-      body.appendChild(el('h3', 'sec', 'Estilos de golpe'));
+      body.appendChild(el('h3', 'sec', 'Move styles'));
       body.appendChild(grid(shopItems(['moveStyle']).map((d) => ({ id: d.id, discount: 0 }))));
       break;
     }
     case 'entrances':
-      body.appendChild(el('p', 'muted small', 'Entra no ringue em grande: danças, fumo, lasers, pirotecnia e fogo de artifício antes de cada luta.'));
+      body.appendChild(el('p', 'muted small', 'Make a grand entrance: dance moves, smoke, lasers, pyro and fireworks before every fight.'));
       body.appendChild(grid(shopItems(['entrance']).map((d) => ({ id: d.id, discount: 0 }))));
       break;
     case 'abilities':
-      body.appendChild(el('h3', 'sec', 'Super ataques'));
+      body.appendChild(el('h3', 'sec', 'Super moves'));
       body.appendChild(grid(shopItems(['super']).map((d) => ({ id: d.id, discount: 0 }))));
-      body.appendChild(el('h3', 'sec', 'Passivas'));
+      body.appendChild(el('h3', 'sec', 'Passives'));
       body.appendChild(grid(shopItems(['passive']).map((d) => ({ id: d.id, discount: 0 }))));
-      body.appendChild(el('p', 'muted small', 'Mais habilidades raras saem em baús, sobem com o nível ou são prémios de Desafios Lendários.'));
+      body.appendChild(el('p', 'muted small', 'More rare abilities drop from chests, unlock as you level up or are rewards for Legendary Challenges.'));
       break;
     case 'chests': {
       const g = el('div', 'chest-shop');
@@ -117,7 +117,7 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
           .join('');
         (card.querySelector('button') as HTMLElement).onclick = () => {
           if (!buyChest(id)) {
-            toast(c.gemPrice != null ? 'Gemas insuficientes.' : 'Moedas insuficientes.', 'err');
+            toast(c.gemPrice != null ? 'Not enough gems.' : 'Not enough coins.', 'err');
             return;
           }
           sfx.coin();
@@ -138,7 +138,7 @@ function dailyGift(): HTMLElement {
   const today = dayKey();
   const claimed = S.giftDay === today;
   const box = el('div', `gift ${claimed ? 'done' : ''}`);
-  box.innerHTML = `<span class="gift-ico">${ico('gift')}</span><div><b>Presente diário</b><span>150 moedas + 5 gemas</span></div><button class="btn ${claimed ? 'btn-ghost' : 'btn-gold'} sm">${claimed ? 'Amanhã há mais' : 'Recolher'}</button>`;
+  box.innerHTML = `<span class="gift-ico">${ico('gift')}</span><div><b>Daily gift</b><span>150 coins + 5 gems</span></div><button class="btn ${claimed ? 'btn-ghost' : 'btn-gold'} sm">${claimed ? 'More tomorrow' : 'Claim'}</button>`;
   (box.querySelector('button') as HTMLElement).onclick = () => {
     if (S.giftDay === today) return;
     S.giftDay = today;
@@ -146,24 +146,24 @@ function dailyGift(): HTMLElement {
     S.gems += 5;
     commit();
     sfx.coin();
-    toast('+150 moedas  ·  +5 gemas', 'ok');
+    toast('+150 coins  ·  +5 gems', 'ok');
     render();
   };
   return box;
 }
 
 const PACKS = [
-  { gems: 100, price: '0,99 €', bonus: '' },
-  { gems: 550, price: '4,99 €', bonus: '+10%' },
-  { gems: 1200, price: '9,99 €', bonus: '+20%' },
-  { gems: 2600, price: '19,99 €', bonus: '+30%' },
-  { gems: 7000, price: '49,99 €', bonus: '+40%' },
-  { gems: 15000, price: '99,99 €', bonus: 'Melhor valor' },
+  { gems: 100, price: '$0.99', bonus: '' },
+  { gems: 550, price: '$4.99', bonus: '+10%' },
+  { gems: 1200, price: '$9.99', bonus: '+20%' },
+  { gems: 2600, price: '$19.99', bonus: '+30%' },
+  { gems: 7000, price: '$49.99', bonus: '+40%' },
+  { gems: 15000, price: '$99.99', bonus: 'Best value' },
 ];
 
 function gemsTab(): HTMLElement {
   const box = el('div', 'gems-tab');
-  box.innerHTML = `<p class="muted small">As gemas desbloqueiam skins e habilidades premium. Também ganhas gemas ao subir de nível, em missões semanais, desafios e baús.</p>`;
+  box.innerHTML = `<p class="muted small">Gems unlock premium skins and abilities. You also earn gems by leveling up, from weekly missions, challenges and chests.</p>`;
   const g = el('div', 'gem-grid');
   PACKS.forEach((p, i) => {
     const b = el('button', 'gem-pack');
@@ -171,8 +171,8 @@ function gemsTab(): HTMLElement {
     b.onclick = () => {
       sfx.click();
       modal(
-        'Loja de gemas',
-        '<p>Os pagamentos com dinheiro real ainda não estão ativos nesta versão.</p><p class="muted small">Quando a loja abrir, as compras serão processadas por um fornecedor de pagamentos seguro.</p>',
+        'Gem Shop',
+        '<p>Real-money purchases are not available in this version yet.</p><p class="muted small">When the shop opens, purchases will be handled by a secure payment provider.</p>',
       );
     };
     g.appendChild(b);

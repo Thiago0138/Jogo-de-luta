@@ -13,22 +13,22 @@ export function openSettings(onClose?: () => void): void {
   const s = S.settings;
   b.innerHTML = `
     <label class="set-row vol-row"><span>${ico('speaker')} Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
-    <label class="set-row vol-row"><span>${ico('music')} Música</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
-    <label class="set-row"><span>${ico('music')} Música ligada</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
-    <label class="set-row"><span>${ico('mic')} Narrador (voz e legendas)</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
-    <label class="set-row vol-row"><span>${ico('mic')} Volume do narrador</span><input type="range" class="annv" min="0" max="100" step="1" value="${Math.round(s.announcerVol * 100)}"/><b class="ann-n">${Math.round(s.announcerVol * 100)}%</b></label>
-    <label class="set-row"><span>${ico('unlock')} Tudo desbloqueado (modo teste)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
-    <label class="set-row"><span>${ico('speaker')} Efeitos sonoros</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
-    <label class="set-row"><span>${ico('crowd')} Som do público</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
-    <label class="set-row"><span>${ico('sparkle')} Qualidade gráfica alta</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
-    <label class="set-row"><span>${ico('fast')} Lutas a 2x por defeito</span><input type="checkbox" data-k="speed" ${s.speed === 2 ? 'checked' : ''}/></label>
+    <label class="set-row vol-row"><span>${ico('music')} Music</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
+    <label class="set-row"><span>${ico('music')} Music on</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('mic')} Announcer (voice & subtitles)</span><input type="checkbox" data-k="announcer" ${s.announcer ? 'checked' : ''}/></label>
+    <label class="set-row vol-row"><span>${ico('mic')} Voice volume</span><input type="range" class="annv" min="0" max="100" step="1" value="${Math.round(s.announcerVol * 100)}"/><b class="ann-n">${Math.round(s.announcerVol * 100)}%</b></label>
+    <label class="set-row"><span>${ico('unlock')} Unlock everything (test mode)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('speaker')} Sound effects</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('crowd')} Crowd noise</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('sparkle')} High graphics quality</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
+    <label class="set-row"><span>${ico('fast')} 2x fight speed by default</span><input type="checkbox" data-k="speed" ${s.speed === 2 ? 'checked' : ''}/></label>
     <div class="set-btns">
-      <button class="btn btn-ghost notes">${ico('news')} Novidades</button>
-      <button class="btn btn-ghost rar">${ico('rarity')} Raridades</button>
-      <button class="btn btn-ghost install" hidden>${ico('install')} Instalar app</button>
-      <button class="btn btn-red reset">Apagar progresso</button>
+      <button class="btn btn-ghost notes">${ico('news')} What's New</button>
+      <button class="btn btn-ghost rar">${ico('rarity')} Rarities</button>
+      <button class="btn btn-ghost install" hidden>${ico('install')} Install app</button>
+      <button class="btn btn-red reset">Delete progress</button>
     </div>
-    <p class="muted small center">Reis do Ringue v${CURRENT_VERSION}</p>`;
+    <p class="muted small center">Kings of the Ring v${CURRENT_VERSION}</p>`;
   const vol = b.querySelector('.vol') as HTMLInputElement;
   const volN = b.querySelector('.vol-n') as HTMLElement;
   vol.oninput = () => {
@@ -91,12 +91,12 @@ export function openSettings(onClose?: () => void): void {
     ins.onclick = () => prompt.prompt();
   }
   (b.querySelector('.reset') as HTMLElement).onclick = () => {
-    modal('Apagar progresso?', '<p>Vais perder o teu lutador, itens, moedas e gemas. Isto não pode ser desfeito.</p>', [
-      { label: 'Cancelar' },
-      { label: 'Apagar tudo', cls: 'btn-red', onClick: () => resetSave() },
+    modal('Delete progress?', '<p>You will lose your fighter, items, coins and gems. This cannot be undone.</p>', [
+      { label: 'Cancel' },
+      { label: 'Delete everything', cls: 'btn-red', onClick: () => resetSave() },
     ]);
   };
-  modal('Definições', b, undefined, '', onClose);
+  modal('Settings', b, undefined, '', onClose);
 }
 
 /** Frase curta para ouvir o volume do narrador. */
@@ -124,23 +124,23 @@ export function openPatchNotes(): void {
     b.appendChild(sec);
   }
   markPatchSeen();
-  modal(`${ico('news')} Novidades`, b, [{ label: 'Fixe!', cls: 'btn-gold', onClick: () => render() }]);
+  modal(`${ico('news')} What's New`, b, [{ label: 'Awesome!', cls: 'btn-gold', onClick: () => render() }]);
 }
 
 export function openRarities(): void {
   const b = el('div', 'rar-list');
   const desc: Record<string, string> = {
-    comum: 'O ponto de partida. Fáceis de encontrar.',
-    incomum: 'Um pouco de estilo extra.',
-    raro: 'Começam a dar nas vistas.',
-    epico: 'Efeitos especiais e visuais marcantes.',
-    lendario: 'Animadas e muito difíceis de obter.',
-    mitico: 'Raríssimas. Poucos lutadores as têm.',
-    celestial: 'O topo absoluto. Só para os eleitos.',
+    comum: 'The starting point. Easy to find.',
+    incomum: 'A little extra style.',
+    raro: 'Starting to turn heads.',
+    epico: 'Special effects and striking visuals.',
+    lendario: 'Animated and very hard to get.',
+    mitico: 'Extremely rare. Few fighters own one.',
+    celestial: 'The absolute pinnacle. For the chosen few.',
   };
   for (const r of RARITY_ORDER) {
     const d = RARITIES[r];
     b.appendChild(el('div', `rar-row rar-${r}`, `<span class="rar rar-${r}">${d.name}</span><span>${desc[r]}</span>`));
   }
-  modal(`${ico('rarity')} Raridades`, b);
+  modal(`${ico('rarity')} Rarities`, b);
 }

@@ -86,6 +86,8 @@ export class Fighter {
   evadeT = 0;
   downT = 0;
   lastHitBy: Fighter | null = null;
+  /** Força da última queda (0 = leve, 1+ = brutal): quanto maior, mais demora a levantar-se. */
+  impact = 0;
   combo = 0;
   comboT = 0;
 

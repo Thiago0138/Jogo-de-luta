@@ -32,8 +32,8 @@ export function startMatch(mode: Mode): void {
 
 function versus(mode: Mode, teams: [FighterSpec[], FighterSpec[]], go: () => void): void {
   const root = el('div', 'versus');
-  const title = mode === 'tag' ? 'TAG TEAM' : mode === 'champion' ? 'DESAFIO DO CAMPEÃO' : 'COMBATE';
-  root.innerHTML = `<div class="vs-title">${title}</div><div class="vs-side l"></div><div class="vs-mid"><span>VS</span></div><div class="vs-side r"></div><div class="vs-tap">toca para começar</div>`;
+  const title = mode === 'tag' ? 'TAG TEAM' : mode === 'champion' ? 'CHAMPION CHALLENGE' : 'FIGHT';
+  root.innerHTML = `<div class="vs-title">${title}</div><div class="vs-side l"></div><div class="vs-mid"><span>VS</span></div><div class="vs-side r"></div><div class="vs-tap">tap to start</div>`;
   const side = (specs: FighterSpec[], cls: string, flip: boolean) => {
     const s = root.querySelector(`.vs-side.${cls}`) as HTMLElement;
     specs.forEach((sp, i) => {
@@ -47,7 +47,7 @@ function versus(mode: Mode, teams: [FighterSpec[], FighterSpec[]], go: () => voi
       const info = el(
         'div',
         'vs-info',
-        `<b>${esc(sp.name)}</b><span>Nv ${sp.level}${sp.title ? ` · ${esc(sp.title)}` : ''}</span><span class="vs-pow">${ico('bolt')} ${fmt(powerRating(sp.level, sp.stats))}</span>`,
+        `<b>${esc(sp.name)}</b><span>Lv ${sp.level}${sp.title ? ` · ${esc(sp.title)}` : ''}</span><span class="vs-pow">${ico('bolt')} ${fmt(powerRating(sp.level, sp.stats))}</span>`,
       );
       box.appendChild(info);
       s.appendChild(box);
@@ -157,25 +157,25 @@ function results(mode: Mode, teams: [FighterSpec[], FighterSpec[]], r: FightRepo
   const L = leagueOf(S.trophies);
   root.innerHTML = `
     <div class="res-burst"></div>
-    <h1 class="res-title">${r.won ? 'VITÓRIA!' : 'DERROTA'}</h1>
-    <p class="res-sub">${r.decision ? 'Decisão dos juízes' : r.won ? (r.superKO ? 'K.O. com Super!' : 'Contagem até 3!') : 'Treina mais e volta mais forte!'}</p>
+    <h1 class="res-title">${r.won ? 'VICTORY!' : 'DEFEAT'}</h1>
+    <p class="res-sub">${r.decision ? 'Judges\' decision' : r.won ? (r.superKO ? 'Super K.O.!' : '1, 2, 3 — pinfall!') : 'Train harder and come back stronger!'}</p>
     <div class="res-stage"></div>
     <div class="res-grid">
       <div class="res-item"><span>${ico('xp')} XP</span><b>+${fmt(rw.xp)}</b></div>
-      <div class="res-item"><span>${ico('coin')} Moedas</span><b>+<span class="rc">${fmt(rw.coins)}</span></b></div>
-      <div class="res-item"><span>${ico('trophy')} Troféus</span><b class="${rw.trophies < 0 ? 'neg' : ''}">${rw.trophies >= 0 ? '+' : ''}${rw.trophies}</b></div>
-      ${rw.gems ? `<div class="res-item"><span>${ico('gem')} Gemas</span><b>+${rw.gems}</b></div>` : ''}
+      <div class="res-item"><span>${ico('coin')} Coins</span><b>+<span class="rc">${fmt(rw.coins)}</span></b></div>
+      <div class="res-item"><span>${ico('trophy')} Trophies</span><b class="${rw.trophies < 0 ? 'neg' : ''}">${rw.trophies >= 0 ? '+' : ''}${rw.trophies}</b></div>
+      ${rw.gems ? `<div class="res-item"><span>${ico('gem')} Gems</span><b>+${rw.gems}</b></div>` : ''}
     </div>
-    <div class="res-xp"><div class="rx-head"><span>Nível <b class="rx-lvl">${lvlBefore}</b></span><span class="rx-num"></span></div><div class="rx-bar"><i></i></div></div>
+    <div class="res-xp"><div class="rx-head"><span>Level <b class="rx-lvl">${lvlBefore}</b></span><span class="rx-num"></span></div><div class="rx-bar"><i></i></div></div>
     <div class="res-stats">
-      <span>${ico('fist')} ${r.tally.punches} socos</span><span>${ico('grapple')} ${r.tally.grapples} projeções</span><span>${ico('dodge')} ${r.tally.dodges} esquivas</span><span>${ico('bolt')} ${r.tally.supers} supers</span>
+      <span>${ico('fist')} ${r.tally.punches} punches</span><span>${ico('grapple')} ${r.tally.grapples} throws</span><span>${ico('dodge')} ${r.tally.dodges} dodges</span><span>${ico('bolt')} ${r.tally.supers} supers</span>
     </div>
     <div class="res-chest"></div>
     <div class="res-actions">
       <button class="btn btn-ghost menu">Menu</button>
-      <button class="btn btn-gold again">Lutar outra vez</button>
+      <button class="btn btn-gold again">Fight again</button>
     </div>
-    <div class="res-league" style="--lc:${L.color}">${leagueBadge(L.id, L.color)} Liga ${esc(L.name)} · ${ico('trophy')} ${fmt(S.trophies)}</div>`;
+    <div class="res-league" style="--lc:${L.color}">${leagueBadge(L.id, L.color)} ${esc(L.name)} League · ${ico('trophy')} ${fmt(S.trophies)}</div>`;
 
   const me = teams[0][0];
   const p = new Preview(me.look);
@@ -187,7 +187,7 @@ function results(mode: Mode, teams: [FighterSpec[], FighterSpec[]], r: FightRepo
   if (earned.length) {
     const id = earned[0];
     const c = CHESTS[id];
-    chestBox.innerHTML = `<div class="rc-box" style="--cg:${c.glow}"><div class="cs-art">${chestSvg(c.body, c.trim)}</div><div><b>${earned.length > 1 ? `${earned.length} baús ganhos!` : `Ganhaste um ${esc(c.name)}!`}</b><span>${rw.leagueChest ? 'Nova liga alcançada! ' : ''}Abre já ou mais tarde no Ringue.</span></div><button class="btn btn-gold sm open">Abrir</button></div>`;
+    chestBox.innerHTML = `<div class="rc-box" style="--cg:${c.glow}"><div class="cs-art">${chestSvg(c.body, c.trim)}</div><div><b>${earned.length > 1 ? `${earned.length} chests earned!` : `You earned a ${esc(c.name)}!`}</b><span>${rw.leagueChest ? 'New league reached! ' : ''}Open it now or later in the Ring.</span></div><button class="btn btn-gold sm open">Open</button></div>`;
     (chestBox.querySelector('.open') as HTMLElement).onclick = () => {
       sfx.click();
       if (S.chests[id] > 0) openChest(id, () => chestBox.remove());
@@ -246,13 +246,13 @@ function showLevelUp(lu: LevelUp): void {
   const body = el('div', 'lvlup-body');
   const gained = lu.to - lu.from;
   body.innerHTML = `<div class="lu-big">${lu.to}</div>
-    <p>Subiste ${gained > 1 ? `${gained} níveis` : 'de nível'}! Ganhaste <b>${gained * 3} pontos de atributo</b>, <b>${gained * 5} ${ico('gem')}</b> e mais vida.</p>
-    ${lu.unlocked.length ? `<p>Desbloqueado: ${lu.unlocked.map((id) => `<b>${esc(ITEMS[id].name)}</b>`).join(', ')}</p>` : ''}
-    ${lu.chests.length ? `<p>Recompensa: ${lu.chests.map((c) => esc(CHESTS[c].name)).join(', ')}</p>` : ''}`;
-  modal('Subiste de nível!', body, [
-    { label: 'Depois' },
+    <p>You ${gained > 1 ? `gained ${gained} levels` : 'leveled up'}! You earned <b>${gained * 3} stat points</b>, <b>${gained * 5} ${ico('gem')}</b> and more health.</p>
+    ${lu.unlocked.length ? `<p>Unlocked: ${lu.unlocked.map((id) => `<b>${esc(ITEMS[id].name)}</b>`).join(', ')}</p>` : ''}
+    ${lu.chests.length ? `<p>Reward: ${lu.chests.map((c) => esc(CHESTS[c].name)).join(', ')}</p>` : ''}`;
+  modal('Level up!', body, [
+    { label: 'Later' },
     {
-      label: 'Distribuir pontos',
+      label: 'Spend points',
       cls: 'btn-gold',
       onClick: () => go('fighter'),
     },

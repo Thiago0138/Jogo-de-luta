@@ -30,10 +30,10 @@ async function boot(): Promise<void> {
     openCreator(true, () => {
       mountApp(root);
       modal(
-        'Bem-vindo ao ringue!',
-        `<p>As lutas são <b>automáticas</b>: tu preparas o lutador, o público vibra e tu assistes ao espetáculo.</p>
-         <ul class="tips"><li>${ico('glove')} Ganha lutas para subir de liga e ganhar baús.</li><li>${ico('chart')} Usa os pontos de nível nos atributos.</li><li>${ico('chest')} Tens já dois baús à tua espera no Ringue!</li></ul>`,
-        [{ label: 'Bora lutar!', cls: 'btn-gold' }],
+        'Welcome to the ring!',
+        `<p>Fights are <b>automatic</b>: you build your fighter, the crowd goes wild and you enjoy the show.</p>
+         <ul class="tips"><li>${ico('glove')} Win fights to climb the leagues and earn chests.</li><li>${ico('chart')} Spend your level-up points on stats.</li><li>${ico('chest')} Two chests are already waiting for you in the Ring!</li></ul>`,
+        [{ label: 'Let\'s fight!', cls: 'btn-gold' }],
       );
     });
   } else {

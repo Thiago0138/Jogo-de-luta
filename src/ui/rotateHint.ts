@@ -33,8 +33,8 @@ export function installRotateHint(): void {
   box.className = 'rotate-hint';
   box.setAttribute('role', 'alert');
   box.innerHTML = `${ART}
-    <h2>Roda o telemóvel <span>para jogar na horizontal</span></h2>
-    <p>No telemóvel, o Reis do Ringue joga-se só na horizontal: o ringue fica maior e vês melhor as lutas.</p>`;
+    <h2>Rotate your phone <span>to play in landscape</span></h2>
+    <p>On phones, Kings of the Ring is played in landscape only: a bigger ring and a better view of every fight.</p>`;
   document.body.appendChild(box);
   tryLockLandscape();
   // alguns browsers só deixam bloquear depois de um toque

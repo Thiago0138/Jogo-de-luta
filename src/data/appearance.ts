@@ -20,34 +20,34 @@ export const EYE_COLORS = ['#3b2414', '#1f6fd1', '#2f9e4a', '#6b7a88', '#111111'
 
 export const EYE_STYLES: { id: string; name: string }[] = [
   { id: 'normal', name: 'Normal' },
-  { id: 'determinado', name: 'Determinado' },
-  { id: 'grandes', name: 'Grandes' },
-  { id: 'sonolento', name: 'Sonolento' },
-  { id: 'estreitos', name: 'Estreitos' },
+  { id: 'determinado', name: 'Determined' },
+  { id: 'grandes', name: 'Big' },
+  { id: 'sonolento', name: 'Sleepy' },
+  { id: 'estreitos', name: 'Narrow' },
 ];
 
 export const BROW_STYLES: { id: string; name: string }[] = [
   { id: 'normal', name: 'Normal' },
-  { id: 'grossas', name: 'Grossas' },
-  { id: 'zangadas', name: 'Zangadas' },
-  { id: 'finas', name: 'Finas' },
-  { id: 'nenhuma', name: 'Nenhuma' },
+  { id: 'grossas', name: 'Thick' },
+  { id: 'zangadas', name: 'Angry' },
+  { id: 'finas', name: 'Thin' },
+  { id: 'nenhuma', name: 'None' },
 ];
 
 export const MOUTH_STYLES: { id: string; name: string }[] = [
-  { id: 'sorriso', name: 'Sorriso' },
-  { id: 'serio', name: 'Sério' },
-  { id: 'maroto', name: 'Maroto' },
-  { id: 'dentes', name: 'Dentes' },
-  { id: 'grito', name: 'Grito' },
+  { id: 'sorriso', name: 'Smile' },
+  { id: 'serio', name: 'Serious' },
+  { id: 'maroto', name: 'Smirk' },
+  { id: 'dentes', name: 'Teeth' },
+  { id: 'grito', name: 'Shout' },
 ];
 
 export const BEARD_STYLES: { id: string; name: string }[] = [
-  { id: 'nenhuma', name: 'Nenhuma' },
-  { id: 'curta', name: 'Curta' },
-  { id: 'bigode', name: 'Bigode' },
-  { id: 'cavanhaque', name: 'Cavanhaque' },
-  { id: 'grande', name: 'Grande' },
+  { id: 'nenhuma', name: 'None' },
+  { id: 'curta', name: 'Short' },
+  { id: 'bigode', name: 'Mustache' },
+  { id: 'cavanhaque', name: 'Goatee' },
+  { id: 'grande', name: 'Full' },
 ];
 
 export const DEFAULT_APPEARANCE: Appearance = {

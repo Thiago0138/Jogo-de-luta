@@ -11,12 +11,12 @@ export interface League {
 
 export const LEAGUES: League[] = [
   { id: 'bronze', name: 'Bronze', min: 0, color: '#cd8a4a', icon: '', reward: 'bronze' },
-  { id: 'prata', name: 'Prata', min: 300, color: '#cfd8e3', icon: '', reward: 'prata' },
-  { id: 'ouro', name: 'Ouro', min: 700, color: '#ffd23d', icon: '', reward: 'ouro' },
-  { id: 'platina', name: 'Platina', min: 1200, color: '#7af0e0', icon: '', reward: 'ouro' },
-  { id: 'diamante', name: 'Diamante', min: 1800, color: '#6ab8ff', icon: '', reward: 'lendario' },
-  { id: 'mestre', name: 'Mestre', min: 2600, color: '#c77dff', icon: '', reward: 'lendario' },
-  { id: 'lenda', name: 'Lenda', min: 3500, color: '#ff3d6e', icon: '', reward: 'mitico' },
+  { id: 'prata', name: 'Silver', min: 300, color: '#cfd8e3', icon: '', reward: 'prata' },
+  { id: 'ouro', name: 'Gold', min: 700, color: '#ffd23d', icon: '', reward: 'ouro' },
+  { id: 'platina', name: 'Platinum', min: 1200, color: '#7af0e0', icon: '', reward: 'ouro' },
+  { id: 'diamante', name: 'Diamond', min: 1800, color: '#6ab8ff', icon: '', reward: 'lendario' },
+  { id: 'mestre', name: 'Master', min: 2600, color: '#c77dff', icon: '', reward: 'lendario' },
+  { id: 'lenda', name: 'Legend', min: 3500, color: '#ff3d6e', icon: '', reward: 'mitico' },
 ];
 
 export function leagueIndex(trophies: number): number {

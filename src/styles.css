@@ -3887,3 +3887,78 @@ span.rar-celestial,
     display: none;
   }
 }
+
+/* Emojis durante a luta */
+.emote-wrap {
+  position: absolute;
+  left: calc(10px + var(--safe-l, 0px));
+  bottom: calc(10px + var(--safe-b, env(safe-area-inset-bottom, 0px)));
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fight-root.entrance .emote-wrap {
+  display: none;
+}
+.emote-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 22px;
+  background: rgba(10, 6, 24, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  opacity: 0.75;
+}
+.emote-wrap.open .emote-btn {
+  opacity: 1;
+}
+.emote-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px 6px;
+  border-radius: 22px;
+  background: rgba(10, 6, 24, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  transform: translateX(-8px) scale(0.9);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.emote-wrap.open .emote-bar {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.emote-bar button {
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: transparent;
+}
+.emote-bar button:active {
+  transform: scale(1.25);
+}
+.emote-pop {
+  position: absolute;
+  top: 24%;
+  z-index: 5;
+  font-size: 44px;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.5));
+  animation: emoteUp 2.2s ease-out forwards;
+}
+.emote-pop.t0 {
+  left: calc(16% + var(--dx));
+}
+.emote-pop.t1 {
+  right: calc(16% - var(--dx));
+}
+@keyframes emoteUp {
+  0% { transform: translateY(20px) scale(0.3); opacity: 0; }
+  12% { transform: translateY(0) scale(1.25); opacity: 1; }
+  22% { transform: translateY(-4px) scale(1); }
+  80% { opacity: 1; }
+  100% { transform: translateY(-70px) scale(0.9); opacity: 0; }
+}

@@ -26,25 +26,25 @@ export function renderHome(page: HTMLElement): void {
       <div class="hero-info">
         <div class="hero-league" style="--lc:${L.color}">
           <span class="lg-icon">${leagueBadge(L.id, L.color)}</span>
-          <div class="lg-txt"><b>Liga ${esc(L.name)}</b><span>${ico('trophy')} ${fmt(S.trophies)}${next ? ` / ${fmt(next.min)}` : ''}</span></div>
+          <div class="lg-txt"><b>${esc(L.name)} League</b><span>${ico('trophy')} ${fmt(S.trophies)}${next ? ` / ${fmt(next.min)}` : ''}</span></div>
         </div>
         <div class="lg-bar"><i style="transform:scaleX(${Math.min(1, prog)})"></i></div>
         <h1 class="hero-name">${esc(S.name)}</h1>
         <div class="hero-stats">
-          <span>${ico('bolt')} Poder <b>${fmt(powerRating(S.level, S.stats))}</b></span>
-          <span>${ico('fire')} Série <b>${S.streak}</b></span>
-          <span>${ico('medal')} Vitórias <b>${fmt(S.life.wins)}</b></span>
+          <span>${ico('bolt')} Power <b>${fmt(powerRating(S.level, S.stats))}</b></span>
+          <span>${ico('fire')} Streak <b>${S.streak}</b></span>
+          <span>${ico('medal')} Wins <b>${fmt(S.life.wins)}</b></span>
         </div>
       </div>
-      <button class="news-btn ${unseen ? 'dot' : ''}">${ico('news')} Novidades</button>
+      <button class="news-btn ${unseen ? 'dot' : ''}">${ico('news')} What's New</button>
     </section>
     <section class="play">
-      <button class="play-btn solo"><span class="pb-ico">${ico('glove')}</span><span class="pb-txt"><b>LUTAR</b><small>1 contra 1</small></span></button>
-      <button class="play-btn tag"><span class="pb-ico">${ico('tag')}</span><span class="pb-txt"><b>TAG TEAM</b><small>2 contra 2</small></span></button>
-      <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CAMPEÃO</b><small>Desafio difícil · prémios maiores</small></span></button>
+      <button class="play-btn solo"><span class="pb-ico">${ico('glove')}</span><span class="pb-txt"><b>FIGHT</b><small>1 vs 1</small></span></button>
+      <button class="play-btn tag"><span class="pb-ico">${ico('tag')}</span><span class="pb-txt"><b>TAG TEAM</b><small>2 vs 2</small></span></button>
+      <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CHAMPION</b><small>Tough challenge · bigger prizes</small></span></button>
     </section>
     <section class="card chests-card">
-      <div class="card-head"><h2>Baús</h2><span class="muted">Abre-os no centro do ringue</span></div>
+      <div class="card-head"><h2>Chests</h2><span class="muted">Open them in the middle of the ring</span></div>
       <div class="chest-row"></div>
     </section>`;
 
@@ -69,7 +69,7 @@ export function renderHome(page: HTMLElement): void {
   const updFree = () => {
     const ready = freeChestReady();
     free.classList.toggle('ready', ready);
-    free.innerHTML = `<div class="cs-art">${chestSvg('#8a4e22', '#cd8a4a')}</div><b>Grátis</b><span>${ready ? 'Recolher!' : timeLeft(S.freeChestAt - Date.now())}</span>`;
+    free.innerHTML = `<div class="cs-art">${chestSvg('#8a4e22', '#cd8a4a')}</div><b>Free</b><span>${ready ? 'Claim!' : timeLeft(S.freeChestAt - Date.now())}</span>`;
   };
   updFree();
   const timer = setInterval(() => {
@@ -79,10 +79,10 @@ export function renderHome(page: HTMLElement): void {
   free.onclick = () => {
     if (claimFreeChest()) {
       sfx.coin();
-      toast('Baú de Bronze recolhido!', 'ok');
+      toast('Bronze Chest claimed!', 'ok');
       render();
     } else {
-      toast('Ainda não está pronto.', 'info');
+      toast('Not ready yet.', 'info');
     }
   };
   row.appendChild(free);
@@ -92,11 +92,11 @@ export function renderHome(page: HTMLElement): void {
     const n = S.chests[id];
     const b = el('button', `chest-slot ${n ? 'has' : 'empty'}`);
     b.style.setProperty('--cg', c.glow);
-    b.innerHTML = `<div class="cs-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name.replace(/^Baú (de )?/, ''))}</b><span>${n ? `×${n}` : '—'}</span>`;
+    b.innerHTML = `<div class="cs-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name.replace(/ Chest$/, ''))}</b><span>${n ? `×${n}` : '—'}</span>`;
     b.onclick = () => {
       sfx.click();
       if (!S.chests[id]) {
-        toast('Não tens baús deste tipo. Ganha lutas ou compra na Loja!', 'info');
+        toast('You have no chests of this type. Win fights or buy one in the Shop!', 'info');
         return;
       }
       openChest(id, () => render());

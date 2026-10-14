@@ -306,7 +306,7 @@ function personAccessory(g: CanvasRenderingContext2D, p: Spot, armsUp: boolean):
   }
   if (k < 0.05) {
     // cartaz
-    const words = ['UAU!', 'K.O.!', '10/10', 'LENDA', 'FORÇA', '♥ RINGUE', 'GO!', 'CAMPEÃO'];
+    const words = ['WOW!', 'K.O.!', '10/10', 'LEGEND', 'POWER', '♥ RING', 'GO!', 'CHAMP'];
     g.fillStyle = '#ffffff';
     g.fillRect(x - 28 * s, y - 44 * s, 56 * s, 30 * s);
     g.strokeStyle = '#3a2a1a';
@@ -414,7 +414,7 @@ function makeBackdrop(): HTMLCanvasElement {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.font = '64px "Luckiest Guy", Impact, sans-serif';
-  g.fillText('REIS DO RINGUE', BW / 2, 192);
+  g.fillText('KINGS OF THE RING', BW / 2, 192);
   g.globalCompositeOperation = 'lighter';
   g.globalAlpha = 0.35;
   g.drawImage(glowSprite('#ff5a8a'), sx - 120, 40, 700, 300);
@@ -430,7 +430,7 @@ function makeBackdrop(): HTMLCanvasElement {
   }
   g.fillStyle = '#fff';
   g.font = '22px "Luckiest Guy", Impact, sans-serif';
-  for (let x = 0; x < BW; x += 260) g.fillText('LUTA!', x + 120, by + 34);
+  for (let x = 0; x < BW; x += 260) g.fillText('FIGHT!', x + 120, by + 34);
   return c;
 }
 
@@ -717,7 +717,7 @@ export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t
   ctx.font = '44px "Luckiest Guy", Impact, sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('REIS DO RINGUE', 0, FRONT_Y + 60);
+  ctx.fillText('KINGS OF THE RING', 0, FRONT_Y + 60);
   ctx.fillStyle = '#ffd23d';
   ctx.font = '26px "Luckiest Guy", Impact, sans-serif';
   ctx.fillText('★', -260, FRONT_Y + 58);

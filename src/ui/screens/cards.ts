@@ -27,7 +27,7 @@ export function itemCard(id: string, o: CardOpts = {}): HTMLElement {
   c.appendChild(name);
   const foot = el('div', 'ic-foot');
   if (o.shop) {
-    if (have) foot.innerHTML = `<span class="ic-owned">Tens ${ico('check')}</span>`;
+    if (have) foot.innerHTML = `<span class="ic-owned">Owned ${ico('check')}</span>`;
     else {
       const old = o.discount ? `<s>${priceHtml(d)}</s>` : '';
       foot.innerHTML = `${old}<span class="ic-price">${priceHtml(d, o.discount ?? 0)}</span>`;
@@ -38,6 +38,6 @@ export function itemCard(id: string, o: CardOpts = {}): HTMLElement {
   c.appendChild(foot);
   if (n > 1) c.appendChild(el('div', 'ic-count', `×${n}`));
   if (o.discount) c.appendChild(el('div', 'ic-sale', `-${Math.round(o.discount * 100)}%`));
-  if (have && isEquipped(id)) c.appendChild(el('div', 'ic-eq', 'EQUIPADO'));
+  if (have && isEquipped(id)) c.appendChild(el('div', 'ic-eq', 'EQUIPPED'));
   return c;
 }

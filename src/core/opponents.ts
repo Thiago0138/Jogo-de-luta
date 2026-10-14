@@ -5,25 +5,27 @@ import { POINTS_PER_LEVEL, STAT_CAP, STAT_IDS, baseStats, type StatId, type Stat
 import { leagueIndex } from '../data/leagues';
 import type { FighterSpec } from '../fight/fighter';
 import { resolveLook } from '../render/look';
-import { S, owns, type Loadout } from './state';
+import { S, moveSlots, owns, type Loadout } from './state';
 import { pick, rint, seeded } from './rng';
 
-const FIRST = ['Rei', 'Touro', 'Lobo', 'Tigre', 'Furacão', 'Martelo', 'Dragão', 'Titã', 'Falcão', 'Vulcão', 'Corvo', 'Gigante', 'Trovão', 'Bisonte', 'Cobra', 'Leão', 'Tubarão', 'Cometa', 'Pantera', 'Rocha'];
-const LAST = ['de Aço', 'Selvagem', 'Dourado', 'Sombrio', 'da Noite', 'Elétrico', 'Imparável', 'do Norte', 'Furioso', 'Mascarado', 'de Ferro', 'Veloz', 'Infernal', 'Gelado', 'Real', 'Brutal'];
-const SOLO = ['Big Rui', 'El Tornado', 'Mister Músculo', 'Zé Bigorna', 'Dona Marreta', 'Kid Faísca', 'La Sombra', 'Capitão Soco', 'Tó Trovão', 'Rita Rasteira', 'Duque Dinamite', 'Nuno Nitro', 'Baronesa Bomba', 'Max Mandíbula', 'Lady Lariat', 'Vasco Vulcão'];
+const FIRST = ['King', 'Bull', 'Wolf', 'Tiger', 'Hurricane', 'Hammer', 'Dragon', 'Titan', 'Falcon', 'Volcano', 'Raven', 'Giant', 'Thunder', 'Bison', 'Cobra', 'Lion', 'Shark', 'Comet', 'Panther', 'Rock'];
+const LAST = ['Steel', 'Savage', 'Golden', 'Shadow', 'Midnight', 'Electric', 'Wild', 'Northern', 'Furious', 'Masked', 'Iron', 'Swift', 'Hellfire', 'Frozen', 'Royal', 'Brutal'];
+const SOLO = ['Big Rudy', 'El Tornado', 'Mister Muscle', 'Joe Anvil', 'Madame Mallet', 'Kid Sparks', 'La Sombra', 'Captain Knuckles', 'Tommy Thunder', 'Rita Sweep', 'Duke Dynamite', 'Nick Nitro', 'Baroness Boom', 'Max Jaw', 'Lady Lariat', 'Vince Volcano'];
 
 type Archetype = { name: string; w: Partial<Record<StatId, number>> };
 const ARCHETYPES: Archetype[] = [
-  { name: 'Brutamontes', w: { for: 3, agr: 3, vit: 2, res: 1 } },
-  { name: 'Boxeador', w: { for: 2, vel: 3, pre: 2, esq: 1 } },
-  { name: 'Acrobata', w: { esq: 3, vel: 2, car: 2, ctr: 1 } },
-  { name: 'Tanque', w: { def: 3, vit: 3, res: 2 } },
-  { name: 'Técnico', w: { ctr: 3, pre: 2, def: 1, agr: 1 } },
-  { name: 'Estrela', w: { car: 3, for: 1, vel: 1, pre: 1, vit: 1 } },
+  { name: 'Brute', w: { for: 3, agr: 3, vit: 2, res: 1 } },
+  { name: 'Boxer', w: { for: 2, vel: 3, pre: 2, esq: 1 } },
+  { name: 'High-Flyer', w: { esq: 3, vel: 2, car: 2, ctr: 1 } },
+  { name: 'Tank', w: { def: 3, vit: 3, res: 2 } },
+  { name: 'Technician', w: { ctr: 3, pre: 2, def: 1, agr: 1 } },
+  { name: 'Showstopper', w: { car: 3, for: 1, vel: 1, pre: 1, vit: 1 } },
 ];
 
 export function randomName(r: () => number = Math.random): string {
-  return r() < 0.35 ? pick(SOLO, r) : `${pick(FIRST, r)} ${pick(LAST, r)}`;
+  if (r() < 0.35) return pick(SOLO, r);
+  const noun = pick(FIRST, r);
+  return `${pick(LAST, r)} ${noun}`;
 }
 
 export function randomAppearance(r: () => number = Math.random): Appearance {
@@ -80,7 +82,7 @@ function gear(kind: ItemDef['kind'], maxTier: number, r: () => number, chance = 
 export function movesFor(lvl: number, r: () => number = Math.random): string[] {
   const avail = ITEM_LIST.filter((d) => d.kind === 'move' && (d.unlockLevel ?? 1) <= lvl + 1);
   avail.sort(() => r() - 0.5);
-  return avail.slice(0, 6).map((d) => d.id);
+  return avail.slice(0, lvl >= 8 ? 3 : 2).map((d) => d.id);
 }
 
 export interface OppOpts {
@@ -119,7 +121,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
   for (let i = 0; i < 5 && name === S.name; i++) name = randomName(r);
   return {
     name,
-    title: o.champion ? 'Campeão' : arch.name,
+    title: o.champion ? 'Champion' : arch.name,
     level: lvl,
     stats,
     look: resolveLook(app, loadout),
@@ -142,7 +144,7 @@ export function makePartner(): FighterSpec {
   const loadout = { outfit: 'o_azul', gloves: 'g_azuis', mask: null, aura: null };
   return {
     name: randomName(seeded(S.partnerSeed + 3)),
-    title: 'Parceiro',
+    title: 'Partner',
     level: lvl,
     stats,
     look: resolveLook(app, loadout),
@@ -155,14 +157,14 @@ export function makePartner(): FighterSpec {
 
 export function playerSpec(): FighterSpec {
   return {
-    name: S.name || 'Tu',
+    name: S.name || 'You',
     level: S.level,
     stats: { ...S.stats },
     look: resolveLook(S.appearance, S.loadout),
     supers: [...S.loadout.supers],
     passives: [...S.loadout.passives],
     entrance: S.loadout.entrance,
-    moves: S.loadout.moves.filter((id) => owns(id)),
+    moves: S.loadout.moves.filter((id) => owns(id)).slice(0, moveSlots()),
     styles: S.loadout.styles.filter((id) => owns(id)),
     isPlayer: true,
   };

@@ -37,6 +37,8 @@ interface HudSide {
   last: { hp: number; trail: number; meter: number; full: boolean; who: Fighter | null; bench: number; stam: number };
 }
 
+const EMOTES = ['👏', '🔥', '😂', '😱', '💪', '😎', '😡', '🏆'];
+
 export class FightScene {
   fight: Fight;
   private canvas: HTMLCanvasElement;
@@ -186,7 +188,7 @@ export class FightScene {
 
     const ctr = document.createElement('div');
     ctr.className = 'fight-ctrl';
-    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">${ico('speaker')}<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost mic${S.settings.announcer ? '' : ' off'}" aria-label="Narrador" title="Narrador">${ico('mic')}</button><button class="btn-ghost cfg" aria-label="Definições" title="Definições">${ico('gear')}</button><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ${ico('skip')}</button>`;
+    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">${ico('speaker')}<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost mic${S.settings.announcer ? '' : ' off'}" aria-label="Announcer" title="Announcer">${ico('mic')}</button><button class="btn-ghost cfg" aria-label="Settings" title="Settings">${ico('gear')}</button><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Skip ${ico('skip')}</button>`;
     const vol = ctr.querySelector('.fight-vol input') as HTMLInputElement;
     vol.oninput = () => {
       S.settings.volume = Number(vol.value) / 100;
@@ -227,9 +229,10 @@ export class FightScene {
       this.skip();
     };
     this.root.appendChild(ctr);
+    this.buildEmotes();
     const hint = document.createElement('div');
     hint.className = 'ent-hint';
-    hint.textContent = 'Toca para saltar a entrada';
+    hint.textContent = 'Tap to skip the entrance';
     this.root.appendChild(hint);
     this.canvas.addEventListener('pointerdown', () => {
       if (this.fight.phase === 'entrance') {
@@ -384,32 +387,135 @@ export class FightScene {
 
   // ───────────────────────── Render ─────────────────────────
 
+  // ───────────────────────── Emojis durante a luta ─────────────────────────
+
+  private emoteCd = 0;
+
+  /** Botão discreto no canto: abre uma fila de emojis que aparecem a flutuar do teu lado. */
+  private buildEmotes(): void {
+    const wrap = document.createElement('div');
+    wrap.className = 'emote-wrap';
+    wrap.innerHTML = `<button class="emote-btn" aria-label="Emotes">😀</button><div class="emote-bar">${EMOTES.map((e) => `<button data-e="${e}">${e}</button>`).join('')}</div>`;
+    const btn = wrap.querySelector('.emote-btn') as HTMLButtonElement;
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      wrap.classList.toggle('open');
+      sfx.click();
+    };
+    wrap.querySelectorAll<HTMLButtonElement>('.emote-bar button').forEach((b) => {
+      b.onclick = (ev) => {
+        ev.stopPropagation();
+        if (performance.now() < this.emoteCd) return;
+        this.emoteCd = performance.now() + 900;
+        this.emote(0, b.dataset.e!);
+        wrap.classList.remove('open');
+        // o adversário às vezes responde
+        if (Math.random() < 0.45) {
+          const reply = EMOTES[Math.floor(Math.random() * EMOTES.length)];
+          setTimeout(() => !this.destroyed && this.emote(1, reply), 900 + Math.random() * 1200);
+        }
+      };
+    });
+    this.root.appendChild(wrap);
+  }
+
+  /** Mostra um emoji a flutuar por cima do lado da equipa. */
+  private emote(team: 0 | 1, e: string): void {
+    const el = document.createElement('div');
+    el.className = `emote-pop t${team}`;
+    el.textContent = e;
+    el.style.setProperty('--dx', `${(Math.random() - 0.5) * 30}px`);
+    this.root.appendChild(el);
+    sfx.click();
+    setTimeout(() => el.remove(), 2300);
+  }
+
+  /** Plano atual do "realizador" (estilo transmissão de TV). */
+  private shot: 'wide' | 'medium' | 'close' = 'medium';
+  private shotT = 0;
+  private shotDur = 4;
+  private hotT = 0;
+
+  /** Escolhe o plano: aberto para ver o ringue todo, médio a seguir a luta, fechado nos momentos grandes. */
+  private director(dt: number): void {
+    const F = this.fight;
+    const [a, b] = F.active;
+    const big = !!F.focus || F.cineW > 0.05 || !!F.cutin || !!F.moveCall || !!a.holding || !!b.holding || a.perchSide >= 0 || b.perchSide >= 0;
+    if (big) {
+      this.shot = 'close';
+      this.hotT = 0.9;
+      return;
+    }
+    if (this.shot === 'close') {
+      this.hotT -= dt;
+      if (this.hotT > 0) return;
+      // depois de um momento grande, abre para mostrar o ringue todo
+      this.shot = 'wide';
+      this.shotT = 0;
+      this.shotDur = 2.4 + Math.random() * 1.6;
+      return;
+    }
+    this.shotT += dt;
+    if (Math.abs(a.x - b.x) > 640) {
+      this.shot = 'wide';
+      return;
+    }
+    if (this.shotT > this.shotDur) {
+      this.shot = this.shot === 'wide' ? 'medium' : 'wide';
+      this.shotT = 0;
+      this.shotDur = this.shot === 'wide' ? 3 + Math.random() * 2.5 : 4.5 + Math.random() * 3.5;
+    }
+  }
+
   private camera(dt: number): void {
     const F = this.fight;
     const [a, b] = F.active;
     let tx: number;
     let desired: number;
+    let refH: number;
+    let rate = 0.05;
     const portrait = this.H > this.W;
-    if (F.focus) {
+    const mid = (a.x + b.x) / 2;
+    const d = Math.abs(a.x - b.x);
+    if (F.phase === 'entrance' && F.focus) {
       tx = F.focus.x;
-      desired = F.phase === 'entrance' ? (portrait ? 560 : 900) : portrait ? 390 : 680;
+      desired = portrait ? 560 : 900;
+      refH = portrait ? 820 : 620;
+      rate = 0.004;
+    } else if (F.phase !== 'fight') {
+      tx = mid;
+      desired = portrait ? 900 : 1250;
+      refH = portrait ? 900 : 700;
     } else {
-      tx = (a.x + b.x) / 2;
-      const d = Math.abs(a.x - b.x);
-      desired = portrait ? Math.min(900, Math.max(410, d + 260)) : Math.min(1300, Math.max(780, d + 520));
+      this.director(dt);
+      if (this.shot === 'close') {
+        tx = F.focus ? F.focus.x : mid;
+        desired = portrait ? Math.min(760, Math.max(420, d + 240)) : Math.min(950, Math.max(660, d + 400));
+        refH = portrait ? 780 : 520;
+        rate = 0.006;
+      } else if (this.shot === 'wide') {
+        tx = mid * 0.35;
+        desired = portrait ? 1000 : 1300;
+        refH = portrait ? 1050 : 720;
+        rate = 0.08;
+      } else {
+        tx = mid;
+        desired = portrait ? Math.min(950, Math.max(520, d + 320)) : Math.min(1180, Math.max(880, d + 560));
+        refH = portrait ? 900 : 610;
+        rate = 0.06;
+      }
     }
     // câmara lenta: aproxima-se do ponto de impacto
-    const k = 1 - Math.pow(0.002, dt);
-    this.cineS += (F.cineW - this.cineS) * k;
+    const kc = 1 - Math.pow(0.002, dt);
+    this.cineS += (F.cineW - this.cineS) * kc;
     const cw = this.cineS;
     if (cw > 0.001) {
       tx += (F.cineX - tx) * cw * 0.85;
       desired *= 1 - 0.3 * cw;
     }
+    const k = 1 - Math.pow(rate, dt);
     const zx = this.W / desired;
-    // telemóvel na horizontal (ecrã baixo): aproxima um pouco para os lutadores não ficarem pequenos
-    const refH = portrait ? 820 : this.H < 460 ? 580 : 640;
-    const zy = this.H / refH * (1 + 0.3 * cw);
+    const zy = (this.H / refH) * (1 + 0.3 * cw);
     const z = Math.min(zx, zy) * (1 + F.zoomPunch);
     this.zoom += (z - this.zoom) * k;
     this.camX += (tx - this.camX) * k;
@@ -1203,7 +1309,7 @@ export class FightScene {
     ctx.lineJoin = 'round';
     // etiqueta SUPER
     ctx.font = `${Math.round(fs * 0.45)}px ${FONT}`;
-    const tag = 'SUPER ATAQUE';
+    const tag = 'SUPER MOVE';
     const tw = ctx.measureText(tag).width + 18;
     ctx.fillStyle = c.color;
     const tagX = dir === 1 ? tx : tx - tw;

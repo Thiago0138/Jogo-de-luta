@@ -8,9 +8,9 @@ import { el, esc, fmt, timeLeft, toast } from '../dom';
 import { ico } from '../icons';
 
 const TABS = [
-  { id: 'daily', name: `${ico('sun')} Diárias` },
-  { id: 'weekly', name: `${ico('calendar')} Semanais` },
-  { id: 'legend', name: `${ico('trophy')} Lendárias` },
+  { id: 'daily', name: `${ico('sun')} Daily` },
+  { id: 'weekly', name: `${ico('calendar')} Weekly` },
+  { id: 'legend', name: `${ico('trophy')} Legendary` },
 ];
 
 function rewardHtml(r: Reward): string {
@@ -36,7 +36,7 @@ function row(m: MissionDef, progress: number, claimed: boolean, onClaim: () => v
       <div class="m-bar"><i style="transform:scaleX(${pct})"></i><span>${fmt(Math.min(progress, m.target))} / ${fmt(m.target)}</span></div>
       <div class="m-rw">${rewardHtml(m.reward)}</div>
     </div>`;
-  const btn = el('button', `btn sm ${claimed ? 'btn-ghost' : done ? 'btn-gold pulse' : 'btn-ghost'}`, claimed ? ico('check') : done ? 'Recolher' : '…');
+  const btn = el('button', `btn sm ${claimed ? 'btn-ghost' : done ? 'btn-gold pulse' : 'btn-ghost'}`, claimed ? ico('check') : done ? 'Claim' : '…');
   btn.disabled = claimed || !done;
   btn.onclick = () => {
     sfx.coin();
@@ -51,15 +51,15 @@ function claimSet(set: MissionSet, i: number): void {
   set.claimed[i] = true;
   const m = mission(set.ids[i]);
   const lu = giveReward(m.reward);
-  toast('Recompensa recolhida!', 'ok');
-  if (lu) toast(`Subiste para o nível ${lu.to}!`, 'ok');
+  toast('Reward claimed!', 'ok');
+  if (lu) toast(`You reached level ${lu.to}!`, 'ok');
   render();
 }
 
 export function renderMissions(page: HTMLElement, sub = 'daily'): void {
   rememberSub(sub);
   refreshMissions();
-  page.innerHTML = `<div class="page-head"><h1>Missões</h1></div><div class="seg"></div><div class="m-list"></div>`;
+  page.innerHTML = `<div class="page-head"><h1>Missions</h1></div><div class="seg"></div><div class="m-list"></div>`;
   const seg = page.querySelector('.seg') as HTMLElement;
   for (const t of TABS) {
     const b = el('button', t.id === sub ? 'on' : '', t.name);
@@ -79,12 +79,12 @@ export function renderMissions(page: HTMLElement, sub = 'daily'): void {
       end.setDate(end.getDate() + d);
       end.setHours(0, 0, 0, 0);
     }
-    list.appendChild(el('div', 'banner-info', `${ico('clock')} Novas missões em <b>${timeLeft(end.getTime() - Date.now())}</b>`));
+    list.appendChild(el('div', 'banner-info', `${ico('clock')} New missions in <b>${timeLeft(end.getTime() - Date.now())}</b>`));
     set.ids.forEach((id, i) => list.appendChild(row(mission(id), set.progress[i], set.claimed[i], () => claimSet(set, i))));
     const all = set.claimed.every(Boolean);
-    if (all) list.appendChild(el('p', 'muted center', 'Completaste tudo! Volta mais tarde para novas missões.'));
+    if (all) list.appendChild(el('p', 'muted center', 'All done! Come back later for new missions.'));
   } else {
-    list.appendChild(el('p', 'muted small', 'Desafios permanentes e muito difíceis. São a única forma de obter as skins Míticas e Celestiais mais raras.'));
+    list.appendChild(el('p', 'muted small', 'Permanent, very tough challenges. The only way to get the rarest Mythic and Celestial skins.'));
     for (const m of LEGENDARY) {
       const claimed = S.legendaryClaimed.includes(m.id);
       list.appendChild(
@@ -94,13 +94,13 @@ export function renderMissions(page: HTMLElement, sub = 'daily'): void {
           commit();
           giveReward(m.reward);
           sfx.reveal(6);
-          toast('Desafio Lendário concluído!', 'ok');
+          toast('Legendary Challenge complete!', 'ok');
           render();
         }),
       );
     }
   }
-  const play = el('button', 'btn btn-gold wide', `${ico('glove')} Ir lutar`);
+  const play = el('button', 'btn btn-gold wide', `${ico('glove')} Go fight`);
   play.onclick = () => go('home');
   list.appendChild(play);
 }

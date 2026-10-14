@@ -7,7 +7,7 @@ export function esc(s: string): string {
 }
 
 export function fmt(n: number): string {
-  return Math.floor(n).toLocaleString('pt-PT');
+  return Math.floor(n).toLocaleString('en-US');
 }
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', html = ''): HTMLElementTagNameMap[K] {
@@ -41,11 +41,11 @@ export interface ModalAction {
 
 /** Abre um modal. Devolve uma função para o fechar. */
 export function modal(
-  title: string, body: HTMLElement | string, actions: ModalAction[] = [{ label: 'Fechar' }], cls = '', onClose?: () => void,
+  title: string, body: HTMLElement | string, actions: ModalAction[] = [{ label: 'Close' }], cls = '', onClose?: () => void,
 ): () => void {
   const back = el('div', 'modal-back');
   const box = el('div', `modal ${cls}`);
-  box.innerHTML = `<div class="modal-head"><h3>${title}</h3><button class="x" aria-label="Fechar">${ico('close')}</button></div>`;
+  box.innerHTML = `<div class="modal-head"><h3>${title}</h3><button class="x" aria-label="Close">${ico('close')}</button></div>`;
   const content = el('div', 'modal-body');
   if (typeof body === 'string') content.innerHTML = body;
   else content.appendChild(body);
@@ -95,7 +95,7 @@ export function countUp(e: HTMLElement, from: number, to: number, ms = 800): voi
 }
 
 export function timeLeft(ms: number): string {
-  if (ms <= 0) return 'pronto';
+  if (ms <= 0) return 'ready';
   const h = Math.floor(ms / 3600000);
   const m = Math.floor((ms % 3600000) / 60000);
   const s = Math.floor((ms % 60000) / 1000);

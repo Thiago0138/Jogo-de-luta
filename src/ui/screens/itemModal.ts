@@ -1,6 +1,6 @@
 import { coversHead } from '../../render/costume';
-import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle } from '../../core/state';
-import { KIND_NAMES, MOVE_SLOTS, isTradeable, item, type ItemDef } from '../../data/items';
+import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle, moveSlots } from '../../core/state';
+import { KIND_NAMES, isTradeable, item, type ItemDef } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
@@ -53,7 +53,7 @@ export function toggleEquip(id: string): void {
     if (on) {
       if (list.length > 1) list.splice(list.indexOf(id), 1);
       else {
-        toast('Precisas de ter pelo menos um equipado.', 'info');
+        toast('You need at least one equipped.', 'info');
         return;
       }
     } else {
@@ -92,8 +92,8 @@ export function toggleEquip(id: string): void {
     case 'move':
       if (on) L.moves.splice(L.moves.indexOf(id), 1);
       else {
-        if (L.moves.length >= MOVE_SLOTS) {
-          toast(`Só podes ter ${MOVE_SLOTS} golpes equipados. Tira um primeiro.`, 'info');
+        if (L.moves.length >= moveSlots()) {
+          toast(`You can only equip ${moveSlots()} moves. Remove one first.`, 'info');
           return;
         }
         L.moves.push(id);
@@ -115,15 +115,15 @@ export function toggleEquip(id: string): void {
 export function sourceText(d: ItemDef): string {
   switch (d.source) {
     case 'start':
-      return 'Item inicial';
+      return 'Starter item';
     case 'shop':
-      return 'Disponível na Loja';
+      return 'Available in the Shop';
     case 'chest':
-      return 'Só sai em Baús';
+      return 'Chest drop only';
     case 'mission':
-      return 'Recompensa de Desafio Lendário';
+      return 'Legendary Challenge reward';
     case 'level':
-      return `Desbloqueia no nível ${d.unlockLevel}`;
+      return `Unlocks at level ${d.unlockLevel}`;
   }
 }
 
@@ -176,51 +176,51 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
   info.innerHTML = `
     <div class="id-kind">${KIND_NAMES[d.kind]}</div>
     ${rarityTag(d.rarity)}
-    <p class="id-desc">${esc(d.desc || 'Personaliza o teu lutador.')}</p>
-    <p class="id-src">${sourceText(d)}${n ? ` · Tens <b>${n}</b>` : ''}</p>`;
+    <p class="id-desc">${esc(d.desc || 'Customize your fighter.')}</p>
+    <p class="id-src">${sourceText(d)}${n ? ` · Owned: <b>${n}</b>` : ''}</p>`;
   body.appendChild(info);
 
   const actions: ModalAction[] = [];
   if (d.kind === 'move' && !owns(id)) {
     if (canBuyEarly(d)) {
       actions.push({
-        label: `Treinar já ${ico('coin')} ${fmt(d.coins ?? 0)}`,
+        label: `Train now ${ico('coin')} ${fmt(d.coins ?? 0)}`,
         cls: 'btn-gold',
         onClick: () => {
           if (S.coins < (d.coins ?? 0)) {
-            toast('Moedas insuficientes.', 'err');
+            toast('Not enough coins.', 'err');
             return false;
           }
           S.coins -= d.coins ?? 0;
           grant(id);
-          if (S.loadout.moves.length < MOVE_SLOTS) S.loadout.moves.push(id);
+          if (S.loadout.moves.length < moveSlots()) S.loadout.moves.push(id);
           commit();
           sfx.coin();
-          toast(`${d.name} aprendido!`, 'ok');
+          toast(`${d.name} learned!`, 'ok');
           render();
         },
       });
     } else {
-      actions.push({ label: `Nível ${d.unlockLevel} (compra a partir do ${Math.max(1, (d.unlockLevel ?? 1) - 3)})`, cls: 'btn-ghost', onClick: () => false });
+      actions.push({ label: `Level ${d.unlockLevel} (buyable from Lv ${Math.max(1, (d.unlockLevel ?? 1) - 3)})`, cls: 'btn-ghost', onClick: () => false });
     }
   }
   if (ctx === 'shop' && (d.coins != null || d.gems != null) && d.source === 'shop') {
     if (owns(id)) {
-      actions.push({ label: `Já tens ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
+      actions.push({ label: `Owned ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
     } else {
       actions.push({
-        label: `Comprar ${priceHtml(d, discount)}`,
+        label: `Buy ${priceHtml(d, discount)}`,
         cls: 'btn-gold',
         onClick: () => {
           const price = { ...d, coins: d.coins != null ? Math.round(d.coins * (1 - discount)) : undefined, gems: d.gems != null ? Math.round(d.gems * (1 - discount)) : undefined };
           if (!canAfford(price)) {
-            toast(d.gems != null ? 'Gemas insuficientes.' : 'Moedas insuficientes.', 'err');
+            toast(d.gems != null ? 'Not enough gems.' : 'Not enough coins.', 'err');
             return false;
           }
           buy(price);
           sfx.coin();
           sfx.reveal(r.tier);
-          toast(`${d.name} comprado!`, 'ok');
+          toast(`${d.name} purchased!`, 'ok');
           render();
         },
       });
@@ -231,7 +231,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
     const removable = ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(d.kind);
     if (!eq || removable) {
       actions.push({
-        label: eq ? 'Desequipar' : 'Equipar',
+        label: eq ? 'Unequip' : 'Equip',
         cls: eq ? 'btn-ghost' : 'btn-blue',
         onClick: () => {
           toggleEquip(id);
@@ -239,18 +239,18 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
           render();
         },
       });
-    } else actions.push({ label: `Equipado ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
+    } else actions.push({ label: `Equipped ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
     if (ctx === 'collection') {
       if (n >= 2) {
         const v = r.recycle;
         actions.push({
-          label: `Reciclar +${ico('coin')}${fmt(v)}`,
+          label: `Recycle +${ico('coin')}${fmt(v)}`,
           cls: 'btn-ghost',
           onClick: () => {
             const got = recycle(id);
             if (got) {
               sfx.coin();
-              toast(`+${got} moedas`, 'ok');
+              toast(`+${got} coins`, 'ok');
               render();
             }
           },
@@ -258,7 +258,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
       }
       if (isTradeable(d)) {
         actions.push({
-          label: `${ico('swap')} Trocar`,
+          label: `${ico('swap')} Trade`,
           cls: 'btn-ghost',
           onClick: () => {
             openTrade(id);
@@ -267,6 +267,6 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
       }
     }
   }
-  if (!actions.length) actions.push({ label: 'Fechar' });
+  if (!actions.length) actions.push({ label: 'Close' });
   modal(esc(d.name), body, actions, 'item-modal');
 }

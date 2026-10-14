@@ -10,15 +10,15 @@ import { openTrade } from './trade';
 import { ico } from '../icons';
 
 const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
-  { id: 'all', name: 'Tudo', kinds: [] },
-  { id: 'outfit', name: 'Trajes', kinds: ['outfit'] },
-  { id: 'gear', name: 'Luvas & Máscaras', kinds: ['gloves', 'mask'] },
+  { id: 'all', name: 'All', kinds: [] },
+  { id: 'outfit', name: 'Outfits', kinds: ['outfit'] },
+  { id: 'gear', name: 'Gloves & Masks', kinds: ['gloves', 'mask'] },
   { id: 'aura', name: 'Auras', kinds: ['aura'] },
-  { id: 'hair', name: 'Cabelo', kinds: ['hair', 'hairColor'] },
+  { id: 'hair', name: 'Hair', kinds: ['hair', 'hairColor'] },
   { id: 'super', name: 'Supers', kinds: ['super'] },
-  { id: 'passive', name: 'Passivas', kinds: ['passive'] },
-  { id: 'move', name: 'Golpes', kinds: ['move', 'moveStyle'] },
-  { id: 'entrance', name: 'Entradas', kinds: ['entrance'] },
+  { id: 'passive', name: 'Passives', kinds: ['passive'] },
+  { id: 'move', name: 'Moves', kinds: ['move', 'moveStyle'] },
+  { id: 'entrance', name: 'Entrances', kinds: ['entrance'] },
 ];
 
 let onlyOwned = false;
@@ -29,14 +29,14 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
   const have = collectionCount();
   const total = collectibleTotal();
   page.innerHTML = `
-    <div class="page-head"><h1>Coleção</h1><button class="btn btn-blue sm trade-btn">${ico('swap')} Trocas</button></div>
+    <div class="page-head"><h1>Collection</h1><button class="btn btn-blue sm trade-btn">${ico('swap')} Trades</button></div>
     <div class="card coll-head">
-      <div class="ch-top"><b>${have}</b><span>/ ${total} itens colecionados</span></div>
+      <div class="ch-top"><b>${have}</b><span>/ ${total} items collected</span></div>
       <div class="ch-bar"><i style="transform:scaleX(${have / total})"></i></div>
       <div class="rar-legend"></div>
     </div>
     <div class="seg scroll"></div>
-    <label class="toggle"><input type="checkbox" ${onlyOwned ? 'checked' : ''}/> Mostrar só o que tenho</label>
+    <label class="toggle"><input type="checkbox" ${onlyOwned ? 'checked' : ''}/> Show owned only</label>
     <div class="grid coll-grid"></div>`;
   (page.querySelector('.trade-btn') as HTMLElement).onclick = () => {
     sfx.click();
@@ -74,6 +74,6 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
     };
     grid.appendChild(c);
   }
-  if (!list.length) grid.appendChild(el('p', 'muted', 'Ainda não tens itens nesta categoria.'));
+  if (!list.length) grid.appendChild(el('p', 'muted', 'You have no items in this category yet.'));
   void S;
 }

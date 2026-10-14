@@ -16,11 +16,11 @@ import { ico, leagueBadge } from './icons';
 export type Tab = 'home' | 'shop' | 'collection' | 'missions' | 'fighter';
 
 const TABS: { id: Tab; icon: string; name: string }[] = [
-  { id: 'home', icon: 'ring', name: 'Ringue' },
-  { id: 'shop', icon: 'shop', name: 'Loja' },
-  { id: 'collection', icon: 'collection', name: 'Coleção' },
-  { id: 'missions', icon: 'missions', name: 'Missões' },
-  { id: 'fighter', icon: 'fighter', name: 'Lutador' },
+  { id: 'home', icon: 'ring', name: 'Ring' },
+  { id: 'shop', icon: 'shop', name: 'Shop' },
+  { id: 'collection', icon: 'collection', name: 'Collection' },
+  { id: 'missions', icon: 'missions', name: 'Missions' },
+  { id: 'fighter', icon: 'fighter', name: 'Fighter' },
 ];
 
 let current: Tab = 'home';
@@ -48,16 +48,16 @@ export function mountApp(root: HTMLElement): void {
 
 function buildTopbar(): void {
   topbar.innerHTML = `
-    <button class="tb-me" aria-label="Lutador">
+    <button class="tb-me" aria-label="Fighter">
       <div class="tb-avatar"></div>
       <div class="tb-info"><b class="tb-name"></b><div class="tb-xp"><i></i></div></div>
       <span class="tb-lvl"></span>
     </button>
     <div class="tb-cur">
-      <button class="pill coins" aria-label="Moedas">${ico('coin')}<b></b></button>
-      <button class="pill gems" aria-label="Gemas">${ico('gem')}<b></b></button>
-      <button class="icon-btn refresh" aria-label="Recarregar página" title="Recarregar">${ico('refresh')}</button>
-      <button class="icon-btn gear" aria-label="Definições">${ico('gear')}</button>
+      <button class="pill coins" aria-label="Coins">${ico('coin')}<b></b></button>
+      <button class="pill gems" aria-label="Gems">${ico('gem')}<b></b></button>
+      <button class="icon-btn refresh" aria-label="Reload page" title="Reload">${ico('refresh')}</button>
+      <button class="icon-btn gear" aria-label="Settings">${ico('gear')}</button>
     </div>`;
   avatar = new Preview(resolveLook(S.appearance, S.loadout), { stage: false, focusHead: true, zoom: 1.05 });
   topbar.querySelector('.tb-avatar')!.appendChild(avatar.canvas);
@@ -130,7 +130,7 @@ export function refreshChrome(): void {
 
 /** Números compactos para a barra de topo (ex.: 100K, 1,2M). */
 function short(n: number): string {
-  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1).replace('.', ',') + 'M';
+  if (n >= 1e6) return (n / 1e6).toFixed(n >= 1e7 ? 0 : 1) + 'M';
   if (n >= 1e4) return Math.floor(n / 1e3) + 'K';
   return fmt(n);
 }

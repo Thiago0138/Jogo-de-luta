@@ -10,9 +10,9 @@ import { ico, KIND_ICON } from '../icons';
 export function openTrade(preselect?: string): void {
   const body = el('div', 'trade');
   body.innerHTML = `
-    <div class="seg"><button class="on" data-t="send">Enviar</button><button data-t="recv">Receber</button></div>
+    <div class="seg"><button class="on" data-t="send">Send</button><button data-t="recv">Receive</button></div>
     <div class="trade-pane"></div>
-    <p class="muted small">Como funciona: escolhe itens e gera um código. Os itens saem do teu inventário e passam para quem resgatar o código. Envia-o por mensagem a um amigo. Cada código só pode ser usado uma vez em cada dispositivo.</p>`;
+    <p class="muted small">How it works: pick items and generate a code. The items leave your inventory and go to whoever redeems the code. Send it to a friend in a message. Each code can only be used once per device.</p>`;
   const pane = body.querySelector('.trade-pane') as HTMLElement;
   const tabs = body.querySelectorAll('.seg button');
   const selected = new Map<string, number>();
@@ -22,7 +22,7 @@ export function openTrade(preselect?: string): void {
     pane.innerHTML = '';
     const list = ITEM_LIST.filter((d) => isTradeable(d) && count(d.id) > 0).sort((a, b) => RARITIES[b.rarity].tier - RARITIES[a.rarity].tier);
     if (!list.length) {
-      pane.appendChild(el('p', 'muted', 'Ainda não tens itens que se possam trocar. Os itens iniciais não são trocáveis.'));
+      pane.appendChild(el('p', 'muted', 'You have no tradeable items yet. Starter items cannot be traded.'));
       return;
     }
     const g = el('div', 'trade-list');
@@ -38,22 +38,22 @@ export function openTrade(preselect?: string): void {
       g.appendChild(row);
     }
     pane.appendChild(g);
-    const btn = el('button', 'btn btn-gold', 'Gerar código');
+    const btn = el('button', 'btn btn-gold', 'Generate code');
     btn.onclick = () => {
       if (!selected.size) {
-        toast('Escolhe pelo menos um item.', 'info');
+        toast('Pick at least one item.', 'info');
         return;
       }
       const names = [...selected.keys()].map((id) => item(id).name).join(', ');
-      modal('Confirmar troca', `<p>Vais retirar do teu inventário: <b>${esc(names)}</b>.</p><p class="muted small">Guarda bem o código: quem o resgatar recebe os itens.</p>`, [
-        { label: 'Cancelar' },
+      modal('Confirm trade', `<p>These items will be removed from your inventory: <b>${esc(names)}</b>.</p><p class="muted small">Keep the code safe: whoever redeems it gets the items.</p>`, [
+        { label: 'Cancel' },
         {
-          label: 'Confirmar',
+          label: 'Confirm',
           cls: 'btn-gold',
           onClick: () => {
             const code = createTrade([...selected.entries()], S.name);
             if (!code) {
-              toast('Não foi possível criar o código.', 'err');
+              toast('Could not create the code.', 'err');
               return;
             }
             selected.clear();
@@ -69,17 +69,17 @@ export function openTrade(preselect?: string): void {
 
   const showCode = (code: string) => {
     const box = el('div', 'code-box');
-    box.innerHTML = `<p>Código de troca:</p><textarea readonly rows="4">${esc(code)}</textarea>`;
+    box.innerHTML = `<p>Trade code:</p><textarea readonly rows="4">${esc(code)}</textarea>`;
     const ta = box.querySelector('textarea') as HTMLTextAreaElement;
-    modal('Código criado', box, [
+    modal('Code created', box, [
       {
-        label: 'Copiar',
+        label: 'Copy',
         cls: 'btn-gold',
         onClick: () => {
           ta.select();
           navigator.clipboard?.writeText(code).then(
-            () => toast('Copiado!', 'ok'),
-            () => toast('Seleciona e copia manualmente.', 'info'),
+            () => toast('Copied!', 'ok'),
+            () => toast('Select it and copy it manually.', 'info'),
           );
           return false;
         },
@@ -87,22 +87,22 @@ export function openTrade(preselect?: string): void {
       ...(navigator.share
         ? [
             {
-              label: 'Partilhar',
+              label: 'Share',
               cls: 'btn-blue',
               onClick: () => {
-                navigator.share({ title: 'Reis do Ringue — troca', text: code }).catch(() => {});
+                navigator.share({ title: 'Kings of the Ring — trade', text: code }).catch(() => {});
                 return false;
               },
             },
           ]
         : []),
-      { label: 'Fechar' },
+      { label: 'Close' },
     ]);
   };
 
   const recv = () => {
-    pane.innerHTML = `<textarea class="code-in" rows="4" placeholder="Cola aqui o código RDR-..."></textarea>`;
-    const btn = el('button', 'btn btn-gold', 'Resgatar');
+    pane.innerHTML = `<textarea class="code-in" rows="4" placeholder="Paste the RDR-... code here"></textarea>`;
+    const btn = el('button', 'btn btn-gold', 'Redeem');
     btn.onclick = () => {
       const v = (pane.querySelector('.code-in') as HTMLTextAreaElement).value;
       const r = redeemTrade(v);
@@ -111,7 +111,7 @@ export function openTrade(preselect?: string): void {
         return;
       }
       sfx.reveal(4);
-      toast(`Recebeste ${r.items.map(([id, n]) => `${item(id).name}${n > 1 ? ' ×' + n : ''}`).join(', ')}${r.from ? ` de ${r.from}` : ''}!`, 'ok');
+      toast(`You received ${r.items.map(([id, n]) => `${item(id).name}${n > 1 ? ' ×' + n : ''}`).join(', ')}${r.from ? ` from ${r.from}` : ''}!`, 'ok');
       render();
       (pane.querySelector('.code-in') as HTMLTextAreaElement).value = '';
     };
@@ -126,5 +126,5 @@ export function openTrade(preselect?: string): void {
     };
   });
   send();
-  modal(`${ico('swap')} Trocas`, body, [], 'trade-modal');
+  modal(`${ico('swap')} Trades`, body, [], 'trade-modal');
 }

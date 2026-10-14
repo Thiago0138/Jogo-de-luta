@@ -60,8 +60,8 @@ export function openChest(id: ChestId, onDone: () => void): void {
 
   const label = el('div', 'chest-label', `<b>${esc(def.name)}</b><span>${esc(def.desc)}</span>`);
   ui.appendChild(label);
-  const hint = el('div', 'chest-hint', 'Toca para abrir!');
-  const skipBtn = el('button', 'btn btn-ghost chest-skip', `Ver tudo ${ico('skip')}`);
+  const hint = el('div', 'chest-hint', 'Tap to open!');
+  const skipBtn = el('button', 'btn btn-ghost chest-skip', `Show all ${ico('skip')}`);
   skipBtn.onclick = (e) => {
     e.stopPropagation();
     sfx.click();
@@ -113,7 +113,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
     const grid = el('div', 'sum-grid');
     for (const d of drops) grid.appendChild(miniCard(d));
     box.appendChild(grid);
-    const btn = el('button', 'btn btn-gold', 'Continuar');
+    const btn = el('button', 'btn btn-gold', 'Continue');
     btn.onclick = () => {
       sfx.click();
       close();
@@ -373,8 +373,8 @@ function drawChest(ctx: CanvasRenderingContext2D, d: ChestDef, x: number, y: num
 }
 
 function dropName(d: ChestDrop): string {
-  if (d.kind === 'coins') return `${fmt(d.amount)} Moedas`;
-  if (d.kind === 'gems') return `${fmt(d.amount)} Gemas`;
+  if (d.kind === 'coins') return `${fmt(d.amount)} Coins`;
+  if (d.kind === 'gems') return `${fmt(d.amount)} Gems`;
   const it = item(d.id!);
   return d.amount > 1 ? `${it.name} ×${d.amount}` : it.name;
 }
@@ -389,14 +389,14 @@ function dropIcon(d: ChestDrop): HTMLElement {
 
 function card(d: ChestDrop, i: number, n: number): HTMLElement {
   const c = el('div', `reveal-card r-${d.rarity}`);
-  const kind = d.kind === 'item' ? KIND_NAMES[item(d.id!).kind] : d.kind === 'coins' ? 'Moedas' : 'Gemas';
-  c.innerHTML = `<div class="rc-count">${i + 1}/${n}</div>${d.isNew ? '<div class="rc-new">NOVO!</div>' : ''}
+  const kind = d.kind === 'item' ? KIND_NAMES[item(d.id!).kind] : d.kind === 'coins' ? 'Coins' : 'Gems';
+  c.innerHTML = `<div class="rc-count">${i + 1}/${n}</div>${d.isNew ? '<div class="rc-new">NEW!</div>' : ''}
     <div class="rc-art"></div>
     <div class="rc-kind">${kind}</div>
     <div class="rc-name">${esc(dropName(d))}</div>
     ${rarityTag(d.rarity)}
     ${d.kind === 'item' ? `<p class="rc-desc">${esc(item(d.id!).desc)}</p>` : ''}
-    <div class="rc-tap">toca para continuar</div>`;
+    <div class="rc-tap">tap to continue</div>`;
   c.querySelector('.rc-art')!.appendChild(dropIcon(d));
   return c;
 }
@@ -406,6 +406,6 @@ function miniCard(d: ChestDrop): HTMLElement {
   c.appendChild(dropIcon(d));
   const n = el('div', 'mc-name', esc(dropName(d)));
   c.appendChild(n);
-  if (d.isNew) c.appendChild(el('div', 'rc-new sm', 'NOVO'));
+  if (d.isNew) c.appendChild(el('div', 'rc-new sm', 'NEW'));
   return c;
 }

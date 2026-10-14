@@ -1,8 +1,8 @@
 {
-  "name": "Reis do Ringue",
-  "short_name": "Reis do Ringue",
-  "description": "Lutas automáticas de wrestling e boxe com super ataques, skins raras e baús.",
-  "lang": "pt",
+  "name": "Kings of the Ring",
+  "short_name": "Kings of the Ring",
+  "description": "Auto-battle wrestling and boxing with super moves, rare skins and loot chests.",
+  "lang": "en",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

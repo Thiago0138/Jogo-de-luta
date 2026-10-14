@@ -1,5 +1,5 @@
-import { S, commit, levelRewardChest, owns } from '../../core/state';
-import { ITEM_LIST, MOVE_SLOTS, item, type ItemKind } from '../../data/items';
+import { S, commit, levelRewardChest, owns, moveSlots } from '../../core/state';
+import { ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, item, type ItemKind } from '../../data/items';
 import { CHESTS } from '../../data/chests';
 import { RARITIES } from '../../data/rarity';
 import { MAX_LEVEL, STATS, STAT_CAP, STAT_START, maxHp, powerRating, xpToNext, type StatId } from '../../data/stats';
@@ -13,9 +13,9 @@ import { isEquipped, openItem, passiveSlots, superSlots, toggleEquip } from './i
 import { ico } from '../icons';
 
 const TABS = [
-  { id: 'stats', name: `${ico('chart')} Atributos` },
-  { id: 'gear', name: `${ico('shirt')} Equipamento` },
-  { id: 'road', name: `${ico('road')} Progressão` },
+  { id: 'stats', name: `${ico('chart')} Stats` },
+  { id: 'gear', name: `${ico('shirt')} Gear` },
+  { id: 'road', name: `${ico('road')} Progression` },
 ];
 
 export function renderFighter(page: HTMLElement, sub = 'stats'): void {
@@ -25,9 +25,9 @@ export function renderFighter(page: HTMLElement, sub = 'stats'): void {
       <div class="ft-stage"></div>
       <div class="ft-info">
         <h1>${esc(S.name)}</h1>
-        <div class="ft-lvl">Nível <b>${S.level}</b>${S.level < MAX_LEVEL ? ` · ${fmt(S.xp)}/${fmt(xpToNext(S.level))} XP` : ' · MÁX'}</div>
-        <div class="ft-row"><span>${ico('heart')} ${fmt(maxHp(S.level, S.stats.vit))} vida</span><span>${ico('bolt')} ${fmt(powerRating(S.level, S.stats))} poder</span></div>
-        <button class="btn btn-ghost sm edit">${ico('edit')} Editar aparência</button>
+        <div class="ft-lvl">Level <b>${S.level}</b>${S.level < MAX_LEVEL ? ` · ${fmt(S.xp)}/${fmt(xpToNext(S.level))} XP` : ' · MAX'}</div>
+        <div class="ft-row"><span>${ico('heart')} ${fmt(maxHp(S.level, S.stats.vit))} HP</span><span>${ico('bolt')} ${fmt(powerRating(S.level, S.stats))} power</span></div>
+        <button class="btn btn-ghost sm edit">${ico('edit')} Edit appearance</button>
       </div>
     </div>
     <div class="seg"></div>
@@ -54,7 +54,7 @@ export function renderFighter(page: HTMLElement, sub = 'stats'): void {
 }
 
 function stats(body: HTMLElement): void {
-  body.innerHTML = `<div class="pts ${S.statPoints ? 'has' : ''}">Pontos disponíveis: <b>${S.statPoints}</b>${S.statPoints ? '' : ' · ganha mais ao subir de nível'}</div>`;
+  body.innerHTML = `<div class="pts ${S.statPoints ? 'has' : ''}">Points available: <b>${S.statPoints}</b>${S.statPoints ? '' : ' · earn more by leveling up'}</div>`;
   const list = el('div', 'stat-list');
   for (const st of STATS) {
     const v = S.stats[st.id];
@@ -73,16 +73,16 @@ function stats(body: HTMLElement): void {
   body.appendChild(list);
   const spent = Object.values(S.stats).reduce((a, b) => a + b - STAT_START, 0);
   if (spent > 0) {
-    const reset = el('button', 'btn btn-ghost wide', `↺ Redistribuir pontos (${ico('gem')} 50)`);
+    const reset = el('button', 'btn btn-ghost wide', `↺ Reset points (${ico('gem')} 50)`);
     reset.onclick = () => {
-      modal('Redistribuir pontos', `<p>Todos os pontos gastos voltam a ficar disponíveis. Custa ${ico('gem')} 50.</p>`, [
-        { label: 'Cancelar' },
+      modal('Reset points', `<p>All spent points become available again. Costs ${ico('gem')} 50.</p>`, [
+        { label: 'Cancel' },
         {
-          label: 'Redistribuir',
+          label: 'Reset',
           cls: 'btn-gold',
           onClick: () => {
             if (S.gems < 50) {
-              toast('Gemas insuficientes.', 'err');
+              toast('Not enough gems.', 'err');
               return false;
             }
             S.gems -= 50;
@@ -119,17 +119,17 @@ interface Slot {
 function gear(body: HTMLElement): void {
   const L = S.loadout;
   const slots: Slot[] = [
-    { label: 'Traje', kind: 'outfit', id: L.outfit },
-    { label: 'Luvas', kind: 'gloves', id: L.gloves },
-    { label: 'Máscara', kind: 'mask', id: L.mask },
+    { label: 'Outfit', kind: 'outfit', id: L.outfit },
+    { label: 'Gloves', kind: 'gloves', id: L.gloves },
+    { label: 'Mask', kind: 'mask', id: L.mask },
     { label: 'Aura', kind: 'aura', id: L.aura },
-    { label: 'Penteado', kind: 'hair', id: S.appearance.hair },
-    { label: 'Cor do cabelo', kind: 'hairColor', id: S.appearance.hairColor },
-    { label: 'Entrada', kind: 'entrance', id: L.entrance },
+    { label: 'Hairstyle', kind: 'hair', id: S.appearance.hair },
+    { label: 'Hair color', kind: 'hairColor', id: S.appearance.hairColor },
+    { label: 'Entrance', kind: 'entrance', id: L.entrance },
   ];
   const abil: Slot[] = [];
   for (let i = 0; i < 2; i++) abil.push({ label: `Super ${i + 1}`, kind: 'super', id: L.supers[i] ?? null, locked: i >= superSlots() ? 8 : undefined });
-  for (let i = 0; i < 2; i++) abil.push({ label: `Passiva ${i + 1}`, kind: 'passive', id: L.passives[i] ?? null, locked: i >= passiveSlots() ? 6 : undefined });
+  for (let i = 0; i < 2; i++) abil.push({ label: `Passive ${i + 1}`, kind: 'passive', id: L.passives[i] ?? null, locked: i >= passiveSlots() ? 6 : undefined });
 
   const section = (title: string, list: Slot[], hint = '') => {
     body.appendChild(el('h3', 'sec', title));
@@ -139,12 +139,12 @@ function gear(body: HTMLElement): void {
     body.appendChild(g);
   };
   const moves: Slot[] = [];
-  for (let i = 0; i < MOVE_SLOTS; i++) moves.push({ label: `Golpe ${i + 1}`, kind: 'move', id: L.moves[i] ?? null });
-  const styles: Slot[] = [{ label: 'Estilo de golpe', kind: 'moveStyle', id: L.styles[0] ?? null }];
-  section('Golpes de assinatura', moves, 'Os golpes especiais que o teu lutador usa no ringue. Desbloqueiam com o nível; podes treiná-los com moedas até 3 níveis antes.');
-  section('Estilos de golpe', styles, 'Efeitos visuais para os teus golpes (só aparência, mesmo dano).');
-  section('Visual', slots);
-  section('Habilidades', abil, 'Os supers são usados quando a barra de Super enche. As passivas estão sempre ativas.');
+  for (let i = 0; i < MOVE_SLOTS; i++) moves.push({ label: `Move ${i + 1}`, kind: 'move', id: L.moves[i] ?? null, locked: i >= moveSlots() ? MOVE_SLOT3_LEVEL : undefined });
+  const styles: Slot[] = [{ label: 'Move style', kind: 'moveStyle', id: L.styles[0] ?? null }];
+  section('Signature moves', moves, 'The special moves your fighter uses in the ring. They unlock as you level up; you can train them with coins up to 3 levels early.');
+  section('Move styles', styles, 'Visual effects for your moves (cosmetic only, same damage).');
+  section('Look', slots);
+  section('Abilities', abil, 'Supers fire when your Super bar is full. Passives are always active.');
 }
 
 function slotEl(s: Slot): HTMLElement {
@@ -154,7 +154,7 @@ function slotEl(s: Slot): HTMLElement {
   else if (s.id) art.appendChild(itemThumb(s.id));
   else art.textContent = '+';
   b.appendChild(art);
-  b.appendChild(el('div', 'slot-l', s.locked ? `${s.label} · Nv ${s.locked}` : s.label));
+  b.appendChild(el('div', 'slot-l', s.locked ? `${s.label} · Lv ${s.locked}` : s.label));
   if (s.id && !s.locked) {
     const d = item(s.id);
     b.appendChild(el('div', 'slot-n', esc(d.name)));
@@ -162,7 +162,7 @@ function slotEl(s: Slot): HTMLElement {
   b.onclick = () => {
     sfx.click();
     if (s.locked) {
-      toast(`Desbloqueia no nível ${s.locked}.`, 'info');
+      toast(`Unlocks at level ${s.locked}.`, 'info');
       return;
     }
     picker(s);
@@ -176,7 +176,7 @@ function picker(s: Slot): void {
   const box = el('div', 'picker');
   let close: () => void = () => {};
   if (s.id && ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(s.kind)) {
-    const rm = el('button', 'pick-row none', `${ico('close')} Remover deste espaço`);
+    const rm = el('button', 'pick-row none', `${ico('close')} Remove from this slot`);
     rm.onclick = () => {
       toggleEquip(s.id!);
       close();
@@ -193,7 +193,7 @@ function picker(s: Slot): void {
     const locked = d.kind === 'move' && !owns(d.id);
     if (locked) {
       r.classList.add('locked');
-      r.appendChild(el('div', 'pr-lock', `${ico('lock')} Nv ${d.unlockLevel}`));
+      r.appendChild(el('div', 'pr-lock', `${ico('lock')} Lv ${d.unlockLevel}`));
     }
     r.onclick = () => {
       if (locked) {
@@ -222,16 +222,16 @@ function picker(s: Slot): void {
     };
     box.appendChild(r);
   }
-  if (!list.length) box.appendChild(el('p', 'muted', 'Ainda não tens itens deste tipo. Procura na Loja ou em Baús!'));
-  close = modal(`Escolher: ${s.label}`, box, [], 'picker-modal');
+  if (!list.length) box.appendChild(el('p', 'muted', 'You have no items of this type yet. Check the Shop or open Chests!'));
+  close = modal(`Choose: ${s.label}`, box, [], 'picker-modal');
 }
 
 function road(body: HTMLElement): void {
-  body.appendChild(el('p', 'muted small', 'A cada nível ganhas 3 pontos de atributo, 5 gemas e mais vida. Alguns níveis desbloqueiam habilidades, espaços e skins.'));
+  body.appendChild(el('p', 'muted small', 'Every level gives you 3 stat points, 5 gems and more health. Some levels unlock abilities, slots and skins.'));
   const list = el('div', 'road');
   const unlocks = new Map<number, string[]>();
   for (const d of ITEM_LIST) if (d.source === 'level' && d.unlockLevel) unlocks.set(d.unlockLevel, [...(unlocks.get(d.unlockLevel) ?? []), esc(d.name)]);
-  const slotsAt: Record<number, string> = { 6: `${ico('abilities')} 2.ª passiva`, 8: `${ico('bolt')} 2.º super` };
+  const slotsAt: Record<number, string> = { 6: `${ico('abilities')} 2nd passive`, 8: `${ico('bolt')} 2nd super` };
   for (let lv = 2; lv <= Math.min(MAX_LEVEL, Math.max(S.level + 12, 32)); lv++) {
     const rewards: string[] = [];
     for (const u of unlocks.get(lv) ?? []) rewards.push(u);

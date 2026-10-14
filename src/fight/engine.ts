@@ -994,12 +994,12 @@ export class Fight {
       }
     }
     if (this.phase === 'intro' && this.phaseT > 0.1 && this.phaseT - dt <= 0.1) {
-      this.banner('PREPARAR...', this.mode === 'tag' ? 'TAG TEAM' : this.mode === 'champion' ? 'DESAFIO DO CAMPEÃO' : 'COMBATE', '#ffffff', 1.1);
+      this.banner('GET READY...', this.mode === 'tag' ? 'TAG TEAM' : this.mode === 'champion' ? 'CHAMPION CHALLENGE' : 'FIGHT', '#ffffff', 1.1);
     }
     if (this.phase === 'intro' && this.phaseT > 1.6) {
       this.phase = 'fight';
       this.phaseT = 0;
-      this.banner('LUTEM!', '', '#ffd23d', 1.0, 1.3);
+      this.banner('FIGHT!', '', '#ffd23d', 1.0, 1.3);
       this.emit('start', this.active[0], this.active[1]);
       sfx.bell();
       sfx.cheer(1);
@@ -1256,7 +1256,7 @@ export class Fight {
     const score = (ti: number) => this.teams[ti].reduce((s, f) => s + Math.max(0, f.hp) / f.maxHp, 0);
     const w: 0 | 1 = score(0) >= score(1) ? 0 : 1;
     this.decision = true;
-    this.banner('TEMPO!', 'Decisão dos juízes', '#ffffff', 1.6);
+    this.banner('TIME!', 'Judges\' decision', '#ffffff', 1.6);
     sfx.bell();
     this.declareWinner(w, null);
   }
@@ -1307,7 +1307,8 @@ export class Fight {
       this.idleMove(f, o, dist);
       return;
     }
-    f.thinkT = 0.06 + Math.random() * 0.18;
+    // ritmo de luta: decide com calma (trocas claras em vez de golpes sem parar)
+    f.thinkT = 0.18 + Math.random() * 0.34;
     f.vx = 0;
     const r = Math.random();
 
@@ -1349,17 +1350,21 @@ export class Fight {
       return;
     }
 
+    // os primeiros segundos são para se estudarem e trocarem golpes; os golpes de corrida
+    // (cordas, spear, dropkick, cutter) só aparecem com a luta lançada e o adversário já tocado
+    const opened = this.phaseT > 9 || o.hp < o.maxHp * 0.85;
+    const worn = o.hp < o.maxHp * 0.75 || o.stunT > 0 || o.stamina < 40;
     if (dist > 250) {
       const behind = f.facing === 1 ? f.x + RING : RING - f.x;
-      if (r < 0.2 && behind > 220 && f.can('m_lariat')) f.run(this.ropeRun(f, o));
-      else if (r < 0.26 && dist < 330 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
+      if (opened && worn && r < 0.12 && behind > 220 && f.can('m_lariat')) f.run(this.ropeRun(f, o));
+      else if (opened && r < 0.2 && dist < 330 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
       else f.wantX = o.x - f.facing * 95;
       return;
     }
     if (dist > 110) {
-      if (r < 0.1 && dist < 260 && o.state === 'idle' && f.can('m_spear')) f.run(this.spear(f, o));
-      else if (r < 0.15 && dist > 130 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
-      else if (r < 0.26 && f.can('m_cutter') && o.state === 'idle') f.run(this.cutter(f, o));
+      if (opened && r < 0.1 && dist < 260 && o.state === 'idle' && f.can('m_spear')) f.run(this.spear(f, o));
+      else if (opened && r < 0.15 && dist > 130 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
+      else if (opened && r < 0.26 && f.can('m_cutter') && o.state === 'idle') f.run(this.cutter(f, o));
       else if (r < 0.32 && f.tauntCd <= 0 && f.s.car > 15) f.run(this.taunt(f));
       else f.wantX = o.x - f.facing * (88 + Math.random() * 12);
       return;
@@ -1372,9 +1377,9 @@ export class Fight {
       [3.2 + st.vel * 0.04, () => this.combo(f, o)],
       [2 + st.for * 0.03 + (stunned ? 2 : 0), () => this.heavy(f, o)],
       [close ? 0.55 + st.agr * 0.03 + (stunned ? 0.8 : 0) : 0, () => this.grapple(f, o)],
-      [close && f.can('m_irish') ? 0.35 + st.agr * 0.01 : 0, () => this.irishWhip(f, o)],
+      [close && opened && f.can('m_irish') ? 0.35 + st.agr * 0.01 : 0, () => this.irishWhip(f, o)],
       [f.can('m_cutter') && stunned ? 0.6 : 0, () => this.cutter(f, o)],
-      [0.8, () => this.stepBack(f)],
+      [1.7 + (f.stamina < 50 ? 1 : 0), () => this.stepBack(f)],
       [0.7, () => this.feint(f, o)],
     ];
     let tot = 0;
@@ -1455,7 +1460,7 @@ export class Fight {
   private *counter(f: Fighter, o: Fighter): Script {
     f.face(o);
     if (f.spec.isPlayer) this.tally.counters++;
-    this.pop('CONTRA!', f.x, this.jy(f, J_HEAD) - 40, '#7ad7ff', 30);
+    this.pop('COUNTER!', f.x, this.jy(f, J_HEAD) - 40, '#7ad7ff', 30);
     this.emit('counter', f, o);
     f.play('hook', 1.4);
     const cd = this.contactDist(f, o, 'hook', J_FH, false);
@@ -1730,7 +1735,7 @@ export class Fight {
     yield () => Math.abs(o.x - f.x) > 190 || Math.abs(f.x) > RING - 40;
     f.vx = 0;
     f.play('tired');
-    if (Math.random() < 0.5) this.pop('A RECUPERAR...', f.x, this.jy(f, J_HEAD) - 50, '#9ad7ff', 18);
+    if (Math.random() < 0.5) this.pop('RECOVERING...', f.x, this.jy(f, J_HEAD) - 50, '#9ad7ff', 18);
     yield 0.9;
     f.setState('idle');
   }
@@ -1793,12 +1798,13 @@ export class Fight {
   }
 
   private *stepBack(f: Fighter): Script {
+    // sai da distância e estuda o adversário antes de voltar a entrar
     f.play('walkBack');
-    f.vx = -f.facing * 170;
-    yield 0.32;
+    f.vx = -f.facing * 190;
+    yield 0.38 + Math.random() * 0.2;
     f.vx = 0;
     f.play('guard');
-    yield 0.15;
+    yield 0.3 + Math.random() * 0.45;
   }
 
   private canGrab(o: Fighter): boolean {
@@ -1821,7 +1827,7 @@ export class Fight {
     const escape = clamp(0.1 + (o.s.agr + o.s.esq) * 0.002 - f.s.agr * 0.003, 0.04, 0.35);
     if (Math.random() < escape) {
       o.stop();
-      this.pop('ESCAPOU!', o.x, this.jy(o, J_HEAD) - 40, '#5ef0c0', 26);
+      this.pop('ESCAPED!', o.x, this.jy(o, J_HEAD) - 40, '#5ef0c0', 26);
       o.run(this.pushAway(o, f));
       f.vx = -f.facing * 200;
       yield 0.3;
@@ -1931,6 +1937,10 @@ export class Fight {
     o.setState('hit');
     this.strike(dmgOwner, o, { dmg, reach: 9999, kind, heavy: true, kd: true, unblockable: true, kb: 0, launch: 90, ground: true });
     this.settleLying(o, nf);
+    if (o.state === 'down') {
+      o.impact = Math.max(o.impact, 0.55 + big * 0.35);
+      o.downT = Math.max(o.downT, 1.1 + big * 0.7 - o.s.res * 0.006);
+    }
     this.shake(8 + big * 6, 0.3 + big * 0.1);
     this.dust(o.x, 10 + big * 8, 90);
     this.parts.spawn(PK.Ring, o.x, 0, 0, 0, 0.45, 140 + big * 80, '#ffffff', 0);
@@ -1964,7 +1974,7 @@ export class Fight {
     yield* this.carry(f, o, 0.24, [-4, 4, 2.9], [-30, 30, 4.4], (t) => t * t, lx);
     o.play('lieKO');
     this.land(o, lx, f, 30 * power, 'grapple', atomic ? 3 : 1);
-    this.pop(atomic ? 'SUPLEX ATÓMICO!' : 'SUPLEX!', f.x, -230, '#ffb31a', 30);
+    this.pop(atomic ? 'ATOMIC SUPLEX!' : 'SUPLEX!', f.x, -230, '#ffb31a', 30);
     yield 0.45;
     f.play('archUp');
     yield 0.6;
@@ -2044,7 +2054,7 @@ export class Fight {
     o.setState('act');
     const dir = f.facing;
     f.play('cross', 0.8);
-    this.pop('PARA AS CORDAS!', o.x, -220, '#ffffff', 22);
+    this.pop('INTO THE ROPES!', o.x, -220, '#ffffff', 22);
     // o defensor corre para as cordas e volta
     o.run(this.whipped(o, dir));
     yield 0.3;
@@ -2412,10 +2422,10 @@ export class Fight {
     f.vx = 0;
     if (o.state === 'down' && Math.abs(o.x - f.x) < 80) {
       this.strike(f, o, { dmg: 18, reach: 100, kind: 'aerial', ground: true, kb: 0, heavy: true });
-      this.pop('COTOVELADA!', f.x, -200, '#ffd23d', 26);
+      this.pop('ELBOW DROP!', f.x, -200, '#ffd23d', 26);
     } else {
       sfx.thud();
-      this.pop('FALHOU!', f.x, -180, '#aaaaaa', 24);
+      this.pop('MISSED!', f.x, -180, '#aaaaaa', 24);
       this.damage(f, 8);
     }
     this.dust(f.x, 8);
@@ -2446,7 +2456,7 @@ export class Fight {
     // vira-se para o ringue em cima da corda de cima, que cede e balança debaixo dos pés
     f.face(o);
     f.blendIn(0.2);
-    this.pop('À CORDA DE CIMA!', f.x, -330, '#ffffff', 22);
+    this.pop('TO THE TOP ROPE!', f.x, -330, '#ffffff', 22);
     this.emit('climb', f);
     this.addHype(0.2);
     sfx.cheer(0.8);
@@ -2478,12 +2488,19 @@ export class Fight {
     const moon = f.can('m_moonsault') && (!f.can('m_splash') || Math.random() < 0.55);
     this.special(f, moon ? 'm_moonsault' : 'm_splash', true);
     const msty = moon ? f.styleOf('moonsault') : null;
-    const T = 0.7;
+    // salto alto e poderoso: a corda impulsiona-o bem acima do canto antes de cair sobre o alvo
     const target = o.x;
+    const apex = moon ? 175 : 150;
+    const vz0 = Math.sqrt(2 * GRAV * apex);
+    const land = 16;
+    const T = (vz0 + Math.sqrt(vz0 * vz0 + 2 * GRAV * Math.max(0, f.z - land))) / GRAV;
     f.vx = (target - f.x) / T;
-    f.vz = (0 - f.z + 0.5 * GRAV * T * T) / T;
+    f.vz = vz0;
     f.play(moon ? 'tuck' : 'splash');
     sfx.whoosh();
+    sfx.whoosh();
+    this.dust(f.x, 6);
+    this.addHype(0.1);
     if (roll) o.run(this.rollAway(o, f));
     let el = 0;
     // cai em cima do corpo dele (não atravessa até ao tapete)
@@ -2491,7 +2508,10 @@ export class Fight {
     while (f.z > rest() || el < 0.1) {
       el += this.dt;
       releaseClamp();
+      // câmara lenta no topo do salto e no impacto
+      if (Math.abs(f.vz) < 140 && el > 0.15) this.cinematic(f.x, -f.z - 60, 0.45, 0.5);
       if (f.vz < 0 && f.z < 110 && o.state === 'down') this.cinematic(target, -40, 0.3, 0.9, true);
+      if (el > 0.05 && Math.random() < 0.6) this.parts.spawn(PK.Star, f.x - f.vx * 0.02, -f.z - 70, 0, 0, 0.3, 7, '#ffffff', 0);
       if (moon) f.spinAng = -Math.min(1, el / T) * Math.PI * 2;
       if (msty && Math.random() < 0.8) this.parts.spawn(PK.Star, f.x, -f.z - 80, 0, 0, 0.5, 10, msty.color, 0);
       yield FRAME;
@@ -2523,7 +2543,7 @@ export class Fight {
       return;
     } else {
       f.play('lie');
-      this.pop('FALHOU!', f.x, -200, '#aaaaaa', 30);
+      this.pop('MISSED!', f.x, -200, '#aaaaaa', 30);
       this.damage(f, 22);
       this.shake(8, 0.3);
       sfx.thud();
@@ -2565,7 +2585,7 @@ export class Fight {
     f.play('taunt');
     f.setExpr('happy', 1.2);
     sfx.cheer(0.7);
-    this.pop(['O PÚBLICO VIBRA!', 'ANDA CÁ!', 'VAMOS!', 'SOU O MAIOR!'][Math.floor(Math.random() * 4)], f.x, -260, '#ff7ae0', 22);
+    this.pop(['THE CROWD GOES WILD!', 'COME ON!', 'LET\'S GO!', 'I\'M THE GREATEST!'][Math.floor(Math.random() * 4)], f.x, -260, '#ff7ae0', 22);
     yield 0.5;
     this.gainMeter(f, 16 * (1 + f.s.car * 0.025));
     this.addHype(0.12);
@@ -2573,10 +2593,24 @@ export class Fight {
   }
 
   private *getUp(f: Fighter): Script {
-    f.play('getup', 1.15 + f.s.res * 0.006);
-    yield 0.55;
+    const hurt = f.impact;
+    f.impact = 0;
+    if (hurt > 0.55) {
+      // levanta-se a custo, apoiado num joelho, e fica uns instantes zonzo
+      const sp = clamp(0.95 - hurt * 0.3, 0.45, 0.9);
+      f.play('getup', sp + f.s.res * 0.004);
+      f.setExpr('hurt', 1.5);
+      yield 0.55 / sp;
+      f.play('tired');
+      f.blendIn(0.2);
+      yield 0.25 + hurt * 0.45;
+    } else {
+      f.play('getup', 1.15 + f.s.res * 0.006);
+      yield 0.55;
+    }
     f.setState('act');
     f.play('guard');
+    f.blendIn(0.15);
     f.evade = 'none';
   }
 
@@ -2591,7 +2625,7 @@ export class Fight {
     const before = f.meter;
     f.meter = Math.min(100, f.meter + v);
     if (before < 100 && f.meter >= 100) {
-      this.pop('SUPER PRONTO!', f.x, this.jy(f, J_HEAD) - 60, '#ffd23d', 24);
+      this.pop('SUPER READY!', f.x, this.jy(f, J_HEAD) - 60, '#ffd23d', 24);
       sfx.charge();
     }
   }
@@ -2627,7 +2661,7 @@ export class Fight {
     }
     if (!o.unblockable && def.evade === 'dodge') {
       sfx.whoosh();
-      this.pop('ESQUIVA!', def.x, this.jy(def, J_HEAD) - 50, '#5ef0c0', 24);
+      this.pop('DODGE!', def.x, this.jy(def, J_HEAD) - 50, '#5ef0c0', 24);
       if (def.spec.isPlayer) this.tally.dodges++;
       this.gainMeter(def, 5 * (1 + def.s.car * 0.012));
       return false;
@@ -2655,7 +2689,7 @@ export class Fight {
       dmg *= 0.2;
       sfx.block();
       this.sparks(hx, hy, 6, '#9ad7ff', 300);
-      this.pop('BLOQUEIO', def.x, this.jy(def, J_HEAD) - 50, '#9ad7ff', 22);
+      this.pop('BLOCKED', def.x, this.jy(def, J_HEAD) - 50, '#9ad7ff', 22);
       def.vx = dir * 90;
       def.hp = Math.max(1, def.hp - dmg);
       this.gainMeter(def, 6 * (1 + def.s.car * 0.012));
@@ -2675,7 +2709,7 @@ export class Fight {
     def.stamina = Math.max(0, def.stamina - dmg * 0.18);
     def.minHpRatio = Math.min(def.minHpRatio, Math.max(0, def.hp) / def.maxHp);
     def.lastHitBy = att;
-    def.flashT = 0.07;
+    if (o.heavy || o.kind === 'super') def.flashT = 0.06;
     def.setExpr('hurt', 0.5);
     att.combo++;
     att.comboT = 1.2;
@@ -2693,8 +2727,9 @@ export class Fight {
 
     // efeitos
     const heavy = !!o.heavy || crit || o.kind === 'super';
-    this.pop(String(dmg), hx, hy - 20, crit ? '#ffd23d' : '#ffffff', crit ? 36 : heavy ? 30 : 24);
-    if (crit) this.pop('CRÍTICO!', hx, hy - 60, '#ff5a5a', 22);
+    // números só nos golpes que contam (menos ruído no ecrã)
+    if (heavy || crit || dmg >= 14) this.pop(String(dmg), hx, hy - 20, crit ? '#ffd23d' : '#ffffff', crit ? 34 : 26);
+    if (crit) this.pop('CRITICAL!', hx, hy - 60, '#ff5a5a', 22);
     this.sparks(hx, hy, heavy ? 16 : 8, o.color ?? (heavy ? '#ffd23d' : '#ffffff'), heavy ? 700 : 450);
     this.parts.spawn(PK.Star, hx, hy, 0, 0, 0.18, heavy ? 46 : 30, '#ffffff', 0);
     if (Math.random() < 0.6) {
@@ -2717,7 +2752,7 @@ export class Fight {
     if (def.hp > 0 && def.hpRatio < 0.25 && def.has('p_folego') && !def.usedFolego) {
       def.usedFolego = true;
       this.heal(def, def.maxHp * 0.2);
-      this.pop('SEGUNDO FÔLEGO!', def.x, this.jy(def, J_HEAD) - 80, '#7dff8a', 22);
+      this.pop('SECOND WIND!', def.x, this.jy(def, J_HEAD) - 80, '#7dff8a', 22);
     }
 
     if (def.hp <= 0 && this.demo && !(def.has('p_fenix') && !def.usedFenix)) def.hp = Math.round(def.maxHp * 0.3);
@@ -2739,7 +2774,7 @@ export class Fight {
         def.stunT = Math.max(0.7, 1.4 - def.s.res * 0.006);
         def.vx = dir * 60;
         def.setExpr('hurt', def.stunT);
-        this.pop('ATORDOADO!', def.x, this.jy(def, J_HEAD) - 70, '#ffe27a', 26);
+        this.pop('DAZED!', def.x, this.jy(def, J_HEAD) - 70, '#ffe27a', 26);
         this.emit('stun', def, att);
         this.addHype(0.12);
         sfx.cheer(0.6);
@@ -2748,7 +2783,10 @@ export class Fight {
     }
     if (def.armor) return true;
     if (def.state === 'down') {
-      def.downT = Math.max(def.downT, 0.6);
+      // golpes no chão (pisões, mergulhos) deixam-no lá mais tempo
+      const extra = clamp((dmg / def.maxHp) * 8, 0.3, 1.6) * (o.kind === 'aerial' ? 1.3 : 1);
+      def.impact = Math.max(def.impact, extra * 0.7);
+      def.downT = Math.max(def.downT, 0.6 + extra);
       return true;
     }
     if (def.state === 'thrown' && !o.ground) return true;
@@ -2756,6 +2794,8 @@ export class Fight {
     def.evade = 'none';
     if (kd) {
       def.stunT = 0;
+      // quanto mais forte o golpe, mais tempo fica no chão
+      def.impact = clamp((dmg / def.maxHp) * 7 + (o.heavy ? 0.25 : 0) + (o.kind === 'super' ? 0.6 : 0) + (o.kind === 'grapple' ? 0.35 : 0) + (o.kind === 'aerial' ? 0.45 : 0), 0, 1.6);
       this.knockDown(def, dir, o.kb ?? 200, o.launch ?? 260);
     } else {
       def.setState('hit');
@@ -2777,8 +2817,8 @@ export class Fight {
     f.vx = dir * kb;
     f.vz = launch;
     f.z = Math.max(f.z, 1);
-    f.downT = Math.max(0.35, 0.6 + Math.random() * 0.4 - f.s.res * 0.005);
-    f.setExpr('hurt', 1.2);
+    f.downT = Math.max(0.35, 0.6 + Math.random() * 0.4 - f.s.res * 0.005) + f.impact * (1.3 - f.s.res * 0.004);
+    f.setExpr('hurt', 1.2 + f.impact);
     f.run(this.fallLand(f), false);
     f.state = 'down';
   }
@@ -2828,7 +2868,7 @@ export class Fight {
     const next = this.teams[team].find((p) => p !== def && p.state === 'apron');
     if (kind === 'super' && att.spec.isPlayer) this.superKO = true;
     if (next && this.phase === 'fight') {
-      this.banner('ELIMINADO!', def.spec.name, '#ff5a5a', 1.6);
+      this.banner('ELIMINATED!', def.spec.name, '#ff5a5a', 1.6);
       this.emit('elim', def, att);
       def.run(this.eliminate(def, next, Math.random() < 0.5));
       def.state = 'ko';
@@ -2854,7 +2894,7 @@ export class Fight {
     this.flashColor = '#ffb31a';
     sfx.fire();
     sfx.cheer(1.3);
-    this.banner('RENASCEU!', 'Fénix', '#ffb31a', 1.4);
+    this.banner('REBORN!', 'Phoenix', '#ffb31a', 1.4);
     this.emit('revive', f);
     f.hp = f.maxHp * ratio;
     f.setExpr('power', 1.5);
@@ -3129,7 +3169,7 @@ export class Fight {
     look.gloves = { style: 'fita', c1: look.skin, c2: look.skinShade };
     look.mask = null;
     look.aura = null;
-    const spec: FighterSpec = { name: 'Árbitro', level: 1, stats: baseStats(), look, supers: [], passives: [], isPlayer: false };
+    const spec: FighterSpec = { name: 'Referee', level: 1, stats: baseStats(), look, supers: [], passives: [], isPlayer: false };
     const r = new Fighter(spec, 0, 7, 1);
     r.setState('out');
     r.exiting = true;
@@ -3321,7 +3361,7 @@ export class Fight {
     const cornerX = side * (RING - 15);
     f.facing = side as 1 | -1;
     f.play('run');
-    this.pop('VAI FAZER TAG!', f.x, -260, '#ffffff', 20);
+    this.pop('GOING FOR THE TAG!', f.x, -260, '#ffffff', 20);
     while (Math.abs(f.x - cornerX) > 14) {
       f.vx = Math.sign(cornerX - f.x) * 330;
       yield FRAME;
@@ -3333,7 +3373,7 @@ export class Fight {
     p.play('reach');
     yield 0.25;
     // TAG!
-    this.banner('TAG!', p.spec.name + ' entra!', '#ffd23d', 1.0);
+    this.banner('TAG!', p.spec.name + ' steps in!', '#ffd23d', 1.0);
     this.emit('tag', p, f);
     sfx.slap();
     sfx.cheer(0.9);
@@ -3417,7 +3457,7 @@ export class Fight {
     this.phase = 'end';
     this.phaseT = 0;
     const wt = w.team;
-    this.banner(wt === 0 ? 'VITÓRIA!' : 'DERROTA', w.spec.name + ' vence!', wt === 0 ? '#ffd23d' : '#ff5a5a', 2.4, 1.3);
+    this.banner(wt === 0 ? 'VICTORY!' : 'DEFEAT', w.spec.name + ' wins!', wt === 0 ? '#ffd23d' : '#ff5a5a', 2.4, 1.3);
     this.emit('win', w);
     sfx.cheer(1.6);
     for (let i = 0; i < 120; i++) {
@@ -3780,7 +3820,7 @@ export class Fight {
       const a = Math.random() * Math.PI * 2;
       this.parts.spawn(PK.Ember, o.x, -40, Math.cos(a) * 800, Math.sin(a) * 300 - 200, 1, 36, i % 2 ? c : '#ffffff', 0);
     }
-    this.pop('SUPLEX ATÓMICO!', f.x, -300, c, 34);
+    this.pop('ATOMIC SUPLEX!', f.x, -300, c, 34);
     f.play('archUp');
     yield 0.9;
   }
