@@ -1,3 +1,4 @@
+import { EMOTES, emoteSvg, type Emote } from './emotes';
 import { drawFighter, glowSprite } from '../render/fighter';
 import { HEAD_R, J_BH, J_FF, J_FH, J_HEAD } from '../render/pose';
 import { setVolume, sfx, startCrowd, stopCrowd } from '../audio/sfx';
@@ -37,7 +38,6 @@ interface HudSide {
   last: { hp: number; trail: number; meter: number; full: boolean; who: Fighter | null; bench: number; stam: number };
 }
 
-const EMOTES = ['👏', '🔥', '😂', '😱', '💪', '😎', '😡', '🏆'];
 
 export class FightScene {
   fight: Fight;
@@ -395,7 +395,7 @@ export class FightScene {
   private buildEmotes(): void {
     const wrap = document.createElement('div');
     wrap.className = 'emote-wrap';
-    wrap.innerHTML = `<button class="emote-btn" aria-label="Emotes">😀</button><div class="emote-bar">${EMOTES.map((e) => `<button data-e="${e}">${e}</button>`).join('')}</div>`;
+    wrap.innerHTML = `<button class="emote-btn" aria-label="Emotes">${emoteSvg(EMOTES[2])}</button><div class="emote-bar">${EMOTES.map((e, i) => `<button data-e="${i}" aria-label="${e.word}">${emoteSvg(e)}</button>`).join('')}</div>`;
     const btn = wrap.querySelector('.emote-btn') as HTMLButtonElement;
     btn.onclick = (ev) => {
       ev.stopPropagation();
@@ -407,7 +407,7 @@ export class FightScene {
         ev.stopPropagation();
         if (performance.now() < this.emoteCd) return;
         this.emoteCd = performance.now() + 900;
-        this.emote(0, b.dataset.e!);
+        this.emote(0, EMOTES[Number(b.dataset.e)]);
         wrap.classList.remove('open');
         // o adversário às vezes responde
         if (Math.random() < 0.45) {
@@ -420,10 +420,10 @@ export class FightScene {
   }
 
   /** Mostra um emoji a flutuar por cima do lado da equipa. */
-  private emote(team: 0 | 1, e: string): void {
+  private emote(team: 0 | 1, e: Emote): void {
     const el = document.createElement('div');
     el.className = `emote-pop t${team}`;
-    el.textContent = e;
+    el.innerHTML = `${emoteSvg(e)}<b>${e.word}</b>`;
     el.style.setProperty('--dx', `${(Math.random() - 0.5) * 30}px`);
     this.root.appendChild(el);
     sfx.click();

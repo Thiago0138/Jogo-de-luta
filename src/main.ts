@@ -1,3 +1,4 @@
+import { keepAwake } from './core/wakeLock';
 import '@fontsource/luckiest-guy/400.css';
 import './styles.css';
 import { S } from './core/state';
@@ -68,4 +69,5 @@ if ('serviceWorker' in navigator && import.meta.env.PROD) {
   });
 }
 
+keepAwake();
 void boot();

@@ -1,6 +1,6 @@
 import { DEFAULT_APPEARANCE, type Appearance } from '../data/appearance';
 import { CHESTS, type ChestId } from '../data/chests';
-import { ITEMS, ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, STARTER_ITEMS, item, type ItemDef } from '../data/items';
+import { ITEMS, ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, SUPER2_LEVEL, PASSIVE2_LEVEL, STARTER_ITEMS, item, type ItemDef } from '../data/items';
 import { DAILY_POOL, LEGENDARY, WEEKLY_POOL, emptyTally, type MissionDef, type Reward, type Tally } from '../data/missions';
 import { LEAGUES, leagueIndex } from '../data/leagues';
 import { RARITIES, RARITY_ORDER, type Rarity } from '../data/rarity';
@@ -168,9 +168,17 @@ if (!S.loadout.moves?.length) {
 }
 // no máximo 2 golpes (3 a partir do nível 8)
 S.loadout.moves = S.loadout.moves.slice(0, moveSlots());
+S.loadout.supers = S.loadout.supers.slice(0, superSlots());
+S.loadout.passives = S.loadout.passives.slice(0, passiveSlots());
 if (!S.loadout.styles) S.loadout.styles = [];
 
 /** Espaços de golpes de assinatura: 2, e um 3.º a partir do nível 8. */
+export function superSlots(): number {
+  return S.settings.unlockAll || S.level >= SUPER2_LEVEL ? 2 : 1;
+}
+export function passiveSlots(): number {
+  return S.settings.unlockAll || S.level >= PASSIVE2_LEVEL ? 2 : 1;
+}
 export function moveSlots(): number {
   return S.settings.unlockAll || S.level >= MOVE_SLOT3_LEVEL ? MOVE_SLOTS : MOVE_SLOTS - 1;
 }
@@ -452,7 +460,7 @@ export function claimFreeChest(): boolean {
   return true;
 }
 
-function poolFor(r: Rarity): ItemDef[] {
+export function poolFor(r: Rarity): ItemDef[] {
   return ITEM_LIST.filter((d) => d.rarity === r && d.source !== 'start' && d.source !== 'mission' && d.source !== 'level');
 }
 
@@ -472,19 +480,12 @@ export function rollChest(id: ChestId): ChestDrop[] {
   }
   for (let r of rarities) {
     let pool = poolFor(r);
-    // Favorece itens ainda não colecionados para manter a progressão interessante.
     while (!pool.length && RARITIES[r].tier > 0) {
       r = RARITY_ORDER[RARITIES[r].tier - 1];
       pool = poolFor(r);
     }
-    const unowned = pool.filter((d) => !owns(d.id));
-    const roll = Math.random();
-    // Se já tens tudo desta raridade, às vezes sai um saco de moedas em vez de um repetido.
-    if (!unowned.length && roll < 0.35) {
-      drops.push({ kind: 'coins', amount: Math.round(rint(c.coins[0], c.coins[1]) * 0.5), rarity: 'comum' });
-      continue;
-    }
-    const d = unowned.length && roll < 0.8 ? pick(unowned) : pick(pool);
+    // Sorteio uniforme dentro da raridade: as probabilidades mostradas em "Drop rates" são as reais.
+    const d = pick(pool);
     drops.push({ kind: 'item', id: d.id, amount: 1, rarity: d.rarity });
   }
   // Ordena por raridade: o melhor sai no fim.

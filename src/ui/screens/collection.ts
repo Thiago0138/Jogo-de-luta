@@ -1,7 +1,7 @@
 import { rememberSub } from '../app';
 import { S, collectibleTotal, collectionCount, owns } from '../../core/state';
 import { ITEM_LIST, type ItemKind } from '../../data/items';
-import { RARITIES, RARITY_ORDER } from '../../data/rarity';
+import { RARITIES, RARITY_ORDER, type Rarity } from '../../data/rarity';
 import { sfx } from '../../audio/sfx';
 import { el } from '../dom';
 import { itemCard } from './cards';
@@ -22,6 +22,7 @@ const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
 ];
 
 let onlyOwned = false;
+let rarF: Rarity | null = null;
 
 export function renderCollection(page: HTMLElement, sub = 'all'): void {
   rememberSub(sub);
@@ -36,6 +37,7 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
       <div class="rar-legend"></div>
     </div>
     <div class="seg scroll"></div>
+    ${rarF ? `<p class="muted small rar-note">Showing only <b class="rar-${rarF}">${RARITIES[rarF].name}</b> items · tap it again to show all</p>` : ''}
     <label class="toggle"><input type="checkbox" ${onlyOwned ? 'checked' : ''}/> Show owned only</label>
     <div class="grid coll-grid"></div>`;
   (page.querySelector('.trade-btn') as HTMLElement).onclick = () => {
@@ -43,10 +45,17 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
     openTrade();
   };
   const legend = page.querySelector('.rar-legend') as HTMLElement;
+  legend.classList.toggle('filtering', !!rarF);
   for (const r of RARITY_ORDER) {
     const all = ITEM_LIST.filter((d) => d.rarity === r);
     const got = all.filter((d) => owns(d.id)).length;
-    legend.appendChild(el('div', `rl rar-${r}`, `<span class="rl-name">${RARITIES[r].name}</span><span class="rl-n">${got}/${all.length}</span>`));
+    const b = el('button', `rl rar-${r} ${rarF === r ? 'on' : ''}`, `<span class="rl-name">${RARITIES[r].name}</span><span class="rl-n">${got}/${all.length}</span>`);
+    b.onclick = () => {
+      sfx.click();
+      rarF = rarF === r ? null : r;
+      renderCollection(page, f.id);
+    };
+    legend.appendChild(b);
   }
   const seg = page.querySelector('.seg') as HTMLElement;
   for (const x of FILTERS) {
@@ -65,6 +74,7 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
   const grid = page.querySelector('.coll-grid') as HTMLElement;
   const list = ITEM_LIST.filter((d) => (f.kinds.length ? f.kinds.includes(d.kind) : true))
     .filter((d) => !onlyOwned || owns(d.id))
+    .filter((d) => !rarF || d.rarity === rarF)
     .sort((a, b) => Number(owns(b.id)) - Number(owns(a.id)) || RARITIES[b.rarity].tier - RARITIES[a.rarity].tier);
   for (const d of list) {
     const c = itemCard(d.id);

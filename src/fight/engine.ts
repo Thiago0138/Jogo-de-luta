@@ -2735,7 +2735,7 @@ export class Fight {
     if (Math.random() < 0.6) {
       for (let i = 0; i < 4; i++) this.parts.spawn(PK.Sweat, hx, hy, dir * (100 + Math.random() * 200), -150 - Math.random() * 200, 0.6, 2.5, '#bfe6ff', 1400);
     }
-    sfx.punch(heavy ? 1 : o.kind === 'kick' ? 0.75 : 0.55, !!o.body);
+    sfx.punch(heavy ? 1 : o.kind === 'kick' ? 0.75 : 0.55, !!o.body, o.kind === 'kick' ? 'kick' : 'punch');
     if (crit || (heavy && o.kind === 'super')) sfx.oooh(crit ? 0.7 : 1);
     if (heavy && o.kind !== 'assist') {
       this.bursts.push({ x: hx, y: hy - 10, text: BURST_WORDS[Math.floor(Math.random() * BURST_WORDS.length)], life: 0.42, max: 0.42, color: crit ? '#ffd23d' : o.color ?? '#ff5a5a', rot: (Math.random() - 0.5) * 0.5 });

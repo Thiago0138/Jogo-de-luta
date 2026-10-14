@@ -244,6 +244,9 @@ export function isTradeable(d: ItemDef): boolean {
 /** Máximo de golpes de assinatura equipados (o 3.º espaço abre no nível MOVE_SLOT3_LEVEL). */
 export const MOVE_SLOTS = 3;
 export const MOVE_SLOT3_LEVEL = 8;
+/** Níveis em que abrem o 2.º super e a 2.ª passiva. */
+export const SUPER2_LEVEL = 8;
+export const PASSIVE2_LEVEL = 6;
 export const MOVE_EARLY_LEVELS = 3;
 
 export const STARTER_ITEMS: string[] = I.filter((i) => i.source === 'start').map((i) => i.id);

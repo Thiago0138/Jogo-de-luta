@@ -8,6 +8,22 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.9.0',
+    date: '2026-10-14',
+    title: 'Real fight sounds, honest drop rates and always-on screen',
+    items: [
+      'Fight sounds rebuilt from scratch: meaty punches with a body thump, sharp kicks, heavy slams that boom through the ring boards and rattle the springs, creaking steel ropes and a real ring bell.',
+      'The screen no longer dims or locks while you play, not even in the middle of a fight.',
+      'New Drop rates screen (Ring and Shop): every chest shows exactly which items can drop and the real chance of each one.',
+      'Rare items are now truly rare: Mythic and Celestial rewards are under 1% per chest.',
+      'Collection: tap a rarity to see only the items of that rarity (tap again to show all).',
+      'Progression: tap any level to see exactly what you get (stat points, gems, health, moves, slots and chests); tap your league to see every league and its chest.',
+      'The 2nd passive slot now unlocks at level 6 and the 2nd super at level 8, as promised on the road.',
+      'Custom Kings of the Ring emotes replace the phone emojis in fights.',
+      'The Fighter tab now sits right after the Ring, before the Shop.',
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-10-14',
     title: 'Kings of the Ring: gameplay overhaul',

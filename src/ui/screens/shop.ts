@@ -1,3 +1,4 @@
+import { openDropRates, pct, perReward } from '../dropRates';
 import { S, buyChest, commit, owns } from '../../core/state';
 import { dayKey, hashStr, seeded, shuffle } from '../../core/rng';
 import { CHESTS, CHEST_ORDER } from '../../data/chests';
@@ -109,13 +110,16 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
         const card = el('div', 'chest-offer');
         card.style.setProperty('--cg', c.glow);
         const price = c.gemPrice != null ? `${ico('gem')} ${fmt(c.gemPrice)}` : `${ico('coin')} ${fmt(c.coinPrice!)}`;
-        card.innerHTML = `<div class="co-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name)}</b><span class="muted small">${esc(c.desc)}</span><div class="odds"></div><button class="btn btn-gold sm">${price}</button>`;
+        card.innerHTML = `<div class="co-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name)}</b><span class="muted small">${esc(c.desc)}</span><div class="odds"></div><button class="btn btn-ghost sm dr-btn">${ico('info')} Drop rates</button><button class="btn btn-gold sm buy">${price}</button>`;
         const odds = card.querySelector('.odds') as HTMLElement;
-        const tot = Object.values(c.weights).reduce((a, b) => a + (b ?? 0), 0);
-        odds.innerHTML = Object.entries(c.weights)
-          .map(([r, w]) => `<span class="rar rar-${r}">${RARITIES[r as keyof typeof RARITIES].name} ${(((w ?? 0) / tot) * 100).toFixed(w! / tot < 0.01 ? 1 : 0)}%</span>`)
+        odds.innerHTML = perReward(c)
+          .map(([r, p]) => `<span class="rar rar-${r}">${RARITIES[r].name} ${pct(p)}</span>`)
           .join('');
-        (card.querySelector('button') as HTMLElement).onclick = () => {
+        (card.querySelector('.dr-btn') as HTMLElement).onclick = () => {
+          sfx.click();
+          openDropRates(id);
+        };
+        (card.querySelector('.buy') as HTMLElement).onclick = () => {
           if (!buyChest(id)) {
             toast(c.gemPrice != null ? 'Not enough gems.' : 'Not enough coins.', 'err');
             return;

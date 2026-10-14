@@ -11,6 +11,7 @@ import { Preview, itemThumb } from '../preview';
 import { openCreator } from './creator';
 import { isEquipped, openItem, passiveSlots, superSlots, toggleEquip } from './itemModal';
 import { ico } from '../icons';
+import { levelSlots, levelUnlocks, openLevelReward } from '../progress';
 
 const TABS = [
   { id: 'stats', name: `${ico('chart')} Stats` },
@@ -227,21 +228,25 @@ function picker(s: Slot): void {
 }
 
 function road(body: HTMLElement): void {
-  body.appendChild(el('p', 'muted small', 'Every level gives you 3 stat points, 5 gems and more health. Some levels unlock abilities, slots and skins.'));
+  body.appendChild(el('p', 'muted small', 'Every level gives you 3 stat points, 5 gems and more health. Tap a level to see exactly what you get.'));
   const list = el('div', 'road');
-  const unlocks = new Map<number, string[]>();
-  for (const d of ITEM_LIST) if (d.source === 'level' && d.unlockLevel) unlocks.set(d.unlockLevel, [...(unlocks.get(d.unlockLevel) ?? []), esc(d.name)]);
-  const slotsAt: Record<number, string> = { 6: `${ico('abilities')} 2nd passive`, 8: `${ico('bolt')} 2nd super` };
-  for (let lv = 2; lv <= Math.min(MAX_LEVEL, Math.max(S.level + 12, 32)); lv++) {
+  let nextEl: HTMLElement | null = null;
+  for (let lv = 2; lv <= MAX_LEVEL; lv++) {
     const rewards: string[] = [];
-    for (const u of unlocks.get(lv) ?? []) rewards.push(u);
-    if (slotsAt[lv]) rewards.push(slotsAt[lv]);
+    for (const d of levelUnlocks(lv)) rewards.push(`<span class="rar-${d.rarity}">${esc(d.name)}</span>`);
+    for (const x of levelSlots(lv)) rewards.push(`<span>${x}</span>`);
     const c = levelRewardChest(lv);
-    if (c) rewards.push(`${ico('chest')} ${esc(CHESTS[c].name)}`);
-    if (!rewards.length) continue;
-    const r = el('div', `road-step ${S.level >= lv ? 'got' : ''} ${S.level + 1 === lv ? 'next' : ''}`);
-    r.innerHTML = `<span class="rs-lv">${lv}</span><div class="rs-r">${rewards.map((x) => `<span>${x}</span>`).join('')}</div>${S.level >= lv ? `<span class="rs-ok">${ico('check')}</span>` : ''}`;
+    if (c) rewards.push(`<span>${ico('chest')} ${esc(CHESTS[c].name)}</span>`);
+    rewards.push(`<span class="rs-base">${ico('star')} +3 ${ico('gem')} +5</span>`);
+    const r = el('button', `road-step ${S.level >= lv ? 'got' : ''} ${S.level + 1 === lv ? 'next' : ''} ${rewards.length > 1 ? 'big' : ''}`);
+    r.innerHTML = `<span class="rs-lv">${lv}</span><div class="rs-r">${rewards.join('')}</div>${S.level >= lv ? `<span class="rs-ok">${ico('check')}</span>` : `<span class="rs-go">›</span>`}`;
+    r.onclick = () => {
+      sfx.click();
+      openLevelReward(lv);
+    };
+    if (S.level + 1 === lv) nextEl = r;
     list.appendChild(r);
   }
   body.appendChild(list);
+  if (nextEl) requestAnimationFrame(() => nextEl?.scrollIntoView({ block: 'center' }));
 }

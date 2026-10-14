@@ -1,3 +1,5 @@
+import { openLeagues } from '../progress';
+import { openDropRates } from '../dropRates';
 import { S, claimFreeChest, freeChestReady } from '../../core/state';
 import { CHESTS, CHEST_ORDER } from '../../data/chests';
 import { LEAGUES, leagueIndex } from '../../data/leagues';
@@ -44,7 +46,7 @@ export function renderHome(page: HTMLElement): void {
       <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CHAMPION</b><small>Tough challenge · bigger prizes</small></span></button>
     </section>
     <section class="card chests-card">
-      <div class="card-head"><h2>Chests</h2><span class="muted">Open them in the middle of the ring</span></div>
+      <div class="card-head"><h2>Chests</h2><button class="btn btn-ghost sm odds-btn">${ico('info')} Drop rates</button></div>
       <div class="chest-row"></div>
     </section>`;
 
@@ -63,6 +65,14 @@ export function renderHome(page: HTMLElement): void {
   (page.querySelector('.play-btn.tag') as HTMLElement).onclick = () => startMatch('tag');
   (page.querySelector('.play-btn.champ') as HTMLElement).onclick = () => startMatch('champion');
 
+  (page.querySelector('.hero-league') as HTMLElement).onclick = () => {
+    sfx.click();
+    openLeagues();
+  };
+  (page.querySelector('.odds-btn') as HTMLElement).onclick = () => {
+    sfx.click();
+    openDropRates();
+  };
   const row = page.querySelector('.chest-row') as HTMLElement;
   // baú grátis
   const free = el('button', 'chest-slot free');
@@ -96,7 +106,8 @@ export function renderHome(page: HTMLElement): void {
     b.onclick = () => {
       sfx.click();
       if (!S.chests[id]) {
-        toast('You have no chests of this type. Win fights or buy one in the Shop!', 'info');
+        toast('You have none of these yet. Here is what it can drop!', 'info');
+        openDropRates(id);
         return;
       }
       openChest(id, () => render());

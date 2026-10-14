@@ -17,10 +17,10 @@ export type Tab = 'home' | 'shop' | 'collection' | 'missions' | 'fighter';
 
 const TABS: { id: Tab; icon: string; name: string }[] = [
   { id: 'home', icon: 'ring', name: 'Ring' },
+  { id: 'fighter', icon: 'fighter', name: 'Fighter' },
   { id: 'shop', icon: 'shop', name: 'Shop' },
   { id: 'collection', icon: 'collection', name: 'Collection' },
   { id: 'missions', icon: 'missions', name: 'Missions' },
-  { id: 'fighter', icon: 'fighter', name: 'Fighter' },
 ];
 
 let current: Tab = 'home';

@@ -1,5 +1,5 @@
 import { coversHead } from '../../render/costume';
-import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle, moveSlots } from '../../core/state';
+import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle, moveSlots, superSlots, passiveSlots } from '../../core/state';
 import { KIND_NAMES, isTradeable, item, type ItemDef } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { resolveLook } from '../../render/look';
@@ -12,8 +12,7 @@ import { clearThumbs } from '../preview';
 import { openTrade } from './trade';
 import { ico } from '../icons';
 
-export const superSlots = () => 2;
-export const passiveSlots = () => 2;
+export { superSlots, passiveSlots };
 
 export function isEquipped(id: string): boolean {
   const d = item(id);

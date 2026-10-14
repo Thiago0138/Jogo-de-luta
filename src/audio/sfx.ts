@@ -123,6 +123,7 @@ export function unlockAudio(): void {
   wet.connect(master);
   for (const cb of unlockCbs) cb(ac, noiseBuf);
   void buildCrowd(ac.sampleRate);
+  prewarmSamples();
 }
 
 const unlockCbs: ((ac: AudioContext, noise: AudioBuffer) => void)[] = [];
@@ -245,6 +246,476 @@ function play(buf: AudioBuffer | undefined, gain: number, rate = 1, offset = 0, 
   s.start(ac!.currentTime, offset);
 }
 
+// ───────── Amostras de impacto pré-calculadas ─────────
+//
+// Os sons da luta são "gravados" uma única vez em Float32Arrays (síntese modal: excitações curtas
+// a passar por ressoadores de duas pólos que imitam tábuas, molas, cabos, carne…). Cada golpe toca
+// depois um AudioBufferSourceNode + GainNode — barato no telemóvel — escolhendo uma de várias
+// variantes e com pequenas variações de velocidade/ganho para nunca soar igual.
+
+const TAU = Math.PI * 2;
+const rnd = (a: number, b: number) => a + Math.random() * (b - a);
+const white = () => Math.random() * 2 - 1;
+const mk = (sr: number, secs: number) => new Float32Array(Math.ceil(sr * secs));
+
+/** Ruído com envolvente exponencial (tau em s), opcionalmente com ataque suave. */
+function addBurst(x: Float32Array, sr: number, at: number, tau: number, amp: number, attack = 0): void {
+  const s0 = Math.floor(at * sr);
+  const n = Math.min(x.length - s0, Math.ceil(tau * 7 * sr + attack * sr));
+  const k = Math.exp(-1 / (tau * sr));
+  const ka = attack > 0 ? Math.exp(-1 / (attack * sr)) : 0;
+  let e = amp;
+  let a = attack > 0 ? 1 : 0;
+  for (let i = 0; i < n; i++) {
+    x[s0 + i] += white() * e * (1 - a);
+    e *= k;
+    a *= ka;
+  }
+}
+
+/** Impulso em meio-seno (largura w s): o "peso" de um corpo a assentar, sem agudos. */
+function addPulse(x: Float32Array, sr: number, at: number, w: number, amp: number): void {
+  const s0 = Math.floor(at * sr);
+  const n = Math.min(x.length - s0, Math.max(1, Math.floor(w * sr)));
+  for (let i = 0; i < n; i++) x[s0 + i] += amp * Math.sin((Math.PI * (i + 0.5)) / n);
+}
+
+/** Seno amortecido com queda de tom (f0 → f1, constante sweep) e decaimento tau. */
+function addSweep(
+  x: Float32Array, sr: number, at: number, f0: number, f1: number, sweep: number, tau: number, amp: number, attack = 0.001,
+): void {
+  const s0 = Math.floor(at * sr);
+  const n = Math.min(x.length - s0, Math.ceil(tau * 8 * sr));
+  const kd = Math.exp(-1 / (tau * sr));
+  const ks = Math.exp(-1 / (sweep * sr));
+  const ka = Math.exp(-1 / (attack * sr));
+  const w0 = (TAU * (f0 - f1)) / sr;
+  const w1 = (TAU * f1) / sr;
+  let ph = Math.random() * 0.3;
+  let d = amp;
+  let sw = 1;
+  let a = 1;
+  for (let i = 0; i < n; i++) {
+    ph += w1 + w0 * sw;
+    x[s0 + i] += (1 - a) * d * Math.sin(ph);
+    d *= kd;
+    sw *= ks;
+    a *= ka;
+  }
+}
+
+/** Ressoador de duas pólos (modo de vibração): excita com `x` e soma em `out`. t60 em s. */
+function resonate(x: Float32Array, out: Float32Array, sr: number, f: number, t60: number, g: number): void {
+  const w = (TAU * f) / sr;
+  const r = Math.exp(-6.91 / (t60 * sr));
+  const c = 2 * r * Math.cos(w);
+  const r2 = r * r;
+  const norm = (1 - r) * 2 * Math.sin(w) * g;
+  let y1 = 0;
+  let y2 = 0;
+  for (let i = 0; i < x.length; i++) {
+    const y = x[i] + c * y1 - r2 * y2;
+    out[i] += y * norm;
+    y2 = y1;
+    y1 = y;
+  }
+}
+
+function lowpass(x: Float32Array, sr: number, fc: number): Float32Array {
+  const a = 1 - Math.exp((-TAU * fc) / sr);
+  let y = 0;
+  for (let i = 0; i < x.length; i++) x[i] = y += a * (x[i] - y);
+  return x;
+}
+
+function highpass(x: Float32Array, sr: number, fc: number): Float32Array {
+  const a = 1 - Math.exp((-TAU * fc) / sr);
+  let y = 0;
+  for (let i = 0; i < x.length; i++) {
+    y += a * (x[i] - y);
+    x[i] -= y;
+  }
+  return x;
+}
+
+/** Soma `x` em `out` com o pico de `x` ajustado a `peak` — equilibrar camadas fica intuitivo. */
+function mix(out: Float32Array, x: Float32Array, peak: number): void {
+  let m = 0;
+  for (let i = 0; i < x.length; i++) m = Math.max(m, Math.abs(x[i]));
+  if (m < 1e-9) return;
+  const k = peak / m;
+  const n = Math.min(out.length, x.length);
+  for (let i = 0; i < n; i++) out[i] += x[i] * k;
+}
+
+/** Saturação suave: dá "carne" e densidade ao transiente. */
+function saturate(x: Float32Array, drive: number): void {
+  const k = 1 / Math.tanh(drive);
+  for (let i = 0; i < x.length; i++) x[i] = Math.tanh(x[i] * drive) * k;
+}
+
+// ── Receitas ──
+
+/** Murro: baque grave no corpo + estalo carnudo + (luva) estalo do cabedal + cauda abafada. */
+function genPunch(sr: number, body: boolean): Float32Array {
+  const L = 0.42;
+  const out = mk(sr, L);
+  const th = mk(sr, L);
+  addSweep(th, sr, 0, rnd(body ? 92 : 118, body ? 112 : 145), body ? 44 : 56, 0.03, body ? 0.075 : 0.05, 1, 0.0012);
+  mix(out, th, 1);
+  // excitação da carne: ruído muito curto
+  const x = mk(sr, L);
+  addBurst(x, sr, 0, rnd(0.007, 0.012), 1);
+  const smack = highpass(lowpass(lowpass(Float32Array.from(x), sr, body ? 1500 : 2300), sr, body ? 1800 : 2600), sr, 220);
+  mix(out, smack, body ? 0.6 : 0.72);
+  const meat = mk(sr, L);
+  resonate(x, meat, sr, rnd(body ? 230 : 320, body ? 290 : 410), body ? 0.11 : 0.08, 1);
+  resonate(x, meat, sr, rnd(640, 880), 0.045, 0.55);
+  resonate(x, meat, sr, rnd(1300, 1700), 0.025, 0.25);
+  mix(out, meat, body ? 0.6 : 0.5);
+  // cabedal da luva
+  const c = mk(sr, L);
+  addBurst(c, sr, 0, 0.0011, 1);
+  mix(out, highpass(highpass(c, sr, 2600), sr, 2600), body ? 0.22 : 0.34);
+  // cauda: roupa/pele a assentar
+  const t = mk(sr, L);
+  addBurst(t, sr, 0.004, rnd(0.04, 0.06), 1, 0.003);
+  mix(out, lowpass(lowpass(t, sr, 520), sr, 520), 0.22);
+  saturate(out, 1.7);
+  return out;
+}
+
+/** Pontapé: chapada de canela/peito do pé + baque mais seco + roçar de ar. */
+function genKick(sr: number): Float32Array {
+  const L = 0.45;
+  const out = mk(sr, L);
+  const th = mk(sr, L);
+  addSweep(th, sr, 0.002, rnd(100, 125), 50, 0.035, 0.065, 1, 0.0015);
+  mix(out, th, 1);
+  const x = mk(sr, L);
+  addBurst(x, sr, 0.001, rnd(0.003, 0.005), 1);
+  mix(out, highpass(Float32Array.from(x), sr, 900), 0.75);
+  const sk = mk(sr, L);
+  resonate(x, sk, sr, rnd(1500, 1900), 0.04, 1);
+  resonate(x, sk, sr, rnd(2500, 3100), 0.025, 0.6);
+  resonate(x, sk, sr, rnd(380, 460), 0.07, 0.7);
+  mix(out, sk, 0.6);
+  // ar deslocado pela perna mesmo antes/depois do contacto
+  const air = mk(sr, L);
+  addBurst(air, sr, 0, 0.05, 1, 0.012);
+  mix(out, lowpass(highpass(air, sr, 600), sr, 2200), 0.16);
+  saturate(out, 1.8);
+  return out;
+}
+
+/** Chapada / cutelo: pele contra pele, muito agudo e seco, com um pequeno baque no peito. */
+function genSlap(sr: number): Float32Array {
+  const L = 0.35;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  addBurst(x, sr, 0, rnd(0.0022, 0.0038), 1);
+  mix(out, highpass(Float32Array.from(x), sr, 1300), 1);
+  const r = mk(sr, L);
+  resonate(x, r, sr, rnd(2000, 2700), 0.035, 1);
+  resonate(x, r, sr, rnd(1000, 1300), 0.05, 0.7);
+  resonate(x, r, sr, rnd(3800, 4600), 0.02, 0.5);
+  mix(out, r, 0.7);
+  const th = mk(sr, L);
+  addSweep(th, sr, 0.001, rnd(165, 210), 92, 0.025, 0.035, 1);
+  mix(out, th, 0.5);
+  saturate(out, 2.2);
+  return out;
+}
+
+/** Defesa: antebraço/luva a travar — abafado, sem estalo. */
+function genBlock(sr: number): Float32Array {
+  const L = 0.28;
+  const out = mk(sr, L);
+  const th = mk(sr, L);
+  addSweep(th, sr, 0, rnd(140, 165), 92, 0.025, 0.032, 1);
+  mix(out, th, 0.9);
+  const x = mk(sr, L);
+  addBurst(x, sr, 0, rnd(0.005, 0.008), 1);
+  const r = mk(sr, L);
+  resonate(x, r, sr, rnd(560, 720), 0.06, 1);
+  resonate(x, r, sr, rnd(1100, 1300), 0.03, 0.4);
+  mix(out, r, 0.55);
+  mix(out, highpass(lowpass(lowpass(x, sr, 1200), sr, 1200), sr, 180), 0.7);
+  saturate(out, 1.5);
+  return out;
+}
+
+/**
+ * Queda no tapete: lona sobre tábuas de contraplacado sobre molas. Estrondo grave e oco das
+ * tábuas (modos de placa), chapada da pele na lona, aba da lona, e o chocalhar metálico das molas.
+ */
+function genSlam(sr: number): Float32Array {
+  const L = 1.5;
+  const out = mk(sr, L);
+  // contacto do corpo: impulso macio (massa grande)
+  const hit = mk(sr, L);
+  addPulse(hit, sr, 0, rnd(0.006, 0.01), 1);
+  addPulse(hit, sr, rnd(0.018, 0.03), rnd(0.008, 0.012), rnd(0.25, 0.45)); // segunda parte do corpo
+  const boards = mk(sr, L);
+  const modes: [number, number, number][] = [
+    [rnd(46, 55), 0.5, 1],
+    [rnd(70, 84), 0.42, 0.85],
+    [rnd(104, 122), 0.3, 0.65],
+    [rnd(148, 170), 0.24, 0.55],
+    [rnd(200, 236), 0.17, 0.45],
+    [rnd(285, 330), 0.12, 0.3],
+    [rnd(395, 450), 0.085, 0.2],
+    [rnd(560, 630), 0.06, 0.12],
+  ];
+  for (const [f, t60, g] of modes) resonate(hit, boards, sr, f, t60, g);
+  mix(out, boards, 1);
+  // "bum" do ar debaixo do ringue (caixa oca), com queda de tom
+  const boom = mk(sr, L);
+  addSweep(boom, sr, 0, rnd(72, 86), 37, 0.07, 0.15, 1, 0.003);
+  mix(out, boom, 0.75);
+  // chapada da pele/costas na lona
+  const sk = mk(sr, L);
+  addBurst(sk, sr, 0.001, rnd(0.004, 0.007), 1);
+  const skr = mk(sr, L);
+  resonate(sk, skr, sr, rnd(1500, 2000), 0.03, 1);
+  resonate(sk, skr, sr, rnd(2600, 3300), 0.02, 0.6);
+  mix(skr, highpass(sk, sr, 900), 0.8);
+  mix(out, skr, 0.42);
+  // aba da lona / pó: ruído grave curto
+  const fl = mk(sr, L);
+  addBurst(fl, sr, 0.002, rnd(0.05, 0.075), 1, 0.004);
+  mix(out, lowpass(lowpass(fl, sr, 650), sr, 650), 0.4);
+  // molas e esticadores: estalidos irregulares em ressoadores metálicos
+  const cl = mk(sr, L);
+  addBurst(cl, sr, 0.003, 0.0015, 1);
+  let t = rnd(0.014, 0.022);
+  let a = rnd(0.6, 0.85);
+  const clicks = 8 + Math.floor(Math.random() * 7);
+  for (let k = 0; k < clicks && t < L - 0.1; k++) {
+    addBurst(cl, sr, t, 0.0005, a * rnd(0.5, 1));
+    t += rnd(0.01, 0.038) * (1 + k * 0.08);
+    a *= rnd(0.72, 0.88);
+  }
+  const sp = mk(sr, L);
+  const springs: [number, number, number][] = [
+    [rnd(510, 590), rnd(0.22, 0.32), 0.9],
+    [rnd(830, 930), rnd(0.2, 0.3), 1],
+    [rnd(1240, 1400), rnd(0.16, 0.26), 0.8],
+    [rnd(1880, 2120), rnd(0.12, 0.2), 0.6],
+    [rnd(2850, 3250), rnd(0.08, 0.14), 0.4],
+  ];
+  for (const [f, t60, g] of springs) resonate(cl, sp, sr, f, t60, g);
+  mix(out, sp, 0.13);
+  saturate(out, 1.35);
+  return out;
+}
+
+/** Ressalto nas cordas: três cabos de aço (parciais ligeiramente inarmónicos, desafinados entre si),
+ *  rangido do revestimento (stick-slip), baque na almofada e "clinc" do esticador. */
+function genRopes(sr: number): Float32Array {
+  const L = 1.3;
+  const out = mk(sr, L);
+  const cab = mk(sr, L);
+  const base = rnd(56, 66);
+  for (let c = 0; c < 3; c++) {
+    const f0 = base * (1 + (c - 1) * rnd(0.008, 0.016));
+    const at = c * rnd(0.004, 0.012);
+    for (let n = 1; n <= 6; n++) {
+      const fn = f0 * n * Math.sqrt(1 + 0.0016 * n * n);
+      const amp = (n % 2 ? 1 : 0.7) / Math.pow(n, 1.1) * (c === 1 ? 1 : 0.7);
+      const t60 = 1.05 / (1 + 0.38 * (n - 1));
+      addSweep(cab, sr, at, fn * rnd(1.03, 1.06), fn, 0.07, t60 / 6.9, amp, 0.004);
+    }
+  }
+  mix(out, cab, 1);
+  // baque do corpo nas cordas almofadadas
+  const th = mk(sr, L);
+  addSweep(th, sr, 0, rnd(90, 110), 60, 0.04, 0.045, 1, 0.006);
+  mix(out, th, 0.55);
+  // rangido: atrito em impulsos com intervalo a crescer
+  const cr = mk(sr, L);
+  let t = rnd(0.015, 0.03);
+  const end = t + rnd(0.12, 0.22);
+  let gap = rnd(0.0025, 0.004);
+  while (t < end) {
+    const u = (t - 0.015) / (end - 0.015);
+    addBurst(cr, sr, t, 0.0004, Math.sin(Math.PI * Math.min(1, u)) * rnd(0.4, 1));
+    t += gap * rnd(0.7, 1.3);
+    gap *= 1.025;
+  }
+  const crr = mk(sr, L);
+  resonate(cr, crr, sr, rnd(360, 420), 0.04, 1);
+  resonate(cr, crr, sr, rnd(720, 830), 0.035, 0.8);
+  resonate(cr, crr, sr, rnd(1400, 1600), 0.025, 0.5);
+  mix(out, crr, 0.3);
+  // esticador metálico
+  const tb = mk(sr, L);
+  addBurst(tb, sr, rnd(0.01, 0.02), 0.0006, 1);
+  const tbr = mk(sr, L);
+  resonate(tb, tbr, sr, rnd(2200, 2500), 0.14, 1);
+  resonate(tb, tbr, sr, rnd(3500, 3800), 0.1, 0.7);
+  resonate(tb, tbr, sr, rnd(5000, 5400), 0.07, 0.5);
+  mix(out, tbr, 0.07);
+  return out;
+}
+
+/** Deslocação de ar: ruído num filtro passa-banda que sobe e desce, com envolvente em sino. */
+function genWhoosh(sr: number): Float32Array {
+  const dur = rnd(0.26, 0.38);
+  const out = mk(sr, dur + 0.04);
+  const lo = rnd(300, 420);
+  const hi = rnd(1300, 1900);
+  const peakAt = rnd(0.45, 0.62);
+  let low = 0;
+  let band = 0;
+  const q = rnd(0.9, 1.3);
+  const n = Math.floor(dur * sr);
+  const body = mk(sr, dur + 0.04);
+  for (let i = 0; i < n; i++) {
+    const u = i / n;
+    const shape = u < peakAt ? u / peakAt : 1 - (u - peakAt) / (1 - peakAt);
+    const env = Math.pow(Math.sin((Math.PI / 2) * shape), 2.2);
+    const fc = lo + (hi - lo) * shape;
+    const f = 2 * Math.sin((Math.PI * fc) / sr);
+    const inp = white();
+    low += f * band;
+    const high = inp - low - q * band;
+    band += f * high;
+    out[i] = band * env;
+    body[i] = inp * env;
+  }
+  mix(out, lowpass(lowpass(body, sr, 380), sr, 380), 0.5);
+  return out;
+}
+
+/** Sino de boxe: modos inarmónicos de uma campânula de latão, com pares a bater. */
+function genBell(sr: number): Float32Array {
+  const L = 2.6;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  addPulse(x, sr, 0, 0.0004, 1);
+  const base = rnd(745, 765);
+  const parts: [number, number, number][] = [
+    [1, 1, 2.4], [1.0028, 0.7, 2.3], [2.02, 0.32, 1.6], [2.74, 0.55, 1.35], [2.752, 0.3, 1.3],
+    [3.95, 0.3, 0.95], [5.31, 0.22, 0.65], [6.83, 0.12, 0.45], [8.42, 0.08, 0.3],
+  ];
+  const r = mk(sr, L);
+  for (const [k, g, t60] of parts) resonate(x, r, sr, base * k, t60, g);
+  mix(out, r, 1);
+  const c = mk(sr, L);
+  addBurst(c, sr, 0, 0.0015, 1);
+  mix(out, highpass(c, sr, 3000), 0.35);
+  return out;
+}
+
+const RECIPES: Record<string, { n: number; gen: (sr: number) => Float32Array }> = {
+  punchHead: { n: 4, gen: (sr) => genPunch(sr, false) },
+  punchBody: { n: 3, gen: (sr) => genPunch(sr, true) },
+  kick: { n: 3, gen: genKick },
+  slap: { n: 3, gen: genSlap },
+  block: { n: 3, gen: genBlock },
+  slam: { n: 3, gen: genSlam },
+  ropes: { n: 3, gen: genRopes },
+  whoosh: { n: 4, gen: genWhoosh },
+  bell: { n: 1, gen: genBell },
+};
+
+type SampleName = keyof typeof RECIPES;
+const samples: Partial<Record<SampleName, AudioBuffer[]>> = {};
+const lastPick: Partial<Record<SampleName, number>> = {};
+
+function toBuffer(c: BaseAudioContext, d: Float32Array, sr: number): AudioBuffer {
+  let m = 0;
+  for (let i = 0; i < d.length; i++) m = Math.max(m, Math.abs(d[i]));
+  const k = m > 0 ? 0.95 / m : 1;
+  const fade = Math.min(d.length, Math.floor(sr * 0.01));
+  for (let i = 0; i < d.length; i++) d[i] *= k;
+  for (let i = 0; i < fade; i++) d[d.length - 1 - i] *= i / fade;
+  const b = c.createBuffer(1, d.length, sr);
+  b.getChannelData(0).set(d);
+  return b;
+}
+
+/** Taxa a que as amostras são calculadas (o browser reamostra ao tocar): poupa CPU e memória. */
+const genRate = () => Math.min(ac!.sampleRate, 32000);
+
+/** Calcula mais uma variante; devolve false quando a amostra já está completa. */
+function genOne(name: SampleName): boolean {
+  if (!ac) return false;
+  const set = (samples[name] ??= []);
+  const r = RECIPES[name];
+  if (set.length >= r.n) return false;
+  const c = ac;
+  const sr = genRate();
+  const d = r.gen(sr);
+  set.push(toBuffer(c, d, sr));
+  return true;
+}
+
+/** Variantes de uma amostra (se ainda não houver nenhuma, calcula uma já). */
+function getSamples(name: SampleName): AudioBuffer[] | null {
+  if (!ac) return null;
+  if (!samples[name]?.length) genOne(name);
+  return samples[name] ?? null;
+}
+
+/** Pré-calcula as amostras uma variante de cada vez, para não engasgar a interface. */
+function prewarmSamples(): void {
+  const names = Object.keys(RECIPES) as SampleName[];
+  let i = 0;
+  const step = () => {
+    while (i < names.length && !genOne(names[i])) i++;
+    if (i < names.length) setTimeout(step, 16);
+  };
+  setTimeout(step, 150);
+}
+
+/** Limite de vozes simultâneas (telemóveis). */
+const MAX_VOICES = 20;
+let liveVoices = 0;
+
+interface ShotOpts {
+  rate?: number;
+  delay?: number;
+  /** Passa-baixo opcional (ex.: golpes fracos mais abafados). */
+  lp?: number;
+  /** Toca mesmo acima do limite de vozes. */
+  force?: boolean;
+  bus?: AudioNode;
+}
+
+/** Toca uma variante (nunca a mesma duas vezes seguidas) de uma amostra pré-calculada. */
+function shot(name: SampleName, gain: number, o: ShotOpts = {}): void {
+  if (!ok()) return;
+  if (liveVoices >= MAX_VOICES && !o.force) return;
+  const set = getSamples(name);
+  if (!set || !set.length) return;
+  let idx = Math.floor(Math.random() * set.length);
+  if (set.length > 1 && idx === lastPick[name]) idx = (idx + 1) % set.length;
+  lastPick[name] = idx;
+  const c = ac!;
+  const s = c.createBufferSource();
+  s.buffer = set[idx];
+  s.playbackRate.value = o.rate ?? 1;
+  const g = c.createGain();
+  g.gain.value = gain;
+  if (o.lp) {
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = o.lp;
+    f.Q.value = 0.5;
+    s.connect(f);
+    f.connect(g);
+  } else s.connect(g);
+  g.connect(o.bus ?? arena ?? master!);
+  liveVoices++;
+  s.onended = () => {
+    liveVoices = Math.max(0, liveVoices - 1);
+    g.disconnect();
+  };
+  s.start(c.currentTime + (o.delay ?? 0));
+}
+
 let lastCrowd = 0;
 
 export const sfx = {
@@ -252,59 +723,70 @@ export const sfx = {
   setMuted(m: boolean) {
     muted = m;
   },
-  /** Soco com luva: estalo do cabedal + impacto no corpo. `power` 0..1. */
-  punch(power = 0.6, body = false) {
+  /**
+   * Golpe que acerta. `power` 0..1; `body` = ao corpo (mais grave e surdo).
+   * `kind` é opcional: sem ele, 0.75 (o valor que o motor usa para pontapés) soa a pontapé.
+   */
+  punch(power = 0.6, body = false, kind?: 'punch' | 'kick' | 'chop') {
     const p = Math.max(0.2, Math.min(1, power));
-    noise({ dur: 0.012, freq: 3200, type: 'highpass', peak: 0.35 + p * 0.25 });
-    noise({ dur: jit(0.05), freq: jit(body ? 700 : 1150), q: 1.3, peak: 0.6 + p * 0.3 });
-    tone({ f: jit(body ? 120 : 150), to: body ? 42 : 55, dur: 0.09 + p * 0.08, peak: 0.55 + p * 0.45 });
-    noise({ dur: 0.08 + p * 0.07, freq: body ? 220 : 300, type: 'lowpass', peak: 0.35 + p * 0.35, delay: 0.004 });
+    const k = kind ?? (Math.abs(power - 0.75) < 0.02 ? 'kick' : 'punch');
+    const lp = p < 0.5 ? 2200 + p * 4000 : undefined;
+    if (k === 'chop') {
+      shot('slap', 0.6 + p * 0.35, { rate: jit(1, 0.06) });
+      shot('punchBody', 0.35 + p * 0.2, { rate: jit(1, 0.05), lp: 1800 });
+    } else if (k === 'kick') {
+      shot('kick', 0.6 + p * 0.4, { rate: jit(body ? 0.92 : 1, 0.05), lp });
+    } else {
+      shot(body ? 'punchBody' : 'punchHead', 0.55 + p * 0.45, { rate: jit(1.04 - p * 0.1, 0.05), lp });
+    }
+    if (p >= 0.95) {
+      // golpe pesado: chapada extra e um "bum" grave no peito
+      shot('slap', 0.22, { rate: jit(0.8, 0.05), delay: 0.003 });
+      tone({ f: jit(68, 0.08), to: 36, dur: 0.2, peak: 0.45 });
+    }
   },
   hit(heavy = false) {
     sfx.punch(heavy ? 1 : 0.6);
   },
-  /** Golpe defendido: cabedal contra cabedal, abafado. */
+  /** Golpe defendido: luva/antebraço a travar, abafado. */
   block() {
-    noise({ dur: 0.05, freq: jit(820), q: 1.6, peak: 0.45 });
-    tone({ f: 190, to: 110, dur: 0.06, peak: 0.25 });
+    shot('block', jit(0.75, 0.1), { rate: jit(1, 0.06) });
   },
-  /** Deslocação de ar de um golpe a passar. */
+  /** Deslocação de ar de um golpe a passar / mergulho. */
   whoosh() {
-    noise({ dur: 0.17, freq: jit(500), to: jit(1900), q: 1.4, peak: 0.16, attack: 0.05 });
+    shot('whoosh', jit(0.32, 0.15), { rate: jit(1, 0.12) });
   },
-  /** Queda no tapete do ringue: estrondo das tábuas + molas da lona. */
+  /** Queda no tapete do ringue: estrondo das tábuas + chapada na lona + molas. */
   slam(power = 1) {
     const p = Math.max(0.3, Math.min(1.3, power));
-    tone({ f: jit(78, 0.06), to: 34, dur: 0.38 + p * 0.2, peak: 0.95 * Math.min(1, p) });
-    noise({ dur: 0.3 + p * 0.15, freq: 170, type: 'lowpass', peak: 0.85 * Math.min(1, p) });
-    noise({ dur: 0.2, freq: jit(240), q: 3, peak: 0.45 * p });
-    noise({ dur: 0.05, freq: 1000, q: 1, peak: 0.45 * p });
-    // molas e estrutura metálica do ringue
-    for (const f of [410, 690, 1130]) noise({ dur: 0.45 + p * 0.2, freq: jit(f, 0.05), q: 22, peak: 0.12 * p, delay: 0.01 });
+    shot('slam', 0.7 + 0.3 * Math.min(1, p), {
+      rate: jit(1.06 - (p - 0.6) * 0.14, 0.04),
+      lp: p < 0.6 ? 2500 : undefined,
+      force: true,
+    });
+    if (p > 1.05) {
+      // quedas enormes (finishers): segundo corpo do estrondo, mais grave
+      shot('slam', 0.4 * (p - 0.9), { rate: jit(0.78, 0.03), delay: 0.012, lp: 900 });
+      tone({ f: jit(55, 0.05), to: 28, dur: 0.45, peak: 0.5 * (p - 0.8) });
+    }
   },
   thud() {
     sfx.slam(1);
   },
   /** Ressalto nas cordas: cabos esticados a vibrar + rangido + esticador. */
   ropes() {
-    tone({ f: jit(74, 0.05), to: 62, dur: 0.5, peak: 0.42, wobble: 11 });
-    tone({ f: jit(148, 0.05), to: 120, dur: 0.3, peak: 0.12, type: 'triangle', wobble: 17 });
-    noise({ dur: 0.22, freq: 420, to: 260, q: 5, peak: 0.16, attack: 0.02 });
-    noise({ dur: 0.09, freq: 1700, q: 10, peak: 0.06, delay: 0.03 });
-    tone({ f: 1250, dur: 0.12, peak: 0.03, type: 'square', delay: 0.02 });
+    shot('ropes', jit(0.65, 0.1), { rate: jit(1, 0.05) });
   },
-  /** Gongo/sino de boxe: parciais inarmónicos de metal. */
+  /** Sino de boxe: três toques. */
   bell() {
-    for (let i = 0; i < 3; i++) bellHit(i * 0.26);
+    for (let i = 0; i < 3; i++) shot('bell', 0.55, { delay: i * 0.26, rate: jit(1, 0.004), force: true });
   },
   ding() {
-    bellHit(0);
+    shot('bell', 0.55, { force: true });
   },
   /** Chapada / golpe de cutelo no peito. */
   slap() {
-    noise({ dur: 0.022, freq: 2200, type: 'highpass', peak: 0.75 });
-    noise({ dur: 0.05, freq: jit(3400), q: 2, peak: 0.4 });
-    tone({ f: 200, to: 110, dur: 0.07, peak: 0.35 });
+    shot('slap', jit(0.85, 0.08), { rate: jit(1, 0.07), force: true });
   },
   /** Público a vibrar (gritos + palmas). */
   cheer(amount = 1) {
@@ -325,11 +807,12 @@ export const sfx = {
     tone({ f: 160, to: 900, dur: 0.9, peak: 0.12, type: 'sawtooth' });
     noise({ dur: 0.9, freq: 300, to: 3000, q: 2, peak: 0.12, attack: 0.3 });
   },
+  /** Explosão / impacto de finisher: estrondo do ringue reforçado com sub-grave. */
   boom() {
-    tone({ f: 58, to: 26, dur: 1.1, peak: 1 });
-    noise({ dur: 0.9, freq: 140, type: 'lowpass', peak: 0.9 });
-    noise({ dur: 0.35, freq: 1400, q: 0.7, peak: 0.3 });
-    for (const f of [410, 690]) noise({ dur: 0.6, freq: f, q: 20, peak: 0.1, delay: 0.02 });
+    shot('slam', 0.9, { rate: jit(0.72, 0.03), force: true });
+    tone({ f: 58, to: 26, dur: 1.1, peak: 0.8 });
+    noise({ dur: 0.9, freq: 140, type: 'lowpass', peak: 0.6 });
+    noise({ dur: 0.35, freq: 1400, q: 0.7, peak: 0.22 });
   },
   zap() {
     noise({ dur: 0.3, freq: 3500, type: 'highpass', peak: 0.45 });
@@ -364,19 +847,6 @@ export const sfx = {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ f, dur: 0.35, peak: 0.1, type: 'square', delay: i * 0.09, bus: master! }));
   },
 };
-
-function bellHit(delay: number) {
-  const base = 820;
-  const parts: [number, number, number][] = [
-    [1, 0.38, 1.6],
-    [2.0, 0.16, 1.1],
-    [2.76, 0.2, 0.9],
-    [4.07, 0.1, 0.6],
-    [5.4, 0.07, 0.4],
-  ];
-  for (const [r, g, d] of parts) tone({ f: base * r, dur: d, peak: g, delay, attack: 0.002 });
-  noise({ dur: 0.02, freq: 4000, type: 'highpass', peak: 0.25, delay });
-}
 
 // ───────── Público sintetizado (vozes + palmas) ─────────
 
