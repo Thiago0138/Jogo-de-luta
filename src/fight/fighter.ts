@@ -88,6 +88,8 @@ export class Fighter {
   lastHitBy: Fighter | null = null;
   /** Força da última queda (0 = leve, 1+ = brutal): quanto maior, mais demora a levantar-se. */
   impact = 0;
+  /** Em pleno voo de um golpe aéreo (crossbody, springboard): os golpes normais não o apanham. */
+  flying = false;
   combo = 0;
   comboT = 0;
 
@@ -219,6 +221,7 @@ export class Fighter {
   stop(): void {
     this.script = null;
     this.wait = 0;
+    this.flying = false;
     this.armor = false;
     this.glow = null;
     this.override = null;

@@ -134,7 +134,11 @@ export function priceHtml(d: ItemDef, discount = 0): string {
 
 const VISUAL = ['hair', 'hairColor', 'outfit', 'gloves', 'mask', 'aura'];
 
-export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): void {
+/**
+ * Janela de detalhe com pré-visualização ao vivo.
+ * `equipTo`: quando vem do escolhedor de um espaço, pergunta se quer equipar NESSE espaço.
+ */
+export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, equipTo?: { slot: string; equip: () => void }): void {
   const d = item(id);
   const r = RARITIES[d.rarity];
   const body = el('div', `item-detail r-${d.rarity}`);
@@ -225,7 +229,22 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0): 
       });
     }
   }
-  if (owns(id)) {
+  if (equipTo && owns(id)) {
+    if (isEquipped(id)) actions.push({ label: `Equipped ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
+    else {
+      info.appendChild(el('p', 'id-ask', `Equip <b>${esc(d.name)}</b> as your ${esc(equipTo.slot)}?`));
+      actions.push({ label: 'Not now', cls: 'btn-ghost' });
+      actions.push({
+        label: `${ico('check')} Equip`,
+        cls: 'btn-blue',
+        onClick: () => {
+          equipTo.equip();
+          sfx.click();
+          toast(`${d.name} equipped!`, 'ok');
+        },
+      });
+    }
+  } else if (owns(id)) {
     const eq = isEquipped(id);
     const removable = ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(d.kind);
     if (!eq || removable) {

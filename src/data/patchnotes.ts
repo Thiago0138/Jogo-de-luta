@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.10.0',
+    date: '2026-10-14',
+    title: 'High flyers',
+    items: [
+      'New rope attacks for every fighter: Springboard Crossbody (bounce off the middle rope onto your opponent), Flying Crossbody off the rope rebound, and top-rope Flying Crossbody / Missile Dropkick onto a standing opponent.',
+      'Top-rope dives finally land: a downed opponent now stays down while you climb to the corner, and every fighter can dive (Splash and Moonsault owners dive far more often).',
+      'High flyers can no longer be swatted out of the air by a jab mid-flight; miss the target and you crash hard on the mat instead.',
+      'Gear: tapping any move, move style, look, super or passive now opens its live preview and asks if you want to equip it.',
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-10-14',
     title: 'Real fight sounds, honest drop rates and always-on screen',

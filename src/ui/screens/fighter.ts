@@ -196,30 +196,27 @@ function picker(s: Slot): void {
       r.classList.add('locked');
       r.appendChild(el('div', 'pr-lock', `${ico('lock')} Lv ${d.unlockLevel}`));
     }
-    r.onclick = () => {
-      if (locked) {
-        close();
-        openItem(d.id, 'shop');
-        return;
-      }
+    const equip = () => {
       if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'move') {
         const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : S.loadout.moves;
-        if (arr.includes(d.id)) {
-          close();
-          return;
+        if (!arr.includes(d.id)) {
+          const idx = s.id ? arr.indexOf(s.id) : -1;
+          if (idx >= 0) arr[idx] = d.id;
+          else arr.push(d.id);
+          commit();
         }
-        const idx = s.id ? arr.indexOf(s.id) : -1;
-        if (idx >= 0) arr[idx] = d.id;
-        else arr.push(d.id);
-        commit();
       } else if (!isEquipped(d.id)) toggleEquip(d.id);
-      sfx.click();
       close();
       render();
     };
-    r.oncontextmenu = (e) => {
-      e.preventDefault();
-      openItem(d.id, 'collection');
+    // abre sempre a pré-visualização (como fica no ringue) e pergunta se quer equipar
+    r.onclick = () => {
+      sfx.click();
+      if (locked) {
+        openItem(d.id, 'shop');
+        return;
+      }
+      openItem(d.id, 'collection', 0, { slot: s.label.replace(/ \d$/, '').toLowerCase(), equip });
     };
     box.appendChild(r);
   }

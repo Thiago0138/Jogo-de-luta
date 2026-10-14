@@ -1333,7 +1333,7 @@ export class Fight {
 
     if (o.state === 'down') {
       const canDive = f.can('m_splash') || f.can('m_moonsault');
-      if (canDive && o.downT > 1.2 && f.diveCd <= 0 && r < 0.45 + f.s.esq * 0.004) {
+      if (o.downT > 0.8 && f.diveCd <= 0 && r < (canDive ? 0.5 : 0.22) + f.s.esq * 0.004) {
         f.run(this.topRopeDive(f, o));
         return;
       }
@@ -1356,13 +1356,16 @@ export class Fight {
     const worn = o.hp < o.maxHp * 0.75 || o.stunT > 0 || o.stamina < 40;
     if (dist > 250) {
       const behind = f.facing === 1 ? f.x + RING : RING - f.x;
-      if (opened && worn && r < 0.12 && behind > 220 && f.can('m_lariat')) f.run(this.ropeRun(f, o));
+      if (opened && worn && r < 0.14 && behind > 220) f.run(f.can('m_lariat') && Math.random() < 0.5 ? this.ropeRun(f, o) : this.reboundCrossbody(f, o));
+      else if (opened && worn && r < 0.22 && behind > 120 && f.diveCd <= 0) f.run(this.springboard(f, o));
+      else if (opened && worn && r < 0.28 && f.diveCd <= 0 && (o.stunT > 0 || o.stamina < 45)) f.run(this.topRopeDive(f, o, true));
       else if (opened && r < 0.2 && dist < 330 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
       else f.wantX = o.x - f.facing * 95;
       return;
     }
     if (dist > 110) {
       if (opened && r < 0.1 && dist < 260 && o.state === 'idle' && f.can('m_spear')) f.run(this.spear(f, o));
+      else if (opened && worn && r < 0.16 && f.diveCd <= 0) f.run(Math.random() < 0.5 ? this.springboard(f, o) : this.reboundCrossbody(f, o));
       else if (opened && r < 0.15 && dist > 130 && f.can('m_dropkick')) f.run(this.dropkick(f, o));
       else if (opened && r < 0.26 && f.can('m_cutter') && o.state === 'idle') f.run(this.cutter(f, o));
       else if (r < 0.32 && f.tauntCd <= 0 && f.s.car > 15) f.run(this.taunt(f));
@@ -2432,17 +2435,19 @@ export class Fight {
     this.selfDown(f, 0.35);
   }
 
-  private *topRopeDive(f: Fighter, o: Fighter): Script {
+  private *topRopeDive(f: Fighter, o: Fighter, vsStanding = false): Script {
     this.tire(f, 14);
     f.diveCd = 6;
     // escolhe o canto mais próximo atrás de si (para mergulhar na direção do adversário)
     const side = o.x > f.x ? -1 : 1;
     const cornerX = side * (RING - 20);
+    // quem está no chão "vende" o golpe: fica lá enquanto o outro sobe ao canto
+    if (o.state === 'down' && o.hp > 0) o.downT = Math.max(o.downT, Math.abs(cornerX - f.x) / 420 + 1.5);
     f.facing = side as 1 | -1;
     f.play('run');
     while (Math.abs(cornerX - f.x) > 12) {
       f.vx = Math.sign(cornerX - f.x) * 420;
-      if (o.state !== 'down') {
+      if (o.state !== 'down' && !vsStanding) {
         f.vx = 0;
         return;
       }
@@ -2472,6 +2477,11 @@ export class Fight {
       if (Math.abs(f.x) < RING - 12) f.noClamp = false;
     };
     if (o.state !== 'down') {
+      // adversário de pé: voa da corda de cima para cima dele
+      if (o.state !== 'ko' && o.hp > 0 && o.z < 20) {
+        yield* this.flyingBody(f, o, 150, f.can('m_dropkick') && Math.random() < 0.5 ? 'MISSILE DROPKICK!' : 'FLYING CROSSBODY!', releaseClamp);
+        return;
+      }
       f.play('tuck');
       f.vz = 300;
       f.vx = -side * 160;
@@ -2486,7 +2496,7 @@ export class Fight {
     // esquiva rolando?
     const roll = Math.random() < clamp(0.08 + o.s.esq * 0.004, 0.05, 0.35);
     const moon = f.can('m_moonsault') && (!f.can('m_splash') || Math.random() < 0.55);
-    this.special(f, moon ? 'm_moonsault' : 'm_splash', true);
+    if (moon || f.can('m_splash')) this.special(f, moon ? 'm_moonsault' : 'm_splash', true);
     const msty = moon ? f.styleOf('moonsault') : null;
     // salto alto e poderoso: a corda impulsiona-o bem acima do canto antes de cair sobre o alvo
     const target = o.x;
@@ -2550,6 +2560,138 @@ export class Fight {
     }
     this.dust(f.x, 14, 100);
     this.selfDown(f, 0.9);
+  }
+
+  /**
+   * Voo de corpo inteiro (crossbody / missile dropkick) contra um adversário de pé:
+   * parte da altura atual (corda de cima, corda do meio ou chão), cai em cima dele e derruba os dois.
+   */
+  private *flyingBody(f: Fighter, o: Fighter, apex: number, name: string, tick?: () => void): Script {
+    const kick = name.includes('DROPKICK');
+    f.face(o);
+    const hitZ = 62 * this.scale(o);
+    const vz0 = Math.sqrt(2 * GRAV * apex);
+    const T = (vz0 + Math.sqrt(vz0 * vz0 + 2 * GRAV * Math.max(0, f.z - hitZ))) / GRAV;
+    const aimX = o.x - f.facing * 26 * this.scale(o);
+    f.vx = (aimX - f.x) / T;
+    f.vz = vz0;
+    f.z = Math.max(f.z, 1);
+    f.noClamp = true;
+    f.play(kick ? 'dropkick' : 'splash');
+    f.flying = true;
+    this.telegraph(f, o, kick ? 'kick' : 'punch', true);
+    this.addHype(0.15);
+    sfx.whoosh();
+    sfx.whoosh();
+    this.focus = f;
+    this.focusT = Math.max(this.focusT, T + 0.4);
+    let el = 0;
+    while (el < T) {
+      el += this.dt;
+      tick?.();
+      if (Math.abs(f.vz) < 120 && el > 0.12) this.cinematic(f.x, -f.z - 60, 0.4, 0.45);
+      if (el > T - 0.12) this.cinematic((f.x + o.x) / 2, -110, 0.3, 0.8);
+      if (Math.random() < 0.6) this.parts.spawn(PK.Star, f.x - f.vx * 0.02, -f.z - 70, 0, 0, 0.3, 7, '#ffffff', 0);
+      yield FRAME;
+    }
+    f.flying = false;
+    const hit = Math.abs(o.x - f.x) < 120 && o.z < 40 && this.strike(f, o, { dmg: kick ? 26 : 24, reach: 999, kind: 'aerial', heavy: true, body: true, kd: true, kb: 230, launch: 180, hitJ: kick ? J_FF : J_HIP });
+    if (hit) {
+      if (f.spec.isPlayer) this.tally.dives++;
+      this.pop(name, f.x, -250, '#ffd23d', 30);
+      this.shake(11, 0.32);
+      sfx.cheer(1.1);
+      // cai por cima dele
+      f.vx = f.facing * 120;
+      yield () => f.z <= 0;
+      f.noClamp = false;
+      f.vx = 0;
+      this.dust(f.x, 12, 90);
+      f.play('lie');
+      this.selfDown(f, 0.45);
+      return;
+    }
+    // falhou: espalha-se no tapete
+    yield () => f.z <= 0;
+    f.noClamp = false;
+    f.vx = 0;
+    f.play('lie');
+    this.pop('MISSED!', f.x, -200, '#aaaaaa', 28);
+    this.damage(f, 14);
+    this.shake(8, 0.3);
+    sfx.slam(0.9);
+    this.dust(f.x, 12, 90);
+    this.selfDown(f, 0.9);
+  }
+
+  /** Corre às cordas, ressalta e voa de corpo inteiro para cima do adversário. */
+  private *reboundCrossbody(f: Fighter, o: Fighter): Script {
+    this.tire(f, 12);
+    f.diveCd = 5;
+    yield* this.bounceRopes(f, -f.facing, 470);
+    let t = 0;
+    while (Math.abs(o.x - f.x) > 250 && t < 1.4) {
+      t += this.dt;
+      yield FRAME;
+    }
+    if (o.state === 'down' || o.state === 'ko' || Math.abs(o.x - f.x) < 110) {
+      f.vx = 0;
+      f.play('guard');
+      return;
+    }
+    yield* this.flyingBody(f, o, 115, 'FLYING CROSSBODY!');
+  }
+
+  /** Springboard: corre às cordas, salta para a do meio e usa-a como trampolim por cima do adversário. */
+  private *springboard(f: Fighter, o: Fighter): Script {
+    this.tire(f, 14);
+    f.diveCd = 5;
+    const dir = o.x > f.x ? -1 : 1;
+    f.facing = dir as 1 | -1;
+    f.play('run');
+    f.noClamp = true;
+    const edge = ROPE_LINE_X - BODY_HALF;
+    let t = 0;
+    while (Math.abs(f.x) < edge && t < 1.6) {
+      t += this.dt;
+      f.vx = dir * 480;
+      yield FRAME;
+    }
+    f.vx = 0;
+    const sd = (f.x > 0 ? 1 : 0) as 0 | 1;
+    // um salto para cima da corda do meio, que cede debaixo dos pés
+    f.play('perch');
+    const x0 = f.x;
+    const footX = dir * (ROPE_LINE_X - 10);
+    t = 0;
+    while (t < 0.2) {
+      t += this.dt;
+      const u = Math.min(1, t / 0.2);
+      f.x = x0 + (footX - x0) * u;
+      f.z = ropeHeightAt(this.ropes, sd, 1) * u + Math.sin(u * Math.PI) * 30;
+      f.vz = 0;
+      ropeHold(this.ropes, sd, 1, 2, 22 * u);
+      yield FRAME;
+    }
+    sfx.ropes();
+    this.pop('SPRINGBOARD!', f.x, -300, '#ffffff', 22);
+    f.face(o);
+    yield 0.06;
+    pushRope(this.ropes, sd, 70, 1, 600);
+    sfx.ropes();
+    if (o.state === 'down' || o.state === 'ko') {
+      f.vz = 260;
+      f.vx = -dir * 150;
+      yield () => f.z <= 0;
+      f.noClamp = false;
+      f.vx = 0;
+      f.play('guard');
+      return;
+    }
+    const releaseClamp = () => {
+      if (Math.abs(f.x) < RING - 12) f.noClamp = false;
+    };
+    yield* this.flyingBody(f, o, 130, f.can('m_dropkick') && Math.random() < 0.4 ? 'SPRINGBOARD DROPKICK!' : 'SPRINGBOARD CROSSBODY!', releaseClamp);
   }
 
   private *rollAway(o: Fighter, f: Fighter): Script {
@@ -2640,6 +2782,7 @@ export class Fight {
     if (this.active[o.team] !== o) return false;
     if (o.state === 'ko' || o.state === 'out' || o.state === 'apron') return false;
     if (o.state === 'down' && !ground) return false;
+    if (o.flying) return false;
     return true;
   }
 
