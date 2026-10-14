@@ -6,11 +6,18 @@ let noiseBuf: AudioBuffer | null = null;
 let enabled = true;
 let ambientOn = true;
 let muted = false;
+let volume = 0.8;
 let crowd: { src: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null = null;
+
+/** Volume geral de 0 a 1. */
+export function setVolume(v: number): void {
+  volume = Math.max(0, Math.min(1, v));
+  if (master && enabled) master.gain.setTargetAtTime(volume, master.context.currentTime, 0.02);
+}
 
 export function setSound(on: boolean): void {
   enabled = on;
-  if (master) master.gain.value = on ? 0.8 : 0;
+  if (master) master.gain.value = on ? volume : 0;
 }
 
 export function setAmbient(on: boolean): void {
@@ -28,7 +35,7 @@ export function unlockAudio(): void {
   if (!Ctor) return;
   ac = new Ctor();
   master = ac.createGain();
-  master.gain.value = enabled ? 0.8 : 0;
+  master.gain.value = enabled ? volume : 0;
   const comp = ac.createDynamicsCompressor();
   master.connect(comp);
   comp.connect(ac.destination);

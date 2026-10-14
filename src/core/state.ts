@@ -27,6 +27,8 @@ export interface MissionSet {
 
 export interface Settings {
   sound: boolean;
+  /** Volume geral 0–1. */
+  volume: number;
   music: boolean;
   speed: 1 | 2;
   quality: 'alta' | 'baixa';
@@ -104,7 +106,7 @@ function fresh(): Save {
     bestStreak: 0,
     losses: 0,
     redeemed: [],
-    settings: { sound: true, music: true, speed: 1, quality: 'alta' },
+    settings: { sound: true, volume: 0.8, music: true, speed: 1, quality: 'alta' },
     seenPatch: '',
     freeChestAt: 0,
     partnerSeed: Math.floor(Math.random() * 1e9),

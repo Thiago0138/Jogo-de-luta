@@ -1,7 +1,7 @@
 import { S, commit, markPatchSeen, resetSave } from '../../core/state';
 import { PATCH_NOTES, CURRENT_VERSION } from '../../data/patchnotes';
 import { RARITIES, RARITY_ORDER } from '../../data/rarity';
-import { setAmbient, setSound, sfx } from '../../audio/sfx';
+import { setAmbient, setSound, setVolume, sfx } from '../../audio/sfx';
 import { render } from '../app';
 import { el, esc, modal } from '../dom';
 
@@ -9,6 +9,7 @@ export function openSettings(): void {
   const b = el('div', 'settings');
   const s = S.settings;
   b.innerHTML = `
+    <label class="set-row vol-row"><span>🔈 Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
     <label class="set-row"><span>🔊 Efeitos sonoros</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
     <label class="set-row"><span>👥 Som do público</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
     <label class="set-row"><span>✨ Qualidade gráfica alta</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
@@ -20,7 +21,18 @@ export function openSettings(): void {
       <button class="btn btn-red reset">Apagar progresso</button>
     </div>
     <p class="muted small center">Reis do Ringue v${CURRENT_VERSION}</p>`;
-  b.querySelectorAll('input').forEach((inp) => {
+  const vol = b.querySelector('.vol') as HTMLInputElement;
+  const volN = b.querySelector('.vol-n') as HTMLElement;
+  vol.oninput = () => {
+    s.volume = Number(vol.value) / 100;
+    volN.textContent = vol.value + '%';
+    setVolume(s.volume);
+  };
+  vol.onchange = () => {
+    commit();
+    sfx.click();
+  };
+  b.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((inp) => {
     inp.onchange = () => {
       const k = inp.dataset.k!;
       if (k === 'sound') {

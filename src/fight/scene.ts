@@ -1,6 +1,7 @@
 import { drawFighter, glowSprite } from '../render/fighter';
 import { HEAD_R, J_HEAD } from '../render/pose';
-import { sfx, startCrowd, stopCrowd } from '../audio/sfx';
+import { setVolume, sfx, startCrowd, stopCrowd } from '../audio/sfx';
+import { S, commit } from '../core/state';
 import { APRON_X, BACK_Y, TEAM_COLORS, drawBackdrop, drawFloor, drawForeground, drawRingBack, drawRingFront, ensureArena } from './arena';
 import { Fight, type FightReport, type FightSetup } from './engine';
 import type { Fighter } from './fighter';
@@ -133,7 +134,13 @@ export class FightScene {
 
     const ctr = document.createElement('div');
     ctr.className = 'fight-ctrl';
-    ctr.innerHTML = `<button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ⏭</button>`;
+    ctr.innerHTML = `<label class="fight-vol" aria-label="Volume">🔊<input type="range" min="0" max="100" value="${Math.round(S.settings.volume * 100)}"/></label><button class="btn-ghost sp">${this.speed}x</button><button class="btn-ghost skip">Saltar ⏭</button>`;
+    const vol = ctr.querySelector('.fight-vol input') as HTMLInputElement;
+    vol.oninput = () => {
+      S.settings.volume = Number(vol.value) / 100;
+      setVolume(S.settings.volume);
+    };
+    vol.onchange = () => commit();
     const sp = ctr.querySelector('.sp') as HTMLButtonElement;
     sp.onclick = () => {
       this.speed = this.speed === 1 ? 2 : 1;

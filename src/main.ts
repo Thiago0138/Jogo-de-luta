@@ -1,12 +1,13 @@
 import '@fontsource/luckiest-guy/400.css';
 import './styles.css';
 import { S } from './core/state';
-import { setAmbient, setSound } from './audio/sfx';
+import { setAmbient, setSound, setVolume } from './audio/sfx';
 import { mountApp } from './ui/app';
 import { openCreator } from './ui/screens/creator';
 import { modal } from './ui/dom';
 
 async function boot(): Promise<void> {
+  setVolume(S.settings.volume);
   setSound(S.settings.sound);
   setAmbient(S.settings.music);
   // A fonte é usada no canvas: espera por ela (com limite) para o primeiro desenho sair certo.

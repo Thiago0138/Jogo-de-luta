@@ -2167,7 +2167,6 @@ span.rar-celestial,
 }
 .hud-bar .hp.low {
   background: linear-gradient(180deg, #ffb07a, #ff3d3d 60%, #b3121f);
-  animation: pulse 0.8s infinite;
 }
 .hp-text {
   position: absolute;
@@ -2778,4 +2777,32 @@ span.rar-celestial,
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+.vol-row {
+  gap: 10px;
+}
+.vol-row .vol {
+  flex: 1;
+  accent-color: var(--gold);
+}
+.vol-n {
+  min-width: 42px;
+  text-align: right;
+  font-size: 13px;
+}
+.fight-vol {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--line);
+  font-size: 16px;
+}
+.fight-vol input {
+  width: 90px;
+  accent-color: var(--gold);
 }

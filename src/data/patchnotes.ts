@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.1.2',
+    date: '2026-10-14',
+    title: 'Controlo de volume',
+    items: [
+      'Novo controlo de volume nas Definições e também durante a luta.',
+      'A barra de vida já não pisca quando está baixa (continua a ficar vermelha).',
+    ],
+  },
+  {
     version: '1.1.1',
     date: '2026-10-14',
     title: 'Chuva de gemas!',
