@@ -8,6 +8,14 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.13.3',
+    date: '2026-10-15',
+    title: 'Long hair in one piece',
+    items: [
+      'Fixed: in the 360° views (appearance editor and item previews), long hairstyles looked like a base "cap" with a separate curtain of hair attached. The top and the long part now merge into a single mass of hair with no line between them.',
+    ],
+  },
+  {
     version: '1.13.2',
     date: '2026-10-15',
     title: '360° hair fix',

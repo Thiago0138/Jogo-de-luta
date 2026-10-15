@@ -1320,6 +1320,12 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
       return;
   }
   cap();
+  if (!early) {
+    // a cortina/rabo/tranças que estão à frente desenham-se agora; depois a calota é preenchida outra vez
+    // SEM contorno, para que calota e cortina sejam uma só massa de cabelo (sem linha a separá-las)
+    backParts();
+    if (longs || style === 'cometa') sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, hl, c1, { line: 0, n: 48, m: 12, top: false });
+  }
   if (!PS.F) {
     const dark = c1.length === 7 && c1[0] === '#' ? shade(c1, -0.42) : c1;
     // madeixas (suaves: cada penteado mantém a sua forma, sem uma "franja" comum a todos)
@@ -1408,5 +1414,4 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
     ctx.strokeStyle = PS.F ? '#fff' : '#ffe27a';
     ctx.stroke();
   }
-  if (!early) backParts();
 }
