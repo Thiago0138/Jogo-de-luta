@@ -6,7 +6,7 @@ import { eye, hairColors, outfitC1, type DrawOpts, type Expr } from './fighter';
 import { drawBootTo, drawGlove } from './gloves';
 import type { Look } from './look';
 import {
-  ARM_L, ARM_U, C, Cam, DL, LEG_L, LEG_U, OC, OW, PS, TAU, capsule, ell, glowSprite, limb, proj3D, seg, sheet,
+  ARM_L, ARM_U, C, Cam, DL, LEG_L, LEG_U, OC, OW, PS, TAU, capsule, ell, glowSprite, hash, limb, proj3D, seg, sheet,
   sphereRegion, spherePt, spike, tube, viewDir, type Proj, type V3,
 } from './paint';
 import {
@@ -571,7 +571,7 @@ function head3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, expr: Expr, t: 
   }
   if (o.head) headPieces(ctx, o, H, t, 'skin');
   if (mask) mask3D(ctx, H, mask, 'skin', L, t);
-  const capHair = style !== 'careca' && style !== 'moicano' && style !== 'afro' && style !== 'samurai';
+  const capHair = style !== 'careca' && style !== 'moicano' && style !== 'afro' && style !== 'samurai' && !longHair && style !== 'cometa' && style !== 'chamas' && style !== 'coroa' && style !== 'topete';
   if (showHair && !masked && capHair && !PS.F) {
     const low = longHair || style === 'cometa' ? 0.55 : 0.42;
     sphereRegion(ctx, H, R + 0.3, 0, -Math.PI, Math.PI, (l) => hairline(l, low) - 0.02, (l) => hairline(l, low) + 0.13, L.skinShade, { line: 0, alpha: 0.5, n: 32, m: 2 });
@@ -761,7 +761,20 @@ function beard3D(ctx: CanvasRenderingContext2D, H: Proj, beard: string, col: str
   const Hs: Proj = { p: (x, y, z) => H.p(x + 3, y + 3, z) };
   switch (beard) {
     case 'curta':
-      sphereRegion(ctx, Hs, R + 1.5, 0, -1.35, 1.35, (l) => 0.18 + (1 - Math.abs(l) / 1.35) * 0.18, () => 0.95, col, { alpha: 0.42, line: 0, n: 20, m: 4 });
+      // barba de 3 dias: tom bem visível + pontos de pelo
+      sphereRegion(ctx, Hs, R + 1.5, 0, -1.35, 1.35, (l) => 0.18 + (1 - Math.abs(l) / 1.35) * 0.18, () => 0.98, col, { alpha: 0.62, line: 0, n: 20, m: 4 });
+      if (!PS.F) {
+        ctx.fillStyle = col.length === 7 && col[0] === '#' ? shade(col, -0.35) : col;
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        for (let i = 0; i < 60; i++) {
+          const p = spherePt(Hs, R + 1.8, 0, (hash(i * 3.1) - 0.5) * 2.4, 0.42 + hash(i * 7.3 + 1) * 0.5);
+          if (p[3] < 0.15) continue;
+          ctx.rect(p[0], p[1], 1.4, 1.4);
+        }
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
       break;
     case 'grande':
       sphereRegion(ctx, Hs, R + 2.5, 0, -1.45, 1.45, (l) => 0.12 + (1 - Math.abs(l) / 1.45) * 0.3, () => 1.12, col, { line: 2, n: 22, m: 4 });
@@ -792,11 +805,11 @@ function beard3D(ctx: CanvasRenderingContext2D, H: Proj, beard: string, col: str
       }
       break;
     case 'bigode':
-      sphereRegion(ctx, H, R + 1, 0, -0.34, 0.34, (l) => 0.37 + Math.abs(l) * 0.1, (l) => 0.45 + Math.abs(l) * 0.12, col, { line: 0, n: 8, m: 2 });
+      sphereRegion(ctx, H, R + 1.5, 0, -0.5, 0.5, (l) => 0.33 + Math.abs(l) * 0.12, (l) => 0.47 + Math.abs(l) * 0.2, col, { line: 2, n: 12, m: 3 });
       break;
     case 'cavanhaque':
-      sphereRegion(ctx, H, R + 1, 0, -0.3, 0.3, (l) => 0.37 + Math.abs(l) * 0.1, (l) => 0.44 + Math.abs(l) * 0.12, col, { line: 0, n: 8, m: 2 });
-      sphereRegion(ctx, Hs, R + 1.5, 0, -0.22, 0.22, () => 0.72, (l) => 1.0 - Math.abs(l), col, { line: 0, n: 6, m: 3 });
+      sphereRegion(ctx, H, R + 1.5, 0, -0.42, 0.42, (l) => 0.34 + Math.abs(l) * 0.12, (l) => 0.46 + Math.abs(l) * 0.16, col, { line: 2, n: 10, m: 3 });
+      sphereRegion(ctx, Hs, R + 2, 0, -0.32, 0.32, () => 0.66, (l) => 1.12 - Math.abs(l) * 0.9, col, { line: 2, n: 8, m: 4 });
       break;
   }
 }
@@ -1147,7 +1160,10 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
   };
   const longs = style === 'longo' || style === 'rabo' || style === 'trancas' || style === 'mullet';
   const low = longs || style === 'cometa' ? 0.55 : 0.42;
-  const cap = () => sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, (l) => hairline(l, low), c1, { line: 3, n: 48, m: 12, top: false });
+  // penteados puxados para trás: testa à mostra, sem a franja do corte curto
+  const swept = longs || style === 'samurai' || style === 'cometa' || style === 'chamas' || style === 'coroa' || style === 'topete';
+  const hl = (l: number) => hairline(l, low) - (swept ? 0.42 * Math.pow(Math.max(0, Math.cos(l)), 1.5) : 0);
+  const cap = () => sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, hl, c1, { line: 3, n: 48, m: 12, top: false });
   const shine = () => {
     if (PS.F) return;
     const p = spherePt(H, R + 3, 0, -0.4, -1.0);
@@ -1292,16 +1308,14 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
   cap();
   if (!PS.F) {
     const dark = c1.length === 7 && c1[0] === '#' ? shade(c1, -0.42) : c1;
-    // sombra junto à linha do cabelo (espessura da franja)
-    sphereRegion(ctx, H, R + 2.6, 0, -Math.PI, Math.PI, (l) => hairline(l, low) - 0.2, (l) => hairline(l, low), dark, { line: 0, alpha: 0.35, n: 32, m: 2 });
-    // madeixas a sair do remoinho
+    // madeixas (suaves: cada penteado mantém a sua forma, sem uma "franja" comum a todos)
     ctx.strokeStyle = dark;
-    ctx.lineWidth = 1.6;
-    ctx.globalAlpha = 0.6;
+    ctx.lineWidth = 1.4;
+    ctx.globalAlpha = swept ? 0.3 : 0.4;
     ctx.lineCap = 'round';
     for (let k = 0; k < 14; k++) {
       const lon = -Math.PI + (k / 14) * TAU + 0.15;
-      const end = hairline(lon, low) - 0.06;
+      const end = hl(lon) - 0.06;
       ctx.beginPath();
       let on = false;
       for (let i = 0; i <= 5; i++) {
@@ -1321,6 +1335,26 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
     ctx.globalAlpha = 1;
   }
   shine();
+  if ((style === 'longo' || style === 'mullet' || style === 'trancas') && !PS.F) {
+    // risca ao meio
+    ctx.strokeStyle = c1.length === 7 && c1[0] === '#' ? shade(c1, -0.5) : c1;
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    let on = false;
+    for (let i = 0; i <= 8; i++) {
+      const q = spherePt(H, R + 2.8, 0, 0, hl(0) - 0.05 - i * 0.12);
+      if (q[3] < 0.1) {
+        on = false;
+        continue;
+      }
+      if (on) ctx.lineTo(q[0], q[1]);
+      else ctx.moveTo(q[0], q[1]);
+      on = true;
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
   if (style === 'topete') {
     when(14, -30, 0, () => ell(ctx, H, 12, -31, 0, 21, 11, 18, c1, { line: 3, rot: -0.3 }));
     if (behind(14, -30, 0)) ell(ctx, H, 12, -31, 0, 21, 11, 18, c1, { line: 3, rot: -0.3 });

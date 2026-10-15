@@ -399,20 +399,28 @@ function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: 
  * Calota de cabelo assente no crânio (círculo de raio HEAD_R centrado na origem).
  * `low` controla até onde desce na nuca.
  */
-function capPath(ctx: CanvasRenderingContext2D, low = 6) {
+function capPath(ctx: CanvasRenderingContext2D, low = 6, swept = false) {
   const R = HEAD_R + 2.5;
   const a0 = Math.atan2(low, -R + 1);
   ctx.beginPath();
   ctx.moveTo(Math.cos(a0) * R, Math.sin(a0) * R);
-  ctx.arc(0, 0, R, a0, Math.PI * 2 - 0.5);
-  // franja em madeixas curvas
-  ctx.quadraticCurveTo(25, -10, 22, -8.5);
-  ctx.quadraticCurveTo(20, -13, 16.5, -14);
-  ctx.quadraticCurveTo(15, -10, 11, -9.5);
-  ctx.quadraticCurveTo(9.5, -14, 5, -14);
-  ctx.quadraticCurveTo(1.5, -11, -0.5, -5);
-  // patilha curta à frente da orelha
-  ctx.quadraticCurveTo(-1.5, -1, -2.5, 2);
+  if (swept) {
+    // penteado puxado para trás: linha do cabelo alta e limpa, testa à mostra (sem franja)
+    ctx.arc(0, 0, R, a0, Math.PI * 2 - 0.95);
+    ctx.quadraticCurveTo(14, -17, 6, -17.5);
+    ctx.quadraticCurveTo(-1, -16, -3, -7);
+    ctx.quadraticCurveTo(-3.5, -1, -4, 2);
+  } else {
+    ctx.arc(0, 0, R, a0, Math.PI * 2 - 0.5);
+    // franja em madeixas curvas
+    ctx.quadraticCurveTo(25, -10, 22, -8.5);
+    ctx.quadraticCurveTo(20, -13, 16.5, -14);
+    ctx.quadraticCurveTo(15, -10, 11, -9.5);
+    ctx.quadraticCurveTo(9.5, -14, 5, -14);
+    ctx.quadraticCurveTo(1.5, -11, -0.5, -5);
+    // patilha curta à frente da orelha
+    ctx.quadraticCurveTo(-1.5, -1, -2.5, 2);
+  }
   ctx.lineTo(-6, 1);
   // por cima da orelha até à nuca
   ctx.quadraticCurveTo(-11, -4, -17, -3);
@@ -472,12 +480,23 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
     case 'super':
     case 'cometa':
     case 'chamas':
-      capPath(ctx, style === 'curto' || style === 'espetado' || style === 'super' || style === 'chamas' ? 0 : 8);
-      fillStroke(c1);
-      capShade(ctx, c1, c2);
-      if (style === 'rabo' || style === 'trancas') {
-        // cabelo puxado para trás: madeixas a convergir para a nuca
-        inside(ctx, () => curves(ctx, dark, 0.6, 1.4, [16, -20, -2, -26, -20, -14, 18, -14, 0, -18, -21, -9]));
+      {
+        const swept = style === 'rabo' || style === 'longo' || style === 'trancas' || style === 'mullet' || style === 'cometa';
+        capPath(ctx, style === 'curto' || style === 'espetado' || style === 'super' || style === 'chamas' ? 0 : 8, swept);
+        fillStroke(c1);
+        if (swept) {
+          const dk = sh(c1, -0.42);
+          inside(ctx, () => {
+            outerShade(ctx, dk, 0.55, 5, -7, HEAD_R + 1);
+            // madeixas penteadas para trás, a partir da linha do cabelo
+            curves(ctx, dk, 0.6, 1.5, [10, -17, -4, -26, -20, -16, 4, -16, -8, -21, -22, -9, -2, -12, -10, -14, -22, -3]);
+            shineBand(ctx, c2, 0, 0, HEAD_R - 5, -2.25, -1.2, 4);
+          });
+          if (style === 'longo' || style === 'mullet' || style === 'trancas') {
+            // risca ao meio
+            inside(ctx, () => curves(ctx, sh(c1, -0.55), 0.85, 1.8, [6, -17.5, 2, -24, -4, -29]));
+          }
+        } else capShade(ctx, c1, c2);
       }
       break;
     case 'afro':
@@ -537,9 +556,13 @@ function hairFront(ctx: CanvasRenderingContext2D, style: string, c1: string, c2:
       break;
     }
     case 'topete':
-      capPath(ctx, 0);
+      // topete: cabelo puxado para cima e para trás (sem a franja do corte curto)
+      capPath(ctx, 0, true);
       fillStroke(c1);
-      capShade(ctx, c1, c2);
+      inside(ctx, () => {
+        outerShade(ctx, dark, 0.55, 5, -7, HEAD_R + 1);
+        curves(ctx, dark, 0.6, 1.5, [10, -17, -4, -26, -20, -16, 4, -16, -8, -21, -22, -9]);
+      });
       ctx.beginPath();
       ctx.moveTo(-6, -28);
       ctx.bezierCurveTo(10, -50, 44, -44, 36, -22);
@@ -620,7 +643,7 @@ function capCastShadow(ctx: CanvasRenderingContext2D, L: Look, style: string) {
   headPath(ctx);
   ctx.clip();
   ctx.translate(1.2, 3.2);
-  capPath(ctx, 0);
+  capPath(ctx, 0, style === 'rabo' || style === 'longo' || style === 'trancas' || style === 'mullet' || style === 'cometa' || style === 'topete');
   ctx.globalAlpha = 0.5;
   ctx.fillStyle = L.skinShade;
   ctx.fill();
@@ -1121,14 +1144,15 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
         ctx.quadraticCurveTo(21, 28, 23, 19);
         ctx.quadraticCurveTo(17, 22, 13, 19.5);
         ctx.quadraticCurveTo(5, 19, -4, 12);
-        ctx.globalAlpha = 0.32;
+        ctx.globalAlpha = 0.55;
         ctx.fill();
         ctx.globalAlpha = 1;
         inside(ctx, () => {
           ctx.fillStyle = hairC;
-          ctx.globalAlpha = 0.55;
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = sh(hairC, -0.3);
           ctx.beginPath();
-          for (let i = 0; i < 46; i++) ctx.rect(-4 + hash(i * 3.1) * 28, 12 + hash(i * 7.3 + 1) * 18, 1.1, 1.1);
+          for (let i = 0; i < 60; i++) ctx.rect(-4 + hash(i * 3.1) * 28, 12 + hash(i * 7.3 + 1) * 18, 1.3, 1.3);
           ctx.fill();
           ctx.globalAlpha = 1;
         });

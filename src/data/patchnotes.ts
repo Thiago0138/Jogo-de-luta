@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.13.1',
+    date: '2026-10-15',
+    title: 'Hair and beard fixes',
+    items: [
+      'Fixed: every hairstyle showed the same short-hair fringe on top. Long hair, ponytail, braids, mullet, pompadour, comet, flaming hair and the crown now have their own swept-back hairline (with a center parting on long styles).',
+      'Fixed: beards were barely visible in the appearance editor. Stubble, mustache, goatee and full beard are bold and clear again, in the editor and in fights.',
+    ],
+  },
+  {
     version: '1.13.0',
     date: '2026-10-15',
     title: 'The big graphics upgrade',
