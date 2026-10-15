@@ -157,7 +157,17 @@ function body3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, yaw: number, o:
     }
     if ((style === 'trunks' || style === 'singlet') && !out.suit) {
       const kx = kn[0], ky = kn[1];
-      seg(ctx, kx + (hp[0] - kx) * 0.15, ky + (hp[1] - ky) * 0.15, kx + (ft[0] - kx) * 0.18, ky + (ft[1] - ky) * 0.18, 21, front ? out.c2 ?? '#fff' : shade(out.c2 ?? '#fff', -0.12));
+      const pc = front ? out.c2 ?? '#ffffff' : shade(out.c2 ?? '#ffffff', -0.12);
+      const k0x = kx + (hp[0] - kx) * 0.15, k0y = ky + (hp[1] - ky) * 0.15;
+      const k1x = kx + (ft[0] - kx) * 0.18, k1y = ky + (ft[1] - ky) * 0.18;
+      seg(ctx, k0x, k0y, k1x, k1y, 21, pc);
+      if (!PS.F) {
+        ctx.globalAlpha = 0.35;
+        seg(ctx, k0x + 4, k0y, k1x + 4, k1y, 11, shade(pc, -0.45), false);
+        ctx.globalAlpha = 0.5;
+        seg(ctx, k0x - 4, k0y + 2, k1x - 4, k1y - 2, 3, '#ffffff', false);
+        ctx.globalAlpha = 1;
+      }
     }
     const fa = j === J_FF ? s.flL : s.blL;
     const toe = cam.w(X[j] + Math.cos(fa) * 16, Y[j] - Math.sin(fa) * 16, front ? 12 : -12);
@@ -171,7 +181,15 @@ function body3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, yaw: number, o:
   dl.add(mid(fhip, fkn, fft) - 2, leg(fhip, fkn, fft, true, J_FF));
   torsoSil = null;
   dl.add(0, () => {
-    seg(ctx, shc[0], shc[1], head[0] * 0.45 + neck[0] * 0.55, head[1] * 0.45 + neck[1] * 0.55, 19, suit && out.head !== 'astro' ? L.body : L.skin);
+    const nx1 = head[0] * 0.45 + neck[0] * 0.55;
+    const ny1 = head[1] * 0.45 + neck[1] * 0.55;
+    seg(ctx, shc[0], shc[1], nx1, ny1, 19, suit && out.head !== 'astro' ? L.body : L.skin);
+    if (!PS.F) {
+      // sombra do maxilar no pescoço
+      ctx.globalAlpha = 0.55;
+      seg(ctx, nx1, ny1 + 1, nx1 + (shc[0] - nx1) * 0.35, ny1 + 1 + (shc[1] - ny1) * 0.35, 15, suit && out.head !== 'astro' ? L.bodyShade : L.skinShade, false);
+      ctx.globalAlpha = 1;
+    }
     torso3D(ctx, L, s, t);
   });
   dl.add(Math.max(head[2], 0) + 1, () => head3D(ctx, L, s, o.expr, t));
@@ -290,6 +308,16 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     }
     return r;
   };
+  const coreB = shade(L.bodyShade, -0.14);
+  const sh2 = (c: string) => {
+    const k = c + '#2';
+    let r = shadeCache.get(k);
+    if (!r) {
+      r = shade(c, -0.34);
+      shadeCache.set(k, r);
+    }
+    return r;
+  };
   ctx.lineWidth = 1;
   for (let i = 0; i < NU; i++) {
     for (let j = 0; j < NPHI; j++) {
@@ -301,7 +329,7 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
       let col = mat(um, pm);
       if (col === L.body && o.anim === 'cosmic') col = c1;
       const lx = nX(um, pm);
-      const fill = C(lx > 0.3 ? (col === L.body ? L.bodyShade : sh(col)) : col);
+      const fill = C(lx > 0.3 ? (col === L.body ? (lx > 0.78 ? coreB : L.bodyShade) : lx > 0.78 ? sh2(col) : sh(col)) : col);
       const a1 = P(us[i], p0), b1 = P(us[i], p1), c4 = P(us[i + 1], p1), d1 = P(us[i + 1], p0);
       ctx.beginPath();
       ctx.moveTo(a1[0], a1[1]);
@@ -348,7 +376,25 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   const bare = !(style === 'gi' || style === 'armor' || style === 'jacket' || style === 'none');
   if (bare) {
     // peitorais, abdominais e coluna
-    for (const sd of [-1, 1]) sline(arc(40, sd * 0.08, sd * 1.05, 8, -4), 2.6, L.bodyShade, 0.85);
+    for (const sd of [-1, 1]) {
+      sline(arc(38.5, sd * 0.1, sd * 1.0, 8, -4), 5, L.bodyShade, 0.4);
+      sline(arc(40, sd * 0.08, sd * 1.05, 8, -4), 2.6, L.bodyShade, 0.85);
+      sline([[42, sd * 1.15], [36, sd * 1.25], [30, sd * 1.2]], 1.8, L.bodyShade, 0.45);
+    }
+    sline([[23, -0.62], [14, -0.4]], 1.8, L.bodyShade, 0.45);
+    sline([[23, 0.62], [14, 0.4]], 1.8, L.bodyShade, 0.45);
+    // brilho de suor no peito e nos abdominais
+    ctx.fillStyle = '#ffffff';
+    for (const [u, phi, r] of [[46, -0.45, 6], [46, 0.45, 6], [25, -0.16, 2.4], [25, 0.16, 2.4]] as const) {
+      const d = nd(u, phi);
+      if (d < 0.3) continue;
+      const p = P(u, phi, 1.01);
+      ctx.globalAlpha = 0.24 * d;
+      ctx.beginPath();
+      ctx.ellipse(p[0], p[1], r * d, r * 0.45, -0.3, 0, TAU);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
     sline([[34, 0], [12, 0]], 2, L.bodyShade, 0.55);
     for (const u of [28, 21]) sline(arc(u, -0.32, 0.32, 4), 2, L.bodyShade, 0.5);
     sline([[50, Math.PI], [14, Math.PI]], 2.2, L.bodyShade, 0.5);
@@ -392,6 +438,12 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     }
   } else if (o.pattern === 'stripe' && style === 'trunks') {
     for (const sd of [-1, 1]) sline([[-2, sd * 1.2], [-14, sd * 1.3]], 3.5, c2);
+  }
+  if (style === 'trunks' && !o.suit) {
+    ctx.setLineDash([2.2, 2]);
+    sline(arc(9.8, -Math.PI, Math.PI, 30), 0.9, shade(c2.length === 7 ? c2 : '#ffffff', -0.4), 0.8);
+    sline(arc(12.2, -Math.PI, Math.PI, 30), 0.9, shade(c2.length === 7 ? c2 : '#ffffff', -0.4), 0.8);
+    ctx.setLineDash([]);
   }
   if (o.mat) {
     // material do fato, preso ao corpo (frente e costas)
@@ -519,6 +571,11 @@ function head3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, expr: Expr, t: 
   }
   if (o.head) headPieces(ctx, o, H, t, 'skin');
   if (mask) mask3D(ctx, H, mask, 'skin', L, t);
+  const capHair = style !== 'careca' && style !== 'moicano' && style !== 'afro' && style !== 'samurai';
+  if (showHair && !masked && capHair && !PS.F) {
+    const low = longHair || style === 'cometa' ? 0.55 : 0.42;
+    sphereRegion(ctx, H, R + 0.3, 0, -Math.PI, Math.PI, (l) => hairline(l, low) - 0.02, (l) => hairline(l, low) + 0.13, L.skinShade, { line: 0, alpha: 0.5, n: 32, m: 2 });
+  }
   face3D(ctx, H, L, expr, t, C(c1), v, !!mask);
   if (mask) mask3D(ctx, H, mask, 'front', L, t);
   if (showHair && !masked) hair3D(ctx, H, style, c1, c2, t, 'front', false);
@@ -527,7 +584,8 @@ function head3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, expr: Expr, t: 
 }
 
 function ear(ctx: CanvasRenderingContext2D, H: Proj, sd: number, L: Look) {
-  ell(ctx, H, -1, 5, sd * (R - 1), 5.5, 7.5, 3.2, L.skin, { line: 2.5, shade: L.skinShade, hi: false });
+  ell(ctx, H, -1, 5, sd * (R - 1), 5.5, 7.5, 3.2, L.skin, { line: 2.4, shade: L.skinShade, hi: false });
+  if (!PS.F) ell(ctx, H, -0.5, 5.5, sd * (R + 0.4), 2.6, 4, 1.5, L.skinShade, { line: 0, shade: null, hi: false, alpha: 0.75 });
 }
 
 function face3D(ctx: CanvasRenderingContext2D, H: Proj, L: Look, expr: Expr, t: number, hairC: string, v: V3, masked: boolean) {
@@ -582,8 +640,16 @@ function face3D(ctx: CanvasRenderingContext2D, H: Proj, L: Look, expr: Expr, t: 
       const a = spherePt(H, R, 0, sd * 0.17, by + ang, 0.5);
       const b = spherePt(H, R, 0, sd * 0.56, by - ang * 0.6, 0.5);
       if (a[3] < 0.1 || b[3] < 0.05) continue;
+      const mx = (a[0] + b[0]) / 2;
+      const my = (a[1] + b[1]) / 2 - 1.2;
+      ctx.lineWidth = thick;
       ctx.beginPath();
       ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(mx, my);
+      ctx.stroke();
+      ctx.lineWidth = thick * 0.6;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
       ctx.lineTo(b[0], b[1]);
       ctx.stroke();
     }
@@ -592,7 +658,20 @@ function face3D(ctx: CanvasRenderingContext2D, H: Proj, L: Look, expr: Expr, t: 
   const n = spherePt(H, R, 0, 0, 0.2);
   if (n[3] > -0.25) {
     const d = [Math.cos(0.2), Math.sin(0.2)];
-    ell(ctx, H, d[0] * (R + 1.5), d[1] * (R + 1.5), 0, 5.2, 5.6, 4.6, shade(L.skin, -0.04), { line: 2.2, shade: L.skinShade });
+    ell(ctx, H, d[0] * (R + 1), d[1] * (R + 1), 0, 4.6, 5.4, 4.4, L.skin, { line: 1.8, shade: L.skinShade });
+    if (!PS.F) {
+      // narinas
+      ctx.fillStyle = shade(L.skinShade, -0.4);
+      ctx.globalAlpha = 0.75;
+      for (const sd of [-1, 1]) {
+        const q = spherePt(H, R, 0, sd * 0.09, 0.39, 3.2);
+        if (q[3] < 0.2) continue;
+        ctx.beginPath();
+        ctx.ellipse(q[0], q[1], 1.5 * q[3], 0.9, 0, 0, TAU);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
   }
   // boca
   const mouth = expr === 'hurt' || expr === 'ko' ? 'ai' : expr === 'angry' || expr === 'power' ? 'dentes' : expr === 'happy' ? 'grito' : L.mouth;
@@ -629,15 +708,51 @@ function face3D(ctx: CanvasRenderingContext2D, H: Proj, L: Look, expr: Expr, t: 
       curve(row((q) => [-0.27 + q * 0.54, 0.56 - q * q * 0.1]));
       break;
     case 'dentes':
-      sphereRegion(ctx, H, R + 0.4, 0, -0.26, 0.26, () => 0.5, () => 0.63, '#ffffff', { line: 2.2, n: 8, m: 2 });
-      curve(row((q) => [-0.25 + q * 0.5, 0.565]), 1.8);
+      sphereRegion(ctx, H, R + 0.4, 0, -0.26, 0.26, () => 0.5, () => 0.63, '#fbf7ee', { line: 2.2, n: 8, m: 2 });
+      curve(row((q) => [-0.25 + q * 0.5, 0.565]), 1.3);
+      if (!PS.F) {
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.6;
+        ctx.beginPath();
+        for (const lon of [-0.15, -0.05, 0.05, 0.15]) {
+          const a = spherePt(H, R, 0, lon, 0.51, 0.5);
+          const b = spherePt(H, R, 0, lon, 0.62, 0.5);
+          if (a[3] < 0.1) continue;
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       break;
     case 'grito':
-      sphereRegion(ctx, H, R + 0.4, 0, -0.17, 0.17, (l) => 0.5 + Math.abs(l) * 0.4, (l) => 0.68 - Math.abs(l) * 0.4, '#5a1020', { line: 2.2, n: 8, m: 3 });
+      sphereRegion(ctx, H, R + 0.4, 0, -0.22, 0.22, (l) => 0.48 + Math.abs(l) * 0.15, (l) => 0.74 - Math.abs(l) * 0.6, '#4a0f1c', { line: 2.2, n: 10, m: 3 });
+      sphereRegion(ctx, H, R + 0.5, 0, -0.17, 0.17, (l) => 0.5 + Math.abs(l) * 0.15, () => 0.55, '#fbf7ee', { line: 0, n: 8, m: 1 });
+      sphereRegion(ctx, H, R + 0.5, 0, -0.11, 0.11, () => 0.65, (l) => 0.71 - Math.abs(l) * 0.5, '#ff6a7a', { line: 0, n: 6, m: 1 });
       break;
     case 'ai':
       curve([[-0.25, 0.58], [-0.12, 0.52], [0, 0.58], [0.12, 0.52], [0.25, 0.58]]);
       break;
+  }
+  if (!PS.F && !masked && (mouth === 'sorriso' || mouth === 'serio' || mouth === 'maroto')) {
+    // lábio inferior (sombra suave por baixo da boca)
+    ctx.globalAlpha = 0.7;
+    ctx.lineWidth = 1.7;
+    ctx.strokeStyle = L.skinShade;
+    ctx.beginPath();
+    let on = false;
+    for (let i = 0; i <= 6; i++) {
+      const p = spherePt(H, R, 0, -0.13 + i * 0.043, 0.66 + Math.sin((i / 6) * Math.PI) * 0.02, 0.3);
+      if (p[3] < 0.06) {
+        on = false;
+        continue;
+      }
+      if (on) ctx.lineTo(p[0], p[1]);
+      else ctx.moveTo(p[0], p[1]);
+      on = true;
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   }
   void v;
 }
@@ -901,6 +1016,36 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
       return;
   }
   cap();
+  if (!PS.F) {
+    const dark = c1.length === 7 && c1[0] === '#' ? shade(c1, -0.42) : c1;
+    // sombra junto à linha do cabelo (espessura da franja)
+    sphereRegion(ctx, H, R + 2.6, 0, -Math.PI, Math.PI, (l) => hairline(l, low) - 0.2, (l) => hairline(l, low), dark, { line: 0, alpha: 0.35, n: 32, m: 2 });
+    // madeixas a sair do remoinho
+    ctx.strokeStyle = dark;
+    ctx.lineWidth = 1.6;
+    ctx.globalAlpha = 0.6;
+    ctx.lineCap = 'round';
+    for (let k = 0; k < 14; k++) {
+      const lon = -Math.PI + (k / 14) * TAU + 0.15;
+      const end = hairline(lon, low) - 0.06;
+      ctx.beginPath();
+      let on = false;
+      for (let i = 0; i <= 5; i++) {
+        const q = i / 5;
+        const lat = -1.35 + (end + 1.35) * q;
+        const p = spherePt(H, R + 2.7, 0, lon + Math.sin(q * 2) * 0.12, lat);
+        if (p[3] < 0.12) {
+          on = false;
+          continue;
+        }
+        if (on) ctx.lineTo(p[0], p[1]);
+        else ctx.moveTo(p[0], p[1]);
+        on = true;
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
   shine();
   if (style === 'topete') {
     when(14, -30, 0, () => ell(ctx, H, 12, -31, 0, 21, 11, 18, c1, { line: 3, rot: -0.3 }));

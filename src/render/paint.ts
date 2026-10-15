@@ -145,93 +145,115 @@ export function limb(
     });
     ctx.restore();
   }
-  limbShade(ctx, ax, ay, bx, by, pu, dark);
-  limbShade(ctx, bx, by, cx, cy, pl, dark);
+  limbShade(ctx, ax, ay, bx, by, cx, cy, pu, pl, dark);
   ctx.globalAlpha = 1;
 }
 
+/** Ponto de um segmento: t ao longo, s em raios para o lado da sombra. */
+function segPt(x1: number, y1: number, x2: number, y2: number, p: Prof, snx: number, sny: number, t: number, s: number): [number, number] {
+  const r = profR(p, t);
+  return [x1 + (x2 - x1) * t + snx * s * r, y1 + (y2 - y1) * t + sny * s * r];
+}
+
 /**
- * Cel shading de um segmento de membro, com luz principal por cima/à frente:
- * sombra própria + sombra de núcleo, luz refletida na orla, vinco muscular e brilho de suor.
+ * Cel shading dos dois segmentos de um membro, com luz principal por cima/à frente:
+ * sombra própria + sombra de núcleo, luz refletida na orla, vincos musculares e brilho de suor.
+ * Cada camada é um único caminho para os dois segmentos (poucas chamadas de desenho).
  */
-function limbShade(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, p: Prof, dark: string) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const len = Math.hypot(dx, dy) || 1;
-  const tx = dx / len;
-  const ty = dy / len;
-  const [snx, sny] = shadeSide(dx, dy);
-  const w = p[1];
-  const M = (t: number, s: number): [number, number] => {
-    const r = profR(p, t);
-    return [x1 + dx * t + snx * s * r, y1 + dy * t + sny * s * r];
-  };
-  // sombra própria (metade afastada da luz)
+function limbShade(
+  ctx: CanvasRenderingContext2D, ax: number, ay: number, bx: number, by: number, cx: number, cy: number, pu: Prof, pl: Prof, dark: string,
+) {
+  const [un, uv] = shadeSide(bx - ax, by - ay);
+  const [ln, lv] = shadeSide(cx - bx, cy - by);
+  const segs = [
+    [ax, ay, bx, by, un, uv],
+    [bx, by, cx, cy, ln, lv],
+  ] as const;
+  const profs = [pu, pl];
+  // sombra própria (metade afastada da luz) e sombra de núcleo junto à orla
   ctx.fillStyle = dark;
-  ctx.globalAlpha = 0.55;
-  ctx.beginPath();
-  capsule(ctx, x1, y1, x2, y2, p, 0.56, snx * w * 0.44, sny * w * 0.44);
-  ctx.fill();
-  // sombra de núcleo (mais escura, junto à orla)
-  ctx.globalAlpha = 0.32;
-  ctx.beginPath();
-  capsule(ctx, x1, y1, x2, y2, p, 0.3, snx * w * 0.66, sny * w * 0.66);
-  ctx.fill();
-  // luz refletida na orla do lado da sombra
+  for (const [k, off, alpha] of [[0.56, 0.44, 0.55], [0.3, 0.66, 0.32]] as const) {
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (let i = 0; i < 2; i++) {
+      const [x1, y1, x2, y2, sx, sy] = segs[i];
+      const w = profs[i][1];
+      capsule(ctx, x1, y1, x2, y2, profs[i], k, sx * w * off, sy * w * off);
+    }
+    ctx.fill();
+  }
+  // luz refletida (fria) na orla do lado da sombra
   ctx.globalAlpha = 0.2;
   ctx.strokeStyle = '#d8ecff';
   ctx.lineWidth = 1.6;
   ctx.beginPath();
-  for (let i = 0; i <= 6; i++) {
-    const q = M(0.14 + i * 0.12, 0.8);
-    if (i) ctx.lineTo(q[0], q[1]);
-    else ctx.moveTo(q[0], q[1]);
+  for (let i = 0; i < 2; i++) {
+    const [x1, y1, x2, y2, sx, sy] = segs[i];
+    for (let j = 0; j <= 4; j++) {
+      const q = segPt(x1, y1, x2, y2, profs[i], sx, sy, 0.14 + j * 0.18, 0.8);
+      if (j) ctx.lineTo(q[0], q[1]);
+      else ctx.moveTo(q[0], q[1]);
+    }
   }
   ctx.stroke();
-  // vincos musculares (deltóide/bíceps, gémeos, rótula)
+  // vincos musculares (deltóide/bíceps, rótula, gémeos, cotovelo)
   ctx.strokeStyle = dark;
   ctx.lineWidth = 1.8;
   ctx.globalAlpha = 0.55;
   ctx.beginPath();
-  if (p === ARM_U) {
-    let q = M(0.2, -0.95);
-    ctx.moveTo(q[0], q[1]);
-    q = M(0.34, -0.2);
-    const c = M(0.36, -0.75);
-    ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
-  } else if (p === LEG_L) {
-    let q = M(0.12, 0.15);
-    ctx.moveTo(q[0], q[1]);
-    const c = M(0.3, 0.55);
-    q = M(0.58, 0.5);
-    ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
-  } else if (p === LEG_U) {
-    // rótula: arco curto junto ao joelho, do lado da frente
-    const q = M(0.9, -0.55);
-    ctx.moveTo(q[0], q[1]);
-    const c = M(0.98, -0.1);
-    const e = M(0.86, 0.05);
-    ctx.quadraticCurveTo(c[0], c[1], e[0], e[1]);
-  } else if (p === ARM_L) {
-    const q = M(0.08, 0.5);
-    ctx.moveTo(q[0], q[1]);
-    const e = M(0.16, 0.05);
-    ctx.lineTo(e[0], e[1]);
+  for (let i = 0; i < 2; i++) {
+    const [x1, y1, x2, y2, sx, sy] = segs[i];
+    const p = profs[i];
+    const M = (t: number, s: number) => segPt(x1, y1, x2, y2, p, sx, sy, t, s);
+    let q: [number, number];
+    let c: [number, number];
+    if (p === ARM_U) {
+      q = M(0.2, -0.95);
+      ctx.moveTo(q[0], q[1]);
+      c = M(0.36, -0.75);
+      q = M(0.34, -0.2);
+      ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
+    } else if (p === LEG_L) {
+      q = M(0.12, 0.15);
+      ctx.moveTo(q[0], q[1]);
+      c = M(0.3, 0.55);
+      q = M(0.58, 0.5);
+      ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
+    } else if (p === LEG_U) {
+      q = M(0.9, -0.55);
+      ctx.moveTo(q[0], q[1]);
+      c = M(0.98, -0.1);
+      q = M(0.86, 0.05);
+      ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
+    } else if (p === ARM_L) {
+      q = M(0.08, 0.5);
+      ctx.moveTo(q[0], q[1]);
+      q = M(0.16, 0.05);
+      ctx.lineTo(q[0], q[1]);
+    }
   }
   ctx.stroke();
-  // brilho de suor no bojo (lado da luz)
-  const pk = p[3] ?? 0.45;
-  const h = M(pk, -0.5);
-  const ang = Math.atan2(ty, tx);
+  // brilho de suor no bojo (lado da luz): reflexo largo + ponto forte
   ctx.fillStyle = '#ffffff';
-  ctx.globalAlpha = 0.3;
-  ctx.beginPath();
-  ctx.ellipse(h[0], h[1], Math.max(2, len * 0.2), Math.max(1, w * 0.14), ang, 0, TAU);
-  ctx.fill();
-  ctx.globalAlpha = 0.75;
-  ctx.beginPath();
-  ctx.ellipse(h[0] + tx * len * 0.06, h[1] + ty * len * 0.06, Math.max(1, len * 0.05), Math.max(0.6, w * 0.07), ang, 0, TAU);
-  ctx.fill();
+  for (const [big, alpha] of [[true, 0.3], [false, 0.75]] as const) {
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
+    for (let i = 0; i < 2; i++) {
+      const [x1, y1, x2, y2, sx, sy] = segs[i];
+      const p = profs[i];
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const len = Math.hypot(dx, dy) || 1;
+      const h = segPt(x1, y1, x2, y2, p, sx, sy, p[3] ?? 0.45, -0.5);
+      const ang = Math.atan2(dy, dx);
+      const rx = big ? Math.max(2, len * 0.2) : Math.max(1, len * 0.05);
+      const ry = big ? Math.max(1, p[1] * 0.14) : Math.max(0.6, p[1] * 0.07);
+      const o = big ? 0 : 0.06;
+      ctx.moveTo(h[0] + dx * o + Math.cos(ang) * rx, h[1] + dy * o + Math.sin(ang) * rx);
+      ctx.ellipse(h[0] + dx * o, h[1] + dy * o, rx, ry, ang, 0, TAU);
+    }
+    ctx.fill();
+  }
   ctx.globalAlpha = 1;
 }
 

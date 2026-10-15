@@ -145,42 +145,115 @@ export function ropeHeightAt(r: RopeState, side: 0 | 1, rope: number): number {
 
 // ───────────────────────── Fundo pré-renderizado ─────────────────────────
 
+/** Camada pré-renderizada de uma faixa vertical do fundo (só guarda as linhas de BH que têm conteúdo). */
+interface Layer {
+  c: HTMLCanvasElement;
+  y0: number;
+  h: number;
+}
+
 let backdrop: HTMLCanvasElement | null = null;
-let crowdLayers: HTMLCanvasElement[] = [];
-let crowdArms: HTMLCanvasElement | null = null;
+let crowdBack: Layer[] = [];
+let crowdFront: Layer[] = [];
+let crowdArms: Layer[] = [];
+let barrier: Layer | null = null;
 let phones: { x: number; y: number; p: number }[] = [];
+let sticks: { x: number; y: number; s: number; g: number; c: string; p: number }[] = [];
+let vignette: HTMLCanvasElement | null = null;
 const BW = 2600;
 const BH = 760;
 
-const SHIRTS = ['#e63946', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6', '#ecf0f1', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e'];
+const OUT = '#160d24';
+const SHIRTS = [
+  '#e63946', '#f1c40f', '#3498db', '#2ecc71', '#9b59b6', '#ecf0f1', '#e67e22', '#1abc9c', '#ff6fb5', '#34495e', '#2f7bff', '#222831', '#f5f0e1', '#c0392b',
+];
 const SKINS = ['#f6c9a4', '#e8b083', '#b9774c', '#6e3f28', '#d29466', '#94593a'];
-
 const HAIRS = ['#1b1714', '#3a2a1a', '#5a3418', '#e2b44a', '#b8461b', '#8d8f95', '#101010'];
+const PRINTS = ['#ffffff', '#ffd23d', '#16121f', '#ff3b4e', '#2f7bff'];
+const HATS = ['#e63946', '#2f7bff', '#16121f', '#f1c40f', '#2ecc71', '#ffffff', '#ff6fb5'];
+const NEON = ['#39ff88', '#ff4fd8', '#3ad8ff', '#ffe14d'];
+const SIGN_BG = ['#ffffff', '#ffe14d', '#ff9ccf', '#9fe8ff', '#ffffff'];
+const SIGN_INK = ['#e63946', '#2f7bff', '#16121f', '#9b2fd6'];
+const WORDS = ['WOW!', 'K.O.!', '10/10', 'LEGEND', 'POWER', 'GO!', 'CHAMP', 'BOOM', 'HYPE!', 'HI MOM', 'GOAT', 'SLAM!', 'KING ♛', 'RING ♥'];
 const CROWD_GROUPS = 3;
-const CS = 0.5; // as camadas do público são desenhadas a meia resolução (poupança de memória)
+/** Entrada dos lutadores (palco + rampa) e corredores das bancadas, em coordenadas do fundo. */
+const STAGE_X = 820;
+const STAGE_HW = 132;
+const AISLES = [380, 1090, 1530, 2230];
+const TRUSS_LIGHTS: number[] = [];
+for (let x = 140; x < BW; x += 165) TRUSS_LIGHTS.push(x);
 
 interface Spot {
   x: number;
   y: number;
   s: number;
-  light: number;
   g: number;
   i: number;
   r: number;
 }
 
-/** Posições de todos os espectadores (determinísticas). */
+function mk(w: number, h: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+  const c = document.createElement('canvas');
+  c.width = Math.max(1, Math.round(w));
+  c.height = Math.max(1, Math.round(h));
+  return [c, c.getContext('2d')!];
+}
+
+function darken(hex: string, k: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgb(${Math.round(((n >> 16) & 255) * k)},${Math.round(((n >> 8) & 255) * k)},${Math.round((n & 255) * k)})`;
+}
+
+function pick<T>(a: T[], v: number): T {
+  return a[Math.floor(v * a.length) % a.length];
+}
+
+/** Preenche o caminho atual e contorna-o com o traço escuro do estilo cartoon. */
+function inked(g: CanvasRenderingContext2D, fill: string | CanvasGradient, lw: number): void {
+  g.fillStyle = fill;
+  g.fill();
+  g.lineWidth = lw;
+  g.strokeStyle = OUT;
+  g.stroke();
+}
+
+function crownPath(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number): void {
+  g.beginPath();
+  g.moveTo(x - w * 0.5, y);
+  g.lineTo(x - w * 0.56, y - h * 0.85);
+  g.lineTo(x - w * 0.26, y - h * 0.42);
+  g.lineTo(x, y - h);
+  g.lineTo(x + w * 0.26, y - h * 0.42);
+  g.lineTo(x + w * 0.56, y - h * 0.85);
+  g.lineTo(x + w * 0.5, y);
+  g.closePath();
+}
+
+function starPath(g: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  g.beginPath();
+  for (let k = 0; k < 10; k++) {
+    const a = -Math.PI / 2 + (k * Math.PI) / 5;
+    const rr = k % 2 ? r * 0.45 : r;
+    g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  g.closePath();
+}
+
+/** Posições de todos os espectadores (determinísticas). Os grupos são blocos de vizinhos que saltam juntos. */
 function crowdSpots(): Spot[] {
   const out: Spot[] = [];
   const rows = 8;
   for (let r = 0; r < rows; r++) {
     const s = 0.62 + r * 0.06;
     const y = 232 + r * 60;
-    const light = 0.42 + (r / rows) * 0.58;
     let x = -20 + hash(r * 31) * 30;
     let i = 0;
     while (x < BW + 30) {
-      out.push({ x, y: y + (hash(r * 97 + i) - 0.5) * 8, s, light, g: Math.floor(hash(i * 13 + r * 7) * CROWD_GROUPS), i: i + r * 1000, r });
+      const blocked = Math.abs(x - STAGE_X) < STAGE_HW + 14 || AISLES.some((a) => Math.abs(x - a) < 20 + 10 * s);
+      if (!blocked) {
+        const blk = Math.floor((x + hash(r * 13) * 170) / 170);
+        out.push({ x, y: y + (hash(r * 97 + i) - 0.5) * 8, s, g: Math.floor(hash(blk * 7.3 + r * 1.1) * CROWD_GROUPS), i: i + r * 1000, r });
+      }
       x += (30 + hash(r * 999 + i) * 14) * s * 1.25;
       i++;
     }
@@ -188,283 +261,1149 @@ function crowdSpots(): Spot[] {
   return out;
 }
 
-function personBody(g: CanvasRenderingContext2D, p: Spot): void {
-  const h = hash(p.i * 1.7);
-  const s = p.s;
-  const shirt = SHIRTS[Math.floor(hash(p.i * 3.1) * SHIRTS.length)];
-  const skin = SKINS[Math.floor(hash(p.i * 5.3) * SKINS.length)];
-  const hair = HAIRS[Math.floor(hash(p.i * 7.7) * HAIRS.length)];
-  const x = p.x;
-  const y = p.y;
-  const wide = 0.85 + hash(p.i * 2.3) * 0.4;
-  // tronco com ombros
-  g.fillStyle = shirt;
+/** Altura da cabeça de cada pessoa (há gente mais alta e mais baixa). */
+function headY(p: Spot): number {
+  return p.y + (hash(p.i * 4.9) - 0.5) * 7 * p.s;
+}
+
+function hairBack(g: CanvasRenderingContext2D, style: number, x: number, y: number, s: number, hair: string, sd: number): void {
+  const lw = 1.8 * s;
   g.beginPath();
-  g.moveTo(x - 19 * s * wide, y + 60 * s);
-  g.quadraticCurveTo(x - 20 * s * wide, y + 24 * s, x - 9 * s, y + 20 * s);
-  g.lineTo(x + 9 * s, y + 20 * s);
-  g.quadraticCurveTo(x + 20 * s * wide, y + 24 * s, x + 19 * s * wide, y + 60 * s);
-  g.closePath();
+  if (style === 1) g.roundRect(x - 12.6 * s, y - 7 * s, 25.2 * s, 29 * s, 10 * s);
+  else if (style === 3) g.arc(x, y - 2 * s, 15 * s, 0, Math.PI * 2);
+  else if (style === 6) g.arc(x, y - 11 * s, 5.5 * s, 0, Math.PI * 2);
+  else if (style === 8) g.ellipse(x + sd * 11 * s, y + 9 * s, 4.5 * s, 9 * s, sd * 0.4, 0, Math.PI * 2);
+  else return;
+  inked(g, hair, lw);
+}
+
+function hairFront(g: CanvasRenderingContext2D, p: Spot, style: number, x: number, y: number, s: number, hair: string, look: number): void {
+  const lw = 1.8 * s;
+  const hat = pick(HATS, hash(p.i * 11.3));
+  const cap = () => {
+    g.beginPath();
+    g.ellipse(x, y + 0.5 * s, 11.2 * s, 10 * s, 0, Math.PI, 0);
+    g.quadraticCurveTo(x + 4 * s, y - 2 * s, x - 2 * s, y + 1.5 * s);
+    g.closePath();
+    inked(g, hair, lw);
+  };
+  switch (style) {
+    case 0:
+    case 1:
+    case 6:
+    case 8:
+      cap();
+      break;
+    case 2: // boné com pala para o ringue
+      g.beginPath();
+      g.ellipse(x + Math.sign(look) * 8 * s, y - 0.5 * s, 9 * s, 2.6 * s, 0, 0, Math.PI * 2);
+      inked(g, darken(hat === '#ffffff' ? '#d8d8d8' : hat, 0.75), lw);
+      g.beginPath();
+      g.ellipse(x, y - 1 * s, 11.4 * s, 10 * s, 0, Math.PI, 0);
+      g.closePath();
+      inked(g, hat, lw);
+      g.fillStyle = hat === '#ffffff' ? '#e63946' : '#ffffff';
+      g.beginPath();
+      g.arc(x, y - 5.5 * s, 2.3 * s, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 3: // afro: linha do cabelo
+      g.fillStyle = hair;
+      g.beginPath();
+      g.ellipse(x, y - 1 * s, 10.4 * s, 7.5 * s, 0, Math.PI, 0);
+      g.fill();
+      break;
+    case 4: // gorro com pompom
+      g.beginPath();
+      g.ellipse(x, y - 1 * s, 11.8 * s, 12 * s, 0, Math.PI, 0);
+      g.closePath();
+      inked(g, hat, lw);
+      g.beginPath();
+      g.roundRect(x - 12.2 * s, y - 4 * s, 24.4 * s, 5.4 * s, 2 * s);
+      inked(g, darken(hat === '#ffffff' ? '#cccccc' : hat, 0.7), lw);
+      g.beginPath();
+      g.arc(x, y - 14 * s, 3.4 * s, 0, Math.PI * 2);
+      inked(g, '#ffffff', lw * 0.8);
+      break;
+    case 5: // careca com brilho
+      g.fillStyle = 'rgba(255,255,255,0.35)';
+      g.beginPath();
+      g.ellipse(x - 3 * s, y - 3.5 * s, 4 * s, 2.3 * s, -0.4, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 7: { // crista colorida
+      g.beginPath();
+      g.moveTo(x - 4 * s, y - 4 * s);
+      for (let k = 0; k <= 4; k++) {
+        const px = x - 4 * s + k * 2 * s;
+        g.lineTo(px - 1.5 * s, y - (12 + (k % 2) * 4) * s - (k === 2 ? 3 * s : 0));
+        g.lineTo(px + 1 * s, y - 7 * s);
+      }
+      g.lineTo(x + 4 * s, y - 4 * s);
+      g.closePath();
+      inked(g, pick(NEON, hash(p.i * 3.7)), lw);
+      break;
+    }
+    case 9: // chapéu de cowboy
+      g.beginPath();
+      g.ellipse(x, y - 2 * s, 17 * s, 3.8 * s, 0, 0, Math.PI * 2);
+      inked(g, '#8a5a2b', lw);
+      g.beginPath();
+      g.roundRect(x - 8.5 * s, y - 14 * s, 17 * s, 12 * s, 4 * s);
+      inked(g, '#9c6a35', lw);
+      g.fillStyle = '#3a2412';
+      g.fillRect(x - 8 * s, y - 5.5 * s, 16 * s, 2.6 * s);
+      break;
+    case 10: // coroa de papel (somos os reis do ringue!)
+      cap();
+      crownPath(g, x, y - 4 * s, 18 * s, 11 * s);
+      inked(g, '#ffd23d', lw);
+      g.fillStyle = '#e63946';
+      g.beginPath();
+      g.arc(x, y - 7 * s, 1.6 * s, 0, Math.PI * 2);
+      g.fill();
+      break;
+    case 11: // fita na testa
+      cap();
+      g.beginPath();
+      g.rect(x - 10.8 * s, y - 2.5 * s, 21.6 * s, 3.6 * s);
+      inked(g, hash(p.i * 2.9) > 0.5 ? '#ff3b4e' : '#2f7bff', lw * 0.7);
+      break;
+    default: { // caracóis
+      g.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const a = Math.PI + (k / 5) * Math.PI;
+        const cx = x + Math.cos(a) * 9.5 * s;
+        const cy = y + Math.sin(a) * 8.5 * s;
+        g.moveTo(cx + 4.2 * s, cy);
+        g.arc(cx, cy, 4.2 * s, 0, Math.PI * 2);
+      }
+      inked(g, hair, lw * 0.8);
+    }
+  }
+}
+
+function personBody(g: CanvasRenderingContext2D, p: Spot): void {
+  const s = p.s;
+  const x = p.x;
+  const y = headY(p);
+  const shirt = pick(SHIRTS, hash(p.i * 3.1));
+  const skin = pick(SKINS, hash(p.i * 5.3));
+  const hair = pick(HAIRS, hash(p.i * 7.7));
+  const wide = 0.8 + hash(p.i * 2.3) * 0.5;
+  const heavy = wide > 1.15 ? 2.5 * s : 0;
+  const lw = 2.1 * s;
+  const style = Math.floor(hash(p.i * 1.7) * 13);
+  // a luz vem do ringue (centro): sombra do lado de fora; todos olham para o ringue
+  const sd = x < BW / 2 ? -1 : 1;
+  const look = -sd * 1.5 * s * (0.4 + hash(p.i * 8.3) * 0.6);
+  hairBack(g, style, x, y, s, hair, sd);
+  // tronco
+  const sw = 19 * s * wide;
+  const torso = () => {
+    g.beginPath();
+    g.moveTo(x - sw - heavy, y + 64 * s);
+    g.quadraticCurveTo(x - sw - 1 * s, y + 23 * s, x - 8 * s, y + 18.5 * s);
+    g.lineTo(x + 8 * s, y + 18.5 * s);
+    g.quadraticCurveTo(x + sw + 1 * s, y + 23 * s, x + sw + heavy, y + 64 * s);
+    g.closePath();
+  };
+  torso();
+  g.save();
+  g.fillStyle = shirt;
   g.fill();
-  // sombra na camisola
-  g.fillStyle = 'rgba(0,0,0,0.28)';
-  g.fillRect(x - 19 * s * wide, y + 42 * s, 38 * s * wide, 18 * s);
-  // pescoço e cabeça
-  g.fillStyle = skin;
-  g.fillRect(x - 4 * s, y + 13 * s, 8 * s, 9 * s);
+  g.clip();
+  let pc = pick(PRINTS, hash(p.i * 7.9));
+  if (pc === shirt) pc = '#16121f';
+  const pt = Math.floor(hash(p.i * 6.7) * 7);
+  g.fillStyle = pc;
+  if (pt === 1) {
+    g.fillRect(x - 30 * s, y + 31 * s, 60 * s, 4 * s);
+    g.fillRect(x - 30 * s, y + 41 * s, 60 * s, 4 * s);
+  } else if (pt === 2) {
+    starPath(g, x, y + 36 * s, 6.5 * s);
+    g.fill();
+  } else if (pt === 3) {
+    g.font = `${(13 * s).toFixed(1)}px "Luckiest Guy", Impact, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(String(1 + (p.i % 99)), x, y + 38 * s);
+  } else if (pt === 4) {
+    g.fillStyle = hash(p.i * 9.9) > 0.5 ? '#ff3b4e' : '#2f7bff';
+    g.fillRect(x, y + 15 * s, 40 * s, 52 * s);
+  } else if (pt === 5) {
+    g.fillRect(x - 6 * s, y + 18 * s, 12 * s, 3 * s);
+    g.fillRect(x - 40 * s, y + 18 * s, 80 * s, 2.4 * s);
+  } else if (pt === 6) {
+    // capuz e cordões
+    g.fillStyle = darken(shirt, 0.72);
+    g.beginPath();
+    g.ellipse(x, y + 20 * s, 13 * s, 5 * s, 0, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = pc;
+    g.lineWidth = 1.4 * s;
+    g.beginPath();
+    g.moveTo(x - 3 * s, y + 22 * s);
+    g.lineTo(x - 3 * s, y + 32 * s);
+    g.moveTo(x + 3 * s, y + 22 * s);
+    g.lineTo(x + 3 * s, y + 32 * s);
+    g.stroke();
+  }
+  // sombreamento cel: lado de fora e base
+  g.fillStyle = 'rgba(16,4,40,0.28)';
+  g.fillRect(sd > 0 ? x + 5 * s : x - sw - heavy - 5 * s, y + 16 * s, sw + heavy, 50 * s);
+  g.fillStyle = 'rgba(16,4,40,0.22)';
+  g.fillRect(x - 40 * s, y + 48 * s, 80 * s, 20 * s);
+  g.fillStyle = 'rgba(255,255,255,0.2)';
+  g.fillRect(x - sw * 0.6, y + 19.5 * s, sw * 1.2, 2.2 * s);
+  g.restore();
+  torso();
+  g.lineWidth = lw;
+  g.strokeStyle = OUT;
+  g.lineJoin = 'round';
+  g.stroke();
+  // pescoço
+  g.fillStyle = darken(skin, 0.78);
+  g.fillRect(x - 3.8 * s, y + 12 * s, 7.6 * s, 8 * s);
+  // orelhas
+  g.beginPath();
+  g.ellipse(x - 10.4 * s, y + 5 * s, 2.4 * s, 3.2 * s, 0, 0, Math.PI * 2);
+  g.ellipse(x + 10.4 * s, y + 5 * s, 2.4 * s, 3.2 * s, 0, 0, Math.PI * 2);
+  inked(g, skin, lw * 0.8);
+  // cabeça com sombra em crescente
+  g.fillStyle = darken(skin, 0.76);
   g.beginPath();
   g.ellipse(x, y + 4 * s, 10.5 * s, 12 * s, 0, 0, Math.PI * 2);
   g.fill();
-  // cabelo / chapéus
-  const style = Math.floor(h * 7);
-  g.fillStyle = hair;
-  switch (style) {
-    case 0: // curto
-      g.beginPath();
-      g.ellipse(x, y - 1 * s, 11 * s, 9 * s, 0, Math.PI, 0);
-      g.fill();
-      break;
-    case 1: // comprido
-      g.beginPath();
-      g.ellipse(x, y + 2 * s, 12.5 * s, 13 * s, 0, Math.PI * 0.95, Math.PI * 0.05);
-      g.fill();
-      g.fillRect(x - 12.5 * s, y + 2 * s, 5 * s, 17 * s);
-      g.fillRect(x + 7.5 * s, y + 2 * s, 5 * s, 17 * s);
-      break;
-    case 2: // boné
-      g.fillStyle = SHIRTS[Math.floor(hash(p.i * 11) * SHIRTS.length)];
-      g.beginPath();
-      g.ellipse(x, y - 2 * s, 11 * s, 8 * s, 0, Math.PI, 0);
-      g.fill();
-      g.fillRect(x - 2 * s, y - 3 * s, 15 * s, 3.5 * s);
-      break;
-    case 3: // afro
-      g.beginPath();
-      g.arc(x, y - 3 * s, 14 * s, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = skin;
-      g.beginPath();
-      g.ellipse(x, y + 6 * s, 9 * s, 10 * s, 0, 0, Math.PI * 2);
-      g.fill();
-      break;
-    case 4: // gorro
-      g.fillStyle = SHIRTS[Math.floor(hash(p.i * 13) * SHIRTS.length)];
-      g.beginPath();
-      g.ellipse(x, y - 2 * s, 11.5 * s, 11 * s, 0, Math.PI, 0);
-      g.fill();
-      g.fillStyle = '#ffffff';
-      g.beginPath();
-      g.arc(x, y - 13 * s, 3 * s, 0, Math.PI * 2);
-      g.fill();
-      break;
-    case 5: // careca com brilho
-      g.fillStyle = 'rgba(255,255,255,0.25)';
-      g.beginPath();
-      g.ellipse(x - 3 * s, y - 4 * s, 4 * s, 2.5 * s, -0.4, 0, Math.PI * 2);
-      g.fill();
-      break;
-    default: // apanhado
-      g.beginPath();
-      g.ellipse(x, y - 1 * s, 11 * s, 9 * s, 0, Math.PI, 0);
-      g.fill();
-      g.beginPath();
-      g.arc(x, y - 10 * s, 5 * s, 0, Math.PI * 2);
-      g.fill();
+  g.fillStyle = skin;
+  g.beginPath();
+  g.ellipse(x - sd * 1.8 * s, y + 3 * s, 8.7 * s, 11 * s, 0, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.ellipse(x, y + 4 * s, 10.5 * s, 12 * s, 0, 0, Math.PI * 2);
+  g.lineWidth = lw;
+  g.strokeStyle = OUT;
+  g.stroke();
+  // barba
+  if (hash(p.i * 12.7) > 0.84) {
+    g.fillStyle = hair;
+    g.beginPath();
+    g.ellipse(x, y + 8.5 * s, 9.6 * s, 7.4 * s, 0, 0.02 * Math.PI, 0.98 * Math.PI);
+    g.fill();
   }
-  // óculos de vez em quando
-  if (hash(p.i * 17) > 0.85) {
-    g.fillStyle = '#111';
-    g.fillRect(x - 8 * s, y + 2 * s, 16 * s, 3 * s);
+  // cara: olhos, sobrancelhas e boca bem legíveis à distância
+  const ex = x + look;
+  g.fillStyle = OUT;
+  g.beginPath();
+  g.ellipse(ex - 3.6 * s, y + 4.6 * s, 1.35 * s, 1.75 * s, 0, 0, Math.PI * 2);
+  g.ellipse(ex + 3.6 * s, y + 4.6 * s, 1.35 * s, 1.75 * s, 0, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = OUT;
+  g.lineWidth = 1.3 * s;
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(ex - 6 * s, y + 0.8 * s);
+  g.lineTo(ex - 1.8 * s, y - 0.4 * s);
+  g.moveTo(ex + 6 * s, y + 0.8 * s);
+  g.lineTo(ex + 1.8 * s, y - 0.4 * s);
+  g.stroke();
+  const mx = x + look * 0.6;
+  const expr = hash(p.i * 9.1);
+  if (expr < 0.45) {
+    // a gritar
+    g.fillStyle = '#4a0f1c';
+    g.beginPath();
+    g.ellipse(mx, y + 10.4 * s, 2.9 * s, 2.7 * s, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#e8566a';
+    g.beginPath();
+    g.ellipse(mx, y + 11.8 * s, 1.7 * s, 1 * s, 0, 0, Math.PI * 2);
+    g.fill();
+  } else if (expr < 0.78) {
+    g.beginPath();
+    g.arc(mx, y + 7.6 * s, 3.6 * s, 0.18 * Math.PI, 0.82 * Math.PI);
+    g.stroke();
+  } else {
+    g.beginPath();
+    g.moveTo(mx - 3.8 * s, y + 8.4 * s);
+    g.quadraticCurveTo(mx, y + 14.5 * s, mx + 3.8 * s, y + 8.4 * s);
+    g.closePath();
+    inked(g, '#ffffff', 1.1 * s);
   }
+  // pinturas de guerra nas bochechas
+  if (hash(p.i * 14.3) > 0.9) {
+    g.fillStyle = hash(p.i * 2.9) > 0.5 ? '#ff3b4e' : '#2f7bff';
+    g.fillRect(x - 8.5 * s, y + 7 * s, 3.6 * s, 1.6 * s);
+    g.fillRect(x + 4.9 * s, y + 7 * s, 3.6 * s, 1.6 * s);
+  }
+  // óculos de sol
+  if (hash(p.i * 17) > 0.87) {
+    g.fillStyle = '#0d0b14';
+    g.beginPath();
+    g.roundRect(ex - 7.4 * s, y + 2.4 * s, 6.4 * s, 4.4 * s, 1.6 * s);
+    g.roundRect(ex + 1 * s, y + 2.4 * s, 6.4 * s, 4.4 * s, 1.6 * s);
+    g.fill();
+    g.fillRect(ex - 1.2 * s, y + 3 * s, 2.4 * s, 1.1 * s);
+    g.fillStyle = 'rgba(255,255,255,0.45)';
+    g.fillRect(ex - 6.4 * s, y + 3.2 * s, 2 * s, 1 * s);
+  }
+  hairFront(g, p, style, x, y, s, hair, look);
 }
 
-function personAccessory(g: CanvasRenderingContext2D, p: Spot, armsUp: boolean): void {
+/** Adereços estáticos: cartazes, dedos de espuma, bandeiras, cachecóis, pipocas. */
+function personAccessory(g: CanvasRenderingContext2D, p: Spot): void {
   const s = p.s;
   const x = p.x;
-  const y = p.y;
-  const shirt = SHIRTS[Math.floor(hash(p.i * 3.1) * SHIRTS.length)];
-  const skin = SKINS[Math.floor(hash(p.i * 5.3) * SKINS.length)];
+  const y = headY(p);
   const k = hash(p.i * 19);
+  const team = hash(p.i * 3) > 0.5 ? '#ff3b4e' : '#2f7bff';
+  const lw = 2 * s;
   g.lineCap = 'round';
-  if (armsUp) {
-    // braços no ar (aparecem mais quando o público está ao rubro)
-    g.strokeStyle = shirt;
-    g.lineWidth = 7 * s;
-    const sp = 6 + hash(p.i * 23) * 8;
-    g.beginPath();
-    g.moveTo(x - 14 * s, y + 26 * s);
-    g.lineTo(x - (18 + sp) * s, y - 22 * s);
-    g.moveTo(x + 14 * s, y + 26 * s);
-    g.lineTo(x + (18 + sp) * s, y - 24 * s);
-    g.stroke();
-    g.fillStyle = skin;
-    g.beginPath();
-    g.arc(x - (18 + sp) * s, y - 25 * s, 4.5 * s, 0, Math.PI * 2);
-    g.arc(x + (18 + sp) * s, y - 27 * s, 4.5 * s, 0, Math.PI * 2);
-    g.fill();
-    return;
-  }
-  if (k < 0.05) {
-    // cartaz
-    const words = ['WOW!', 'K.O.!', '10/10', 'LEGEND', 'POWER', '♥ RING', 'GO!', 'CHAMP'];
-    g.fillStyle = '#ffffff';
-    g.fillRect(x - 28 * s, y - 44 * s, 56 * s, 30 * s);
-    g.strokeStyle = '#3a2a1a';
+  g.lineJoin = 'round';
+  if (k < 0.04 + p.r * 0.006) {
+    g.strokeStyle = '#6b4a2a';
     g.lineWidth = 3 * s;
     g.beginPath();
-    g.moveTo(x, y - 14 * s);
-    g.lineTo(x, y + 20 * s);
+    g.moveTo(x, y - 20 * s);
+    g.lineTo(x, y + 26 * s);
     g.stroke();
-    g.fillStyle = SHIRTS[p.i % SHIRTS.length];
-    g.font = `bold ${Math.round(12 * s)}px sans-serif`;
+    g.beginPath();
+    g.roundRect(x - 28 * s, y - 50 * s, 56 * s, 30 * s, 3 * s);
+    inked(g, pick(SIGN_BG, hash(p.i * 5.1)), lw);
+    g.fillStyle = pick(SIGN_INK, hash(p.i * 6.1));
+    g.font = `${(15 * s).toFixed(1)}px "Luckiest Guy", Impact, sans-serif`;
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillText(words[p.i % words.length], x, y - 29 * s);
-  } else if (k < 0.09) {
+    g.fillText(WORDS[p.i % WORDS.length], x, y - 34 * s, 50 * s);
+  } else if (k < 0.1) {
     // dedo de espuma
-    g.fillStyle = hash(p.i) > 0.5 ? '#ffd23d' : '#ff3d6e';
     g.beginPath();
-    g.roundRect(x + 8 * s, y - 18 * s, 18 * s, 22 * s, 5 * s);
-    g.fill();
-    g.fillRect(x + 13 * s, y - 40 * s, 8 * s, 24 * s);
+    g.roundRect(x + 7 * s, y - 14 * s, 20 * s, 23 * s, 6 * s);
+    g.roundRect(x + 12 * s, y - 40 * s, 8.5 * s, 30 * s, 4 * s);
+    inked(g, pick(['#ffd23d', '#ff3d6e', '#39d98a', '#3ad8ff'], hash(p.i * 2.1)), lw);
+    g.fillStyle = OUT;
+    g.font = `${(8 * s).toFixed(1)}px "Luckiest Guy", Impact, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('#1', x + 17 * s, y - 2 * s);
   } else if (k < 0.13) {
-    // bandeira
+    // bandeira a ondular
+    const px = x - 13 * s;
+    const top = y - 42 * s;
     g.strokeStyle = '#cfcfcf';
-    g.lineWidth = 2 * s;
+    g.lineWidth = 2.2 * s;
     g.beginPath();
-    g.moveTo(x - 12 * s, y + 20 * s);
-    g.lineTo(x - 12 * s, y - 40 * s);
+    g.moveTo(px, y + 22 * s);
+    g.lineTo(px, top);
     g.stroke();
-    g.fillStyle = hash(p.i * 3) > 0.5 ? '#ff3b4e' : '#2f7bff';
-    g.fillRect(x - 12 * s, y - 40 * s, 26 * s, 16 * s);
+    g.beginPath();
+    g.moveTo(px, top);
+    g.quadraticCurveTo(px + 14 * s, top - 5 * s, px + 30 * s, top);
+    g.lineTo(px + 30 * s, top + 18 * s);
+    g.quadraticCurveTo(px + 14 * s, top + 13 * s, px, top + 18 * s);
+    g.closePath();
+    inked(g, team, lw);
+    g.fillStyle = '#ffffff';
+    starPath(g, px + 15 * s, top + 8 * s, 4.5 * s);
+    g.fill();
+  } else if (k < 0.17) {
+    // cachecol da equipa
+    g.beginPath();
+    g.roundRect(x - 12 * s, y + 16 * s, 24 * s, 6 * s, 3 * s);
+    g.rect(x + 3 * s, y + 18 * s, 6 * s, 22 * s);
+    inked(g, team, lw * 0.8);
+    g.fillStyle = '#ffffff';
+    g.fillRect(x + 3.6 * s, y + 28 * s, 4.8 * s, 3 * s);
+  } else if (k < 0.2) {
+    // pipocas
+    const bx = x + 7 * s;
+    const by = y + 33 * s;
+    g.fillStyle = '#fff3c4';
+    g.beginPath();
+    for (let j = 0; j < 4; j++) {
+      g.moveTo(bx + (2 + j * 2.4) * s, by);
+      g.arc(bx + (2 + j * 2.4) * s, by, 2.3 * s, 0, Math.PI * 2);
+    }
+    g.fill();
+    g.beginPath();
+    g.moveTo(bx, by);
+    g.lineTo(bx + 11 * s, by);
+    g.lineTo(bx + 9.5 * s, by + 13 * s);
+    g.lineTo(bx + 1.5 * s, by + 13 * s);
+    g.closePath();
+    inked(g, '#ffffff', lw * 0.8);
+    g.fillStyle = '#e63946';
+    g.fillRect(bx + 2.8 * s, by + 1 * s, 1.8 * s, 11 * s);
+    g.fillRect(bx + 6.6 * s, by + 1 * s, 1.8 * s, 11 * s);
   }
 }
 
-/** Camada de um grupo do público (meia resolução). */
-function makeCrowdLayer(spots: Spot[], group: number, armsUp: boolean): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = Math.round(BW * CS);
-  c.height = Math.round(BH * CS);
-  const g = c.getContext('2d')!;
-  g.scale(CS, CS);
-  for (const p of spots) {
-    if (armsUp) {
-      if (hash(p.i * 29) > 0.45) continue;
-    } else if (p.g !== group) continue;
-    g.globalAlpha = p.light;
-    if (armsUp) personAccessory(g, p, true);
-    else {
-      personBody(g, p);
-      personAccessory(g, p, false);
+/** Braço cartoon: contorno, pele, manga da camisola e mão. */
+function arm(g: CanvasRenderingContext2D, s: number, sx: number, sy: number, hx: number, hy: number, shirt: string, skin: string): void {
+  const ex = (sx + hx) / 2 + (hx > sx ? 4 : -4) * s;
+  const ey = (sy + hy) / 2 + 2 * s;
+  g.beginPath();
+  g.moveTo(sx, sy);
+  g.lineTo(ex, ey);
+  g.lineTo(hx, hy);
+  g.strokeStyle = OUT;
+  g.lineWidth = 8.8 * s;
+  g.stroke();
+  g.strokeStyle = skin;
+  g.lineWidth = 6 * s;
+  g.stroke();
+  g.beginPath();
+  g.moveTo(sx, sy);
+  g.lineTo(sx + (ex - sx) * 0.85, sy + (ey - sy) * 0.85);
+  g.strokeStyle = shirt;
+  g.lineWidth = 6.6 * s;
+  g.stroke();
+  g.beginPath();
+  g.arc(hx, hy, 4.4 * s, 0, Math.PI * 2);
+  inked(g, skin, 1.8 * s);
+}
+
+/** Braços no ar (aparecem por grupos quando o público está ao rubro): punhos, palmas, luzes, telemóveis, cartazes. */
+function personArms(g: CanvasRenderingContext2D, p: Spot): void {
+  const s = p.s;
+  const x = p.x;
+  const y = headY(p);
+  const shirt = pick(SHIRTS, hash(p.i * 3.1));
+  const skin = pick(SKINS, hash(p.i * 5.3));
+  const type = Math.floor(hash(p.i * 31) * 7);
+  const sp = (4 + hash(p.i * 23) * 8) * s;
+  const lx = x - 13 * s;
+  const rx = x + 13 * s;
+  const sy = y + 26 * s;
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  if (type === 1) {
+    // palmas por cima da cabeça
+    arm(g, s, lx, sy, x - 3.5 * s, y - 30 * s, shirt, skin);
+    arm(g, s, rx, sy, x + 3.5 * s, y - 31 * s, shirt, skin);
+  } else if (type === 2) {
+    arm(g, s, rx, sy, x + 17 * s, y - 32 * s, shirt, skin);
+  } else if (type === 6) {
+    // cartaz levantado bem alto
+    arm(g, s, lx, sy, x - 15 * s, y - 26 * s, shirt, skin);
+    arm(g, s, rx, sy, x + 15 * s, y - 26 * s, shirt, skin);
+    g.beginPath();
+    g.roundRect(x - 31 * s, y - 60 * s, 62 * s, 32 * s, 3 * s);
+    inked(g, pick(SIGN_BG, hash(p.i * 4.1)), 2 * s);
+    g.fillStyle = pick(SIGN_INK, hash(p.i * 8.1));
+    g.font = `${(16 * s).toFixed(1)}px "Luckiest Guy", Impact, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(WORDS[(p.i * 7) % WORDS.length], x, y - 43 * s, 56 * s);
+  } else {
+    const hlx = x - 18 * s - sp;
+    const hrx = x + 18 * s + sp;
+    const hy = y - 25 * s;
+    arm(g, s, lx, sy, hlx, hy, shirt, skin);
+    arm(g, s, rx, sy, hrx, hy - 2 * s, shirt, skin);
+    if (type === 3) {
+      // pulseira luminosa (o brilho anima por frame)
+      const c = pick(NEON, hash(p.i * 37));
+      g.beginPath();
+      g.moveTo(hrx, hy - 3 * s);
+      g.lineTo(hrx + 3 * s, hy - 19 * s);
+      g.strokeStyle = OUT;
+      g.lineWidth = 5.4 * s;
+      g.stroke();
+      g.strokeStyle = c;
+      g.lineWidth = 3.2 * s;
+      g.stroke();
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.1 * s;
+      g.stroke();
+      sticks.push({ x: hrx + 1.5 * s, y: hy - 11 * s, s, g: p.g, c, p: hash(p.i * 41) * 6 });
+    } else if (type === 4) {
+      g.beginPath();
+      g.roundRect(hrx - 9 * s, hy - 14 * s, 18 * s, 18 * s, 5 * s);
+      g.roundRect(hrx - 4 * s, hy - 36 * s, 8 * s, 26 * s, 4 * s);
+      inked(g, pick(['#ffd23d', '#ff3d6e', '#39d98a'], hash(p.i * 2.7)), 2 * s);
+    } else if (type === 5) {
+      g.beginPath();
+      g.roundRect(hlx - 4 * s, hy - 15 * s, 9 * s, 14 * s, 2 * s);
+      inked(g, '#1a1430', 1.6 * s);
+      g.fillStyle = '#dff3ff';
+      g.fillRect(hlx - 2.6 * s, hy - 13.4 * s, 6.2 * s, 10.6 * s);
     }
   }
-  g.globalAlpha = 1;
-  return softFocus(c);
 }
 
-/**
- * Profundidade de campo: o público fica ligeiramente desfocado, menos saturado e mais escuro nas filas de trás,
- * para os lutadores se destacarem (feito uma vez, ao criar as camadas).
- */
-function softFocus(src: HTMLCanvasElement): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = src.width;
-  c.height = src.height;
-  const g = c.getContext('2d')!;
-  if ('filter' in g) g.filter = 'blur(1.1px) saturate(0.78) brightness(0.92)';
-  g.drawImage(src, 0, 0);
-  g.filter = 'none';
+/** Neblina cumulativa: tudo o que já está desenhado na camada fica um pouco mais "longe". */
+function hazeFill(g: CanvasRenderingContext2D, a: number): void {
+  g.save();
+  g.setTransform(1, 0, 0, 1, 0, 0);
   g.globalCompositeOperation = 'source-atop';
-  const fade = g.createLinearGradient(0, 0, 0, c.height);
-  fade.addColorStop(0, 'rgba(10,5,24,0.55)');
-  fade.addColorStop(0.55, 'rgba(10,5,24,0.22)');
-  fade.addColorStop(1, 'rgba(10,5,24,0.05)');
-  g.fillStyle = fade;
-  g.fillRect(0, 0, c.width, c.height);
+  g.fillStyle = `rgba(30,16,58,${a})`;
+  g.fillRect(0, 0, g.canvas.width, g.canvas.height);
+  g.restore();
+}
+
+function makeLayer(y0: number, y1: number, cs: number, filter: string, draw: (g: CanvasRenderingContext2D) => void): Layer {
+  const [c, g] = mk(BW * cs, (y1 - y0) * cs);
+  g.scale(cs, cs);
+  g.translate(0, -y0);
+  draw(g);
+  if (filter && 'filter' in g) {
+    const [c2, g2] = mk(c.width, c.height);
+    g2.filter = filter;
+    g2.drawImage(c, 0, 0);
+    return { c: c2, y0, h: y1 - y0 };
+  }
+  return { c, y0, h: y1 - y0 };
+}
+
+/** Desenha as filas [r0, r1] de um grupo, com neblina a crescer para trás. */
+function drawRows(g: CanvasRenderingContext2D, spots: Spot[], group: number, r0: number, r1: number, haze: number, arms: boolean): void {
+  for (let r = r0; r <= r1; r++) {
+    for (const p of spots) {
+      if (p.r !== r || p.g !== group) continue;
+      if (arms) {
+        if (hash(p.i * 29) < 0.44 + p.r * 0.03) personArms(g, p);
+      } else {
+        personBody(g, p);
+        personAccessory(g, p);
+      }
+    }
+    if (r < r1 || r1 < 7) hazeFill(g, r < 5 ? haze : haze * 0.45);
+  }
+}
+
+// ── atmosfera: fachos de luz volumétricos, reflexo de lente, vinheta centrada no ringue ──
+
+let shaftBase: HTMLCanvasElement | null = null;
+const shaftCache = new Map<string, HTMLCanvasElement>();
+/** Facho de luz (trapézio suave, estreito em cima), tingido e guardado em cache. */
+function shaftSprite(color: string): HTMLCanvasElement {
+  let c = shaftCache.get(color);
+  if (c) return c;
+  if (!shaftBase) {
+    const [row, rg] = mk(64, 1);
+    const hg = rg.createLinearGradient(0, 0, 64, 0);
+    hg.addColorStop(0, 'rgba(255,255,255,0)');
+    hg.addColorStop(0.5, 'rgba(255,255,255,1)');
+    hg.addColorStop(1, 'rgba(255,255,255,0)');
+    rg.fillStyle = hg;
+    rg.fillRect(0, 0, 64, 1);
+    const [b, bg] = mk(64, 256);
+    for (let y = 0; y < 256; y++) {
+      const w = 64 * (0.14 + 0.86 * (y / 255));
+      bg.drawImage(row, 0, 0, 64, 1, 32 - w / 2, y, w, 1);
+    }
+    bg.globalCompositeOperation = 'destination-in';
+    const vg = bg.createLinearGradient(0, 0, 0, 256);
+    vg.addColorStop(0, 'rgba(0,0,0,0.85)');
+    vg.addColorStop(0.06, 'rgba(0,0,0,1)');
+    vg.addColorStop(0.6, 'rgba(0,0,0,0.38)');
+    vg.addColorStop(1, 'rgba(0,0,0,0)');
+    bg.fillStyle = vg;
+    bg.fillRect(0, 0, 64, 256);
+    shaftBase = b;
+  }
+  const [t, tg] = mk(64, 256);
+  tg.drawImage(shaftBase, 0, 0);
+  tg.globalCompositeOperation = 'source-in';
+  tg.fillStyle = color;
+  tg.fillRect(0, 0, 64, 256);
+  shaftCache.set(color, t);
+  return t;
+}
+
+let streak: HTMLCanvasElement | null = null;
+/** Risco horizontal de reflexo de lente (anamórfico). */
+function streakSprite(): HTMLCanvasElement {
+  if (streak) return streak;
+  const [c, g] = mk(256, 16);
+  const hg = g.createLinearGradient(0, 0, 256, 0);
+  hg.addColorStop(0, 'rgba(170,200,255,0)');
+  hg.addColorStop(0.5, 'rgba(235,242,255,1)');
+  hg.addColorStop(1, 'rgba(170,200,255,0)');
+  g.fillStyle = hg;
+  g.fillRect(0, 0, 256, 16);
+  g.globalCompositeOperation = 'destination-in';
+  const vg = g.createLinearGradient(0, 0, 0, 16);
+  vg.addColorStop(0, 'rgba(0,0,0,0)');
+  vg.addColorStop(0.5, 'rgba(0,0,0,1)');
+  vg.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = vg;
+  g.fillRect(0, 0, 256, 16);
+  streak = c;
   return c;
 }
 
-function makeBackdrop(): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = BW;
-  c.height = BH;
-  const g = c.getContext('2d')!;
-  const bg = g.createLinearGradient(0, 0, 0, BH);
-  bg.addColorStop(0, '#07040f');
-  bg.addColorStop(0.45, '#1a0f33');
-  bg.addColorStop(1, '#2a1640');
-  g.fillStyle = bg;
-  g.fillRect(0, 0, BW, BH);
-  // bancadas
-  for (let r = 0; r < 8; r++) {
-    g.fillStyle = `rgba(255,255,255,${0.02 + r * 0.006})`;
-    g.fillRect(0, 250 + r * 64, BW, 3);
+const VIG = 'rgba(4,2,10,0.6)';
+function makeVignette(): HTMLCanvasElement {
+  const [c, g] = mk(256, 256);
+  const rg = g.createRadialGradient(128, 128, 0, 128, 128, 128);
+  rg.addColorStop(0, 'rgba(4,2,10,0)');
+  rg.addColorStop(0.42, 'rgba(4,2,10,0)');
+  rg.addColorStop(0.78, 'rgba(4,2,10,0.36)');
+  rg.addColorStop(1, VIG);
+  g.fillStyle = rg;
+  g.fillRect(0, 0, 256, 256);
+  return c;
+}
+
+function shaft(ctx: CanvasRenderingContext2D, spr: HTMLCanvasElement, ox: number, oy: number, ang: number, len: number, wBottom: number, a: number): void {
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.rotate(ang);
+  ctx.globalAlpha = a;
+  ctx.drawImage(spr, -wBottom / 2, 0, wBottom, len);
+  ctx.restore();
+}
+
+// ── estrutura estática da arena ──
+
+function drawRafters(g: CanvasRenderingContext2D): void {
+  g.strokeStyle = '#18122b';
+  g.lineWidth = 12;
+  g.beginPath();
+  g.moveTo(0, 12);
+  g.lineTo(BW, 12);
+  g.moveTo(0, 44);
+  g.lineTo(BW, 44);
+  g.stroke();
+  g.lineWidth = 4;
+  g.beginPath();
+  for (let x = 0; x < BW; x += 110) {
+    g.moveTo(x, 12);
+    g.lineTo(x + 55, 44);
+    g.lineTo(x + 110, 12);
   }
-  // treliça de luzes
-  g.strokeStyle = '#2b2440';
-  g.lineWidth = 8;
+  g.stroke();
+  g.strokeStyle = 'rgba(150,120,230,0.16)';
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(0, 7);
+  g.lineTo(BW, 7);
+  g.moveTo(0, 39);
+  g.lineTo(BW, 39);
+  g.stroke();
+}
+
+function drawUpperTier(g: CanvasRenderingContext2D): void {
+  const [c, u] = mk(BW, 110);
+  u.translate(0, -120);
+  for (let r = 0; r < 3; r++) {
+    const s = 0.3 + r * 0.06;
+    const y = 150 + r * 22;
+    for (let x = hash(r * 5) * 20, i = 0; x < BW; x += 22 * s * 1.6 + hash(i + r * 77) * 8, i++) {
+      u.fillStyle = pick(SHIRTS, hash(i * 3.3 + r));
+      u.beginPath();
+      u.ellipse(x, y + 22 * s, 16 * s, 12 * s, 0, Math.PI, 0);
+      u.fill();
+      u.fillStyle = pick(SKINS, hash(i * 1.9 + r));
+      u.beginPath();
+      u.arc(x, y + 4 * s, 9 * s, 0, Math.PI * 2);
+      u.fill();
+    }
+    hazeFill(u, 0.3);
+  }
+  hazeFill(u, 0.35);
+  u.globalCompositeOperation = 'source-over';
+  u.fillStyle = '#e8f4ff';
+  for (let i = 0; i < 60; i++) u.fillRect(hash(i * 13.1) * BW, 150 + hash(i * 3.7) * 60, 2, 3);
+  g.drawImage(c, 0, 120);
+  // fachada da bancada superior com fita de LED
+  g.fillStyle = '#0b0714';
+  g.fillRect(0, 214, BW, 16);
+  g.fillStyle = 'rgba(255,79,216,0.55)';
+  g.font = '11px "Luckiest Guy", Impact, sans-serif';
+  g.textAlign = 'left';
+  g.textBaseline = 'middle';
+  for (let x = 6; x < BW; x += 230) g.fillText('★ KINGS OF THE RING ★ FIGHT NIGHT', x, 223);
+  g.fillStyle = 'rgba(255,255,255,0.08)';
+  g.fillRect(0, 214, BW, 1.5);
+}
+
+function drawBanners(g: CanvasRenderingContext2D): void {
+  const cols = ['#c4122c', '#1a4fc4', '#d9a21b', '#6b2fb3'];
+  const xs = [150, 420, 650, 1950, 2180, 2450];
+  xs.forEach((bx, k) => {
+    const col = cols[k % cols.length];
+    const top = 26;
+    const h = 118 + (k % 2) * 16;
+    g.fillStyle = '#4a4560';
+    g.fillRect(bx - 40, top - 4, 80, 6);
+    g.beginPath();
+    g.moveTo(bx - 34, top);
+    g.lineTo(bx + 34, top);
+    g.lineTo(bx + 34, top + h);
+    g.lineTo(bx, top + h - 18);
+    g.lineTo(bx - 34, top + h);
+    g.closePath();
+    inked(g, col, 3);
+    g.fillStyle = 'rgba(0,0,0,0.25)';
+    g.fillRect(bx + 6, top + 2, 27, h - 20);
+    g.strokeStyle = '#ffd23d';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.moveTo(bx - 28, top + 8);
+    g.lineTo(bx - 28, top + h - 14);
+    g.moveTo(bx + 28, top + 8);
+    g.lineTo(bx + 28, top + h - 14);
+    g.stroke();
+    crownPath(g, bx, top + 46, 34, 22);
+    inked(g, '#ffd23d', 2.5);
+    g.fillStyle = '#ffffff';
+    g.font = '13px "Luckiest Guy", Impact, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('CHAMPS', bx, top + 66);
+    g.fillText(String(2019 + k), bx, top + 82);
+  });
+  // escurece (estão longe e fora dos holofotes)
+  g.fillStyle = 'rgba(10,5,24,0.35)';
+  for (const bx of xs) g.fillRect(bx - 38, 18, 76, 140);
+}
+
+function drawTruss(g: CanvasRenderingContext2D): void {
+  const metal = g.createLinearGradient(0, 56, 0, 86);
+  metal.addColorStop(0, '#5b5474');
+  metal.addColorStop(0.5, '#2b2440');
+  metal.addColorStop(1, '#17122a');
+  g.strokeStyle = metal;
+  g.lineWidth = 7;
   g.beginPath();
   g.moveTo(0, 60);
   g.lineTo(BW, 60);
   g.moveTo(0, 84);
   g.lineTo(BW, 84);
   g.stroke();
-  g.lineWidth = 3;
-  for (let x = 0; x < BW; x += 40) {
-    g.beginPath();
+  g.lineWidth = 2.5;
+  g.beginPath();
+  for (let x = 0; x < BW; x += 36) {
     g.moveTo(x, 60);
-    g.lineTo(x + 20, 84);
-    g.lineTo(x + 40, 60);
-    g.stroke();
+    g.lineTo(x + 18, 84);
+    g.lineTo(x + 36, 60);
   }
-  for (let x = 120; x < BW; x += 180) {
-    g.fillStyle = '#3b3352';
-    g.fillRect(x - 12, 84, 24, 18);
-    g.drawImage(glowSprite('#fff4d6'), x - 30, 80, 60, 60);
+  g.stroke();
+  g.strokeStyle = 'rgba(210,200,255,0.25)';
+  g.lineWidth = 1.5;
+  g.beginPath();
+  g.moveTo(0, 58);
+  g.lineTo(BW, 58);
+  g.moveTo(0, 82);
+  g.lineTo(BW, 82);
+  g.stroke();
+  const tints = ['#fff4d6', '#ffd0f0', '#fff4d6', '#cfe6ff'];
+  TRUSS_LIGHTS.forEach((x, k) => {
+    g.beginPath();
+    g.roundRect(x - 12, 84, 24, 20, 4);
+    inked(g, '#2a2438', 2.5);
+    g.fillStyle = '#141020';
+    g.fillRect(x - 15, 86, 3, 12);
+    g.fillRect(x + 12, 86, 3, 12);
+    g.beginPath();
+    g.ellipse(x, 104, 10, 4.5, 0, 0, Math.PI * 2);
+    inked(g, tints[k % 4], 2);
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.7;
+    g.drawImage(glowSprite(tints[k % 4]), x - 34, 76, 68, 60);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+  });
+}
+
+function drawJumbotron(g: CanvasRenderingContext2D): void {
+  const jx = BW / 2;
+  const jw = 540;
+  const jh = 118;
+  const jy = 100;
+  g.strokeStyle = '#3d3656';
+  g.lineWidth = 3;
+  g.beginPath();
+  for (const ox of [-220, -80, 80, 220]) {
+    g.moveTo(jx + ox, 84);
+    g.lineTo(jx + ox, jy - 8);
   }
-  // ecrã gigante
-  const sx = BW / 2 - 230;
-  g.fillStyle = '#0b0b14';
-  g.fillRect(sx - 10, 110, 480, 150);
-  const sg = g.createLinearGradient(sx, 120, sx + 460, 250);
-  sg.addColorStop(0, '#3a0d5c');
+  g.stroke();
+  // ecrãs laterais (uma cor por equipa)
+  for (const side of [-1, 1]) {
+    const cx = jx + side * (jw / 2 + 92);
+    g.beginPath();
+    g.roundRect(cx - 66, jy + 10, 132, 92, 8);
+    inked(g, '#1e1a2c', 3);
+    const sg = g.createLinearGradient(0, jy + 16, 0, jy + 96);
+    sg.addColorStop(0, side < 0 ? '#ff5468' : '#4a8cff');
+    sg.addColorStop(1, side < 0 ? '#5c0816' : '#0c2466');
+    g.fillStyle = sg;
+    g.fillRect(cx - 58, jy + 18, 116, 76);
+    g.fillStyle = '#ffffff';
+    g.font = '20px "Luckiest Guy", Impact, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(side < 0 ? 'RED' : 'BLUE', cx, jy + 72);
+    crownPath(g, cx, jy + 52, 34, 20);
+    inked(g, '#ffd23d', 2);
+  }
+  // moldura metálica
+  const fr = g.createLinearGradient(0, jy - 10, 0, jy + jh + 14);
+  fr.addColorStop(0, '#5c5677');
+  fr.addColorStop(0.15, '#2a2540');
+  fr.addColorStop(1, '#0f0c18');
+  g.beginPath();
+  g.roundRect(jx - jw / 2 - 14, jy - 10, jw + 28, jh + 30, 12);
+  inked(g, fr, 4);
+  // ecrã
+  const sg = g.createLinearGradient(jx - jw / 2, jy, jx + jw / 2, jy + jh);
+  sg.addColorStop(0, '#2a0b4a');
   sg.addColorStop(0.5, '#a3123a');
   sg.addColorStop(1, '#ff8a00');
   g.fillStyle = sg;
-  g.fillRect(sx, 120, 460, 130);
-  g.fillStyle = '#ffffff';
+  g.fillRect(jx - jw / 2, jy, jw, jh);
+  g.save();
+  g.beginPath();
+  g.rect(jx - jw / 2, jy, jw, jh);
+  g.clip();
+  g.fillStyle = 'rgba(255,255,255,0.07)';
+  for (let k = 0; k < 12; k++) {
+    const a0 = (k / 12) * Math.PI * 2;
+    g.beginPath();
+    g.moveTo(jx, jy + 46);
+    g.lineTo(jx + Math.cos(a0) * 600, jy + 46 + Math.sin(a0) * 600);
+    g.lineTo(jx + Math.cos(a0 + 0.22) * 600, jy + 46 + Math.sin(a0 + 0.22) * 600);
+    g.closePath();
+    g.fill();
+  }
+  crownPath(g, jx, jy + 46, 64, 32);
+  inked(g, '#ffd23d', 4);
+  g.font = '44px "Luckiest Guy", Impact, sans-serif';
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.font = '64px "Luckiest Guy", Impact, sans-serif';
-  g.fillText('KINGS OF THE RING', BW / 2, 192);
+  g.lineJoin = 'round';
+  g.lineWidth = 8;
+  g.strokeStyle = OUT;
+  g.strokeText('KINGS OF THE RING', jx, jy + 76);
+  g.fillStyle = '#ffffff';
+  g.fillText('KINGS OF THE RING', jx, jy + 76);
+  g.font = '15px "Luckiest Guy", Impact, sans-serif';
+  g.fillStyle = '#ffd23d';
+  g.fillText('FIGHT NIGHT  •  LIVE', jx, jy + 104);
+  g.fillStyle = 'rgba(0,0,0,0.16)';
+  for (let yy = jy; yy < jy + jh; yy += 3) g.fillRect(jx - jw / 2, yy, jw, 1);
+  g.fillStyle = 'rgba(255,255,255,0.07)';
+  g.beginPath();
+  g.moveTo(jx - jw / 2, jy);
+  g.lineTo(jx - jw / 2 + 200, jy);
+  g.lineTo(jx - jw / 2 + 80, jy + jh);
+  g.lineTo(jx - jw / 2, jy + jh);
+  g.closePath();
+  g.fill();
+  g.restore();
+  // fita de LED por baixo
+  for (let k = 0; k < 54; k++) {
+    g.fillStyle = `hsl(${(k * 13) % 360} 90% 60%)`;
+    g.fillRect(jx - jw / 2 - 8 + k * ((jw + 16) / 54), jy + jh + 8, (jw + 16) / 54 - 3, 5);
+  }
   g.globalCompositeOperation = 'lighter';
-  g.globalAlpha = 0.35;
-  g.drawImage(glowSprite('#ff5a8a'), sx - 120, 40, 700, 300);
+  g.globalAlpha = 0.3;
+  g.drawImage(glowSprite('#ff5a8a'), jx - 420, jy - 90, 840, 320);
   g.globalAlpha = 1;
   g.globalCompositeOperation = 'source-over';
-  // barreiras de proteção
-  const by = BH - 80;
-  g.fillStyle = '#111018';
-  g.fillRect(0, by, BW, 80);
-  g.fillStyle = '#e63946';
-  for (let x = 0; x < BW; x += 260) {
-    g.fillRect(x + 20, by + 18, 200, 30);
+}
+
+function drawStands(g: CanvasRenderingContext2D): void {
+  for (let r = 0; r < 8; r++) {
+    const yb = 232 + r * 60 + 36;
+    g.fillStyle = `rgba(140,100,230,${0.03 + r * 0.006})`;
+    g.fillRect(0, yb, BW, 16);
+    g.fillStyle = 'rgba(0,0,0,0.22)';
+    g.fillRect(0, yb + 16, BW, 5);
   }
-  g.fillStyle = '#fff';
-  g.font = '22px "Luckiest Guy", Impact, sans-serif';
-  for (let x = 0; x < BW; x += 260) g.fillText('FIGHT!', x + 120, by + 34);
+  // corredores com escadas e corrimão
+  for (const a of AISLES) {
+    g.fillStyle = '#120a20';
+    g.fillRect(a - 22, 230, 44, 450);
+    for (let y = 240; y < 680; y += 30) {
+      g.fillStyle = 'rgba(255,255,255,0.05)';
+      g.fillRect(a - 22, y, 44, 3);
+      g.fillStyle = '#ffb347';
+      g.fillRect(a - 18, y + 1, 3, 2);
+      g.fillRect(a + 15, y + 1, 3, 2);
+    }
+    g.strokeStyle = '#8a86a6';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.moveTo(a, 236);
+    g.lineTo(a, 680);
+    g.stroke();
+  }
+}
+
+/** Palco e rampa de entrada (do lado esquerdo das bancadas). */
+function drawStage(g: CanvasRenderingContext2D): void {
+  const sx = STAGE_X;
+  const top = 236;
+  const bottom = 680;
+  // paredes do túnel
+  g.fillStyle = '#0c0717';
+  g.fillRect(sx - 122, top + 120, 244, bottom - top - 120);
+  // torres de treliça
+  for (const side of [-1, 1]) {
+    const tx = sx + side * 128;
+    g.fillStyle = '#1d1830';
+    g.fillRect(tx - 8, top - 16, 16, bottom - top + 16);
+    g.strokeStyle = '#3c3558';
+    g.lineWidth = 2;
+    g.beginPath();
+    for (let y = top - 16; y < bottom; y += 20) {
+      g.moveTo(tx - 8, y);
+      g.lineTo(tx + 8, y + 20);
+      g.moveTo(tx + 8, y);
+      g.lineTo(tx - 8, y + 20);
+    }
+    g.stroke();
+    g.strokeStyle = OUT;
+    g.strokeRect(tx - 8, top - 16, 16, bottom - top + 16);
+  }
+  g.fillStyle = '#1d1830';
+  g.fillRect(sx - 136, top - 20, 272, 12);
+  // ecrã LED do palco
+  g.beginPath();
+  g.roundRect(sx - 114, top, 228, 116, 6);
+  inked(g, '#0d0a16', 3);
+  const lg = g.createLinearGradient(0, top + 6, 0, top + 110);
+  lg.addColorStop(0, '#3b0a6e');
+  lg.addColorStop(1, '#e0145a');
+  g.fillStyle = lg;
+  g.fillRect(sx - 108, top + 6, 216, 104);
+  crownPath(g, sx, top + 58, 72, 36);
+  inked(g, '#ffd23d', 4);
+  g.font = '30px "Luckiest Guy", Impact, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineWidth = 6;
+  g.strokeStyle = OUT;
+  g.strokeText('KOTR', sx, top + 86);
+  g.fillStyle = '#ffffff';
+  g.fillText('KOTR', sx, top + 86);
+  g.fillStyle = 'rgba(0,0,0,0.18)';
+  for (let y = top + 6; y < top + 110; y += 3) g.fillRect(sx - 108, y, 216, 1);
+  // abertura do túnel com fumo iluminado
+  const ay = top + 160;
+  const tb = 600;
+  g.beginPath();
+  g.moveTo(sx - 64, tb);
+  g.lineTo(sx - 64, ay + 30);
+  g.quadraticCurveTo(sx - 64, ay, sx - 34, ay);
+  g.lineTo(sx + 34, ay);
+  g.quadraticCurveTo(sx + 64, ay, sx + 64, ay + 30);
+  g.lineTo(sx + 64, tb);
+  g.closePath();
+  const tg = g.createRadialGradient(sx, tb - 20, 10, sx, tb - 40, 200);
+  tg.addColorStop(0, '#e6d6ff');
+  tg.addColorStop(0.35, '#8a5ad6');
+  tg.addColorStop(1, '#1a0f30');
+  g.fillStyle = tg;
+  g.fill();
+  g.strokeStyle = '#ff4fd8';
+  g.lineWidth = 4;
+  g.stroke();
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = 0.45;
+  g.drawImage(glowSprite('#ff4fd8'), sx - 120, ay - 50, 240, 220);
+  g.drawImage(glowSprite('#ffffff'), sx - 90, tb - 70, 180, 110);
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+  // rampa até à barreira
+  g.beginPath();
+  g.moveTo(sx - 64, tb);
+  g.lineTo(sx + 64, tb);
+  g.lineTo(sx + 112, bottom + 10);
+  g.lineTo(sx - 112, bottom + 10);
+  g.closePath();
+  const rg = g.createLinearGradient(0, tb, 0, bottom);
+  rg.addColorStop(0, '#2a2140');
+  rg.addColorStop(1, '#141022');
+  inked(g, rg, 3);
+  g.beginPath();
+  g.moveTo(sx - 20, tb);
+  g.lineTo(sx + 20, tb);
+  g.lineTo(sx + 38, bottom + 10);
+  g.lineTo(sx - 38, bottom + 10);
+  g.closePath();
+  g.fillStyle = '#8e1622';
+  g.fill();
+  g.strokeStyle = '#3ad8ff';
+  g.lineWidth = 2.5;
+  g.beginPath();
+  g.moveTo(sx - 64, tb);
+  g.lineTo(sx - 112, bottom + 10);
+  g.moveTo(sx + 64, tb);
+  g.lineTo(sx + 112, bottom + 10);
+  g.stroke();
+  for (const side of [-1, 1]) {
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = 0.6;
+    g.drawImage(glowSprite('#3ad8ff'), sx + side * 88 - 30, bottom - 70, 60, 90);
+    g.drawImage(glowSprite('#fff4d6'), sx + side * 128 - 26, top - 40, 52, 52);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'source-over';
+  }
+}
+
+function makeBackdrop(): HTMLCanvasElement {
+  const [c, g] = mk(BW, BH);
+  const bg = g.createLinearGradient(0, 0, 0, BH);
+  bg.addColorStop(0, '#04020a');
+  bg.addColorStop(0.3, '#120a24');
+  bg.addColorStop(0.7, '#1d1034');
+  bg.addColorStop(1, '#26153d');
+  g.fillStyle = bg;
+  g.fillRect(0, 0, BW, BH);
+  // bloom quente atrás do ringue (as bancadas apanham a luz que transborda do ringue)
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = 0.32;
+  g.drawImage(glowSprite('#6a2fb0'), BW / 2 - 1150, 160, 2300, 900);
+  g.globalAlpha = 0.16;
+  g.drawImage(glowSprite('#ff7a3d'), BW / 2 - 650, 400, 1300, 520);
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+  drawRafters(g);
+  drawUpperTier(g);
+  drawBanners(g);
+  drawTruss(g);
+  drawJumbotron(g);
+  drawStands(g);
+  drawStage(g);
   return c;
+}
+
+/** Barreira das bancadas + mesa dos comentadores (à frente do público, desenhada por cima das camadas). */
+function makeBarrier(): Layer {
+  return makeLayer(630, BH, 0.6, '', (g) => {
+    const by = 676;
+    const labels = ['FIGHT!', 'KOTR ♛', 'LIVE'];
+    const cols = ['#c4122c', '#1a3b9c', '#1b1428'];
+    for (let x = -40, k = 0; x < BW; x += 150, k++) {
+      if (Math.abs(x + 75 - STAGE_X) < 125) continue;
+      g.beginPath();
+      g.roundRect(x + 4, by + 10, 142, 70, 6);
+      inked(g, cols[k % 3], 3);
+      g.fillStyle = 'rgba(255,255,255,0.14)';
+      g.fillRect(x + 10, by + 14, 130, 4);
+      g.fillStyle = 'rgba(0,0,0,0.25)';
+      g.fillRect(x + 6, by + 56, 138, 22);
+      g.font = '24px "Luckiest Guy", Impact, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.lineJoin = 'round';
+      g.lineWidth = 5;
+      g.strokeStyle = OUT;
+      g.strokeText(labels[k % 3], x + 75, by + 42);
+      g.fillStyle = k % 3 === 2 ? '#ffd23d' : '#ffffff';
+      g.fillText(labels[k % 3], x + 75, by + 42);
+      // poste e grampo metálico
+      g.fillStyle = '#9a9db0';
+      g.fillRect(x - 3, by - 2, 6, 84);
+      g.strokeStyle = OUT;
+      g.lineWidth = 2;
+      g.strokeRect(x - 3, by - 2, 6, 84);
+    }
+    // corrimão de cima (aberto na rampa)
+    const rail = g.createLinearGradient(0, by - 4, 0, by + 8);
+    rail.addColorStop(0, '#e6e8f0');
+    rail.addColorStop(0.5, '#8d909c');
+    rail.addColorStop(1, '#3a3c48');
+    for (const [a, b] of [[0, STAGE_X - 118], [STAGE_X + 118, BW]]) {
+      g.beginPath();
+      g.rect(a, by - 4, b - a, 10);
+      inked(g, rail, 2);
+    }
+    // mesa dos comentadores, junto ao ringue (lado direito)
+    const ax = BW / 2 + 640;
+    for (const ox of [-56, 56]) {
+      const hx = ax + ox;
+      g.beginPath();
+      g.moveTo(hx - 30, 720);
+      g.quadraticCurveTo(hx - 30, 680, hx - 10, 678);
+      g.lineTo(hx + 10, 678);
+      g.quadraticCurveTo(hx + 30, 680, hx + 30, 720);
+      g.closePath();
+      inked(g, '#1d1a2a', 3);
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.moveTo(hx - 5, 679);
+      g.lineTo(hx, 692);
+      g.lineTo(hx + 5, 679);
+      g.fill();
+      g.beginPath();
+      g.arc(hx, 662, 13, 0, Math.PI * 2);
+      inked(g, pick(SKINS, hash(ox)), 3);
+      g.beginPath();
+      g.arc(hx, 660, 15, Math.PI * 1.05, Math.PI * 1.95);
+      g.strokeStyle = '#2a2a33';
+      g.lineWidth = 3.5;
+      g.stroke();
+      g.fillStyle = '#2a2a33';
+      g.fillRect(hx - 17, 657, 6, 10);
+      g.fillRect(hx + 11, 657, 6, 10);
+      g.beginPath();
+      g.moveTo(hx + 14, 664);
+      g.quadraticCurveTo(hx + 12, 672, hx + 4, 670);
+      g.stroke();
+      // monitor (visto de trás) com luz azul na cara
+      g.beginPath();
+      g.rect(hx - 20, 690, 40, 26);
+      inked(g, '#141220', 2.5);
+      g.globalCompositeOperation = 'lighter';
+      g.globalAlpha = 0.35;
+      g.drawImage(glowSprite('#6fb6ff'), hx - 30, 640, 60, 60);
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'source-over';
+    }
+    g.beginPath();
+    g.rect(ax - 130, 712, 260, 10);
+    inked(g, '#2d2840', 2.5);
+    const tf = g.createLinearGradient(0, 722, 0, 760);
+    tf.addColorStop(0, '#221a38');
+    tf.addColorStop(1, '#0d0918');
+    g.beginPath();
+    g.rect(ax - 124, 722, 248, 38);
+    inked(g, tf, 3);
+    g.strokeStyle = '#e63946';
+    g.lineWidth = 2;
+    g.strokeRect(ax - 116, 727, 232, 28);
+    g.font = '18px "Luckiest Guy", Impact, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#ffd23d';
+    g.fillText('KOTR  •  TV', ax, 742);
+  });
 }
 
 export function ensureArena(): void {
   if (backdrop) return;
   backdrop = makeBackdrop();
   const spots = crowdSpots();
-  crowdLayers = [];
-  for (let gi = 0; gi < CROWD_GROUPS; gi++) crowdLayers.push(makeCrowdLayer(spots, gi, false));
-  crowdArms = makeCrowdLayer(spots, -1, true);
-  phones = spots.filter((p) => hash(p.i * 41) > 0.9).map((p) => ({ x: p.x + 10 * p.s, y: p.y - 6 * p.s, p: hash(p.i * 43) * 10 }));
+  sticks = [];
+  crowdBack = [];
+  crowdFront = [];
+  crowdArms = [];
+  for (let gi = 0; gi < CROWD_GROUPS; gi++) {
+    // filas de trás: mais pequenas, enevoadas e desfocadas
+    crowdBack.push(makeLayer(186, 545, 0.55, 'blur(0.8px) saturate(0.8)', (g) => drawRows(g, spots, gi, 0, 4, 0.15, false)));
+    // filas da frente (plano médio): mais nítidas e com mais resolução
+    crowdFront.push(makeLayer(470, 700, 0.8, 'saturate(0.95)', (g) => drawRows(g, spots, gi, 5, 7, 0.15, false)));
+    crowdArms.push(makeLayer(150, 700, 0.6, 'blur(0.4px) saturate(0.88)', (g) => drawRows(g, spots, gi, 0, 7, 0.13, true)));
+  }
+  barrier = makeBarrier();
+  vignette = makeVignette();
+  phones = spots.filter((p) => hash(p.i * 41) > 0.9).map((p) => ({ x: p.x + 9 * p.s, y: headY(p) + 30 * p.s, p: hash(p.i * 43) * 10 }));
 }
+
+function drawLayer(ctx: CanvasRenderingContext2D, L: Layer, x: number, y: number, s: number, dw: number, b: number): void {
+  ctx.drawImage(L.c, x, y + L.y0 * s - b, dw, L.h * s);
+}
+
+const BEAM_COLS = ['#ff5a96', '#5aa8ff', '#ffdc78', '#a05aff'];
+const armsA = [0, 0, 0];
+const bounce = [0, 0, 0];
 
 /** Desenha o fundo (público, ecrã gigante, holofotes) em espaço de ecrã com paralaxe. */
 export function drawBackdrop(
@@ -484,20 +1423,37 @@ export function drawBackdrop(
   const dh = BH * s;
   const x = w / 2 - dw / 2 - camX * zoom * 0.45;
   const y = horizonY - dh + 40 * s;
-  ctx.fillStyle = '#07040f';
+  ctx.fillStyle = '#04020a';
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(backdrop!, x, y, dw, dh);
-  // cada grupo do público salta com o seu próprio ritmo; os braços sobem com o entusiasmo
+  // cada grupo do público salta com o seu próprio ritmo; os braços sobem por grupos com o entusiasmo
   const freq = 3.5 + hype * 6;
-  for (let gi = 0; gi < crowdLayers.length; gi++) {
-    const b = Math.max(0, Math.sin(t * freq + gi * 2.1)) * (1.5 + hype * 11) * s;
-    ctx.drawImage(crowdLayers[gi], x, y - b, dw, dh);
+  for (let gi = 0; gi < CROWD_GROUPS; gi++) {
+    bounce[gi] = Math.max(0, Math.sin(t * freq + gi * 2.1)) * (1.5 + hype * 11) * s;
+    const thr = 0.22 + gi * 0.13;
+    armsA[gi] = Math.max(0, Math.min(1, (hype - thr + 0.12 * Math.sin(t * 0.8 + gi * 2.4)) * 5));
   }
-  if (hype > 0.3 && crowdArms) {
-    ctx.globalAlpha = Math.min(1, (hype - 0.3) * 2.2);
-    ctx.drawImage(crowdArms, x, y - Math.abs(Math.sin(t * freq)) * hype * 9 * s, dw, dh);
-    ctx.globalAlpha = 1;
+  for (let gi = 0; gi < CROWD_GROUPS; gi++) drawLayer(ctx, crowdBack[gi], x, y, s, dw, bounce[gi]);
+  for (let gi = 0; gi < CROWD_GROUPS; gi++) drawLayer(ctx, crowdFront[gi], x, y, s, dw, bounce[gi]);
+  for (let gi = 0; gi < CROWD_GROUPS; gi++) {
+    if (armsA[gi] < 0.02) continue;
+    ctx.globalAlpha = armsA[gi];
+    const pump = Math.abs(Math.sin(t * freq * 0.5 + gi)) * hype * 4 * s;
+    drawLayer(ctx, crowdArms[gi], x, y, s, dw, bounce[gi] + pump);
   }
+  ctx.globalAlpha = 1;
+  drawLayer(ctx, barrier!, x, y, s, dw, 0);
+
+  // queda de luz centrada no ringue: as bancadas longe do ringue ficam na penumbra
+  const vcx = w / 2 - camX * zoom;
+  const vcy = horizonY - 30 * zoom;
+  const rx = 1350 * zoom;
+  const ry = 720 * zoom;
+  ctx.drawImage(vignette!, vcx - rx, vcy - ry, rx * 2, ry * 2);
+  ctx.fillStyle = VIG;
+  if (vcy - ry > 0) ctx.fillRect(0, 0, w, vcy - ry);
+  if (vcx - rx > 0) ctx.fillRect(0, Math.max(0, vcy - ry), vcx - rx, ry * 2);
+  if (vcx + rx < w) ctx.fillRect(vcx + rx, Math.max(0, vcy - ry), w - vcx - rx, ry * 2);
 
   const prev = ctx.globalCompositeOperation;
   ctx.globalCompositeOperation = 'lighter';
@@ -521,38 +1477,59 @@ export function drawBackdrop(
     ctx.globalAlpha = a;
     ctx.fillRect(x + ph.x * s, y + ph.y * s, 4 * s, 6 * s);
   }
-  ctx.globalAlpha = 1;
-  // holofotes
   if (!low) {
-    const beams = 4;
-    for (let i = 0; i < beams; i++) {
+    // brilho das pulseiras luminosas (só dos grupos com os braços no ar)
+    for (const st of sticks) {
+      const a = armsA[st.g];
+      if (a < 0.05) continue;
+      ctx.globalAlpha = a * (0.55 + 0.35 * Math.sin(t * 5 + st.p));
+      const r = 16 * st.s * s;
+      ctx.drawImage(glowSprite(st.c), x + st.x * s - r, y + st.y * s - r - bounce[st.g], r * 2, r * 2);
+    }
+    // fachos de luz volumétricos da treliça até ao ringue
+    const tx = vcx;
+    const ty = horizonY + 70 * zoom;
+    const warm = shaftSprite('#fff1d0');
+    for (let i = 0; i < TRUSS_LIGHTS.length; i++) {
+      const lx = x + TRUSS_LIGHTS[i] * s;
+      if (i % 2 || lx < -w * 0.5 || lx > w * 1.5) continue;
+      const ly = y + 104 * s;
+      const dx = tx + (i % 4 ? 160 : -160) * zoom - lx;
+      const dy = ty - ly;
+      const len = Math.hypot(dx, dy);
+      const fl = 0.9 + 0.1 * Math.sin(t * 7 + i * 1.3);
+      shaft(ctx, warm, lx, ly, Math.atan2(-dx, dy), len * 1.05, 260 * zoom, (0.07 + hype * 0.05) * fl);
+    }
+    // holofotes móveis coloridos
+    for (let i = 0; i < 4; i++) {
       const ang = Math.sin(t * 0.35 + i * 1.7) * 0.35;
       const bx = w * (0.12 + i * 0.25);
-      ctx.save();
-      ctx.translate(bx, 0);
-      ctx.rotate(ang);
-      const grad = ctx.createLinearGradient(0, 0, 0, h);
-      const col = ['rgba(255,80,140,', 'rgba(80,160,255,', 'rgba(255,220,120,', 'rgba(160,90,255,'][i];
-      grad.addColorStop(0, col + (0.22 + hype * 0.15) + ')');
-      grad.addColorStop(1, col + '0)');
-      ctx.fillStyle = grad;
-      ctx.globalAlpha = 1;
-      ctx.beginPath();
-      ctx.moveTo(-10, 0);
-      ctx.lineTo(10, 0);
-      ctx.lineTo(w * 0.12, h);
-      ctx.lineTo(-w * 0.12, h);
-      ctx.fill();
-      ctx.restore();
+      shaft(ctx, shaftSprite(BEAM_COLS[i]), bx, -10, ang, h * 1.25, w * 0.26, 0.3 + hype * 0.2);
+      ctx.globalAlpha = 0.5 + hype * 0.3;
+      ctx.drawImage(glowSprite(BEAM_COLS[i]), bx - 50, -50, 100, 90);
+    }
+    // reflexos de lente nas luzes da treliça (quando estão no ecrã)
+    const sp = streakSprite();
+    const glow = glowSprite('#fff4d6');
+    for (let i = 0; i < TRUSS_LIGHTS.length; i++) {
+      const lx = x + TRUSS_LIGHTS[i] * s;
+      const ly = y + 104 * s;
+      if (ly < -40 || lx < -60 || lx > w + 60) continue;
+      const fl = 0.75 + 0.25 * Math.sin(t * 3.1 + i * 2.7);
+      ctx.globalAlpha = 0.55 * fl;
+      const r = 46 * s;
+      ctx.drawImage(glow, lx - r, ly - r, r * 2, r * 2);
+      ctx.globalAlpha = 0.35 * fl;
+      ctx.drawImage(sp, lx - 200 * s, ly - 6 * s, 400 * s, 12 * s);
     }
   }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = prev;
 }
 
+
 // ───────────────────────── Ringue (espaço do mundo) ─────────────────────────
 
-let skirtGrad: CanvasGradient | null = null;
 
 function rope(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, cx: number, cy: number, color: string) {
   strokeRope(ctx, color, (dy) => {
@@ -815,20 +1792,214 @@ export function drawRingBack(ctx: CanvasRenderingContext2D, ropes: RopeState): v
   sideRopes(ctx, ropes, false);
 }
 
-export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t = 0, hype = 0.3): void {
-  // saia do ringue
-  if (!skirtGrad) {
-    skirtGrad = ctx.createLinearGradient(0, FRONT_Y, 0, FRONT_Y + 110);
-    skirtGrad.addColorStop(0, '#1d1430');
-    skirtGrad.addColorStop(1, '#0c0814');
+
+// ── saia do ringue, degraus de aço (pré-renderizados) ──
+
+let skirtC: HTMLCanvasElement | null = null;
+const SK_W = FRONT_X * 2 + 12;
+const SK_H = 112;
+const SKS = 2;
+
+/** Saia acolhoada do ringue: painéis almofadados, medalhões, letreiro e rodapé (sem a fita de LED, que é animada). */
+function makeSkirt(): HTMLCanvasElement {
+  const [c, g] = mk(SK_W * SKS, SK_H * SKS);
+  g.scale(SKS, SKS);
+  g.translate(SK_W / 2, 0);
+  const L = -SK_W / 2;
+  const base = g.createLinearGradient(0, 0, 0, SK_H);
+  base.addColorStop(0, '#251a40');
+  base.addColorStop(0.6, '#130d22');
+  base.addColorStop(1, '#0a0712');
+  g.fillStyle = base;
+  g.fillRect(L, 0, SK_W, SK_H);
+  // painéis almofadados
+  const n = 10;
+  const pw = SK_W / n;
+  const pad = g.createLinearGradient(0, 24, 0, 96);
+  pad.addColorStop(0, '#33275a');
+  pad.addColorStop(0.45, '#1e1636');
+  pad.addColorStop(1, '#100b1e');
+  for (let k = 0; k < n; k++) {
+    const px = L + k * pw;
+    g.fillStyle = 'rgba(0,0,0,0.55)';
+    g.fillRect(px - 1.5, 22, 3, 76);
+    g.fillStyle = pad;
+    g.beginPath();
+    g.roundRect(px + 3, 25, pw - 6, 70, 10);
+    g.fill();
+    g.fillStyle = 'rgba(190,160,255,0.13)';
+    g.beginPath();
+    g.roundRect(px + 9, 28, pw - 18, 6, 3);
+    g.fill();
+    // capitonê (botões) e costura em losango
+    g.strokeStyle = 'rgba(0,0,0,0.28)';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(px + 6, 60);
+    g.lineTo(px + pw / 2, 30);
+    g.lineTo(px + pw - 6, 60);
+    g.lineTo(px + pw / 2, 90);
+    g.closePath();
+    g.stroke();
+    for (const [bx, by] of [[px + pw / 2, 30], [px + pw / 2, 90], [px + 6, 60], [px + pw - 6, 60], [px + pw / 2, 60]]) {
+      g.fillStyle = 'rgba(0,0,0,0.55)';
+      g.beginPath();
+      g.arc(bx, by, 1.8, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = 'rgba(200,180,255,0.25)';
+      g.fillRect(bx - 0.8, by - 1.8, 1.6, 0.8);
+    }
   }
-  ctx.fillStyle = skirtGrad;
-  ctx.fillRect(-FRONT_X - 6, FRONT_Y, FRONT_X * 2 + 12, 120);
-  ctx.fillStyle = '#c4122c';
-  ctx.fillRect(-FRONT_X - 6, FRONT_Y, FRONT_X * 2 + 12, 8);
+  // medalhões com a coroa (vermelho à esquerda, azul à direita)
+  for (const side of [-1, 1]) {
+    const mx = side * 372;
+    const my = 60;
+    const gold = g.createRadialGradient(mx - 8, my - 10, 2, mx, my, 32);
+    gold.addColorStop(0, '#fff2b0');
+    gold.addColorStop(0.6, '#f0b62e');
+    gold.addColorStop(1, '#9a5e12');
+    g.beginPath();
+    g.arc(mx, my, 31, 0, Math.PI * 2);
+    inked(g, gold, 4);
+    g.beginPath();
+    g.arc(mx, my, 24, 0, Math.PI * 2);
+    inked(g, '#1a1030', 2.5);
+    g.strokeStyle = TEAM_COLORS[side < 0 ? 0 : 1];
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(mx, my, 20, 0, Math.PI * 2);
+    g.stroke();
+    crownPath(g, mx, my + 9, 26, 18);
+    inked(g, '#ffd23d', 2);
+  }
+  // letreiro central
+  g.beginPath();
+  g.roundRect(-252, 34, 504, 54, 14);
+  g.fillStyle = 'rgba(6,3,14,0.6)';
+  g.fill();
+  g.strokeStyle = 'rgba(255,210,61,0.55)';
+  g.lineWidth = 2;
+  g.stroke();
+  g.font = '44px "Luckiest Guy", Impact, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.lineJoin = 'round';
+  g.lineWidth = 9;
+  g.strokeStyle = OUT;
+  g.strokeText('KINGS OF THE RING', 0, 63);
+  const tg = g.createLinearGradient(0, 44, 0, 80);
+  tg.addColorStop(0, '#fffbe6');
+  tg.addColorStop(0.5, '#ffe07a');
+  tg.addColorStop(1, '#f29b1d');
+  g.fillStyle = tg;
+  g.fillText('KINGS OF THE RING', 0, 63);
+  for (const sx of [-272, 272]) {
+    starPath(g, sx, 61, 11);
+    inked(g, '#ffd23d', 2.5);
+  }
+  // bordo superior do apron (vermelho almofadado) e canal da fita de LED
+  const top = g.createLinearGradient(0, 0, 0, 8);
+  top.addColorStop(0, '#ff5a6c');
+  top.addColorStop(1, '#9c0f22');
+  g.fillStyle = top;
+  g.fillRect(L, 0, SK_W, 8);
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.fillRect(L, 0, SK_W, 1.2);
+  g.fillStyle = '#07050c';
+  g.fillRect(L, 8, SK_W, 14);
+  g.fillStyle = 'rgba(0,0,0,0.5)';
+  g.fillRect(L, 22, SK_W, 3);
+  // rodapé
+  g.fillStyle = '#0b0812';
+  g.fillRect(L, 96, SK_W, 8);
+  const bot = g.createLinearGradient(0, 104, 0, 110);
+  bot.addColorStop(0, '#e01a36');
+  bot.addColorStop(1, '#7a0c1a');
+  g.fillStyle = bot;
+  g.fillRect(L, 104, SK_W, 6);
+  g.fillStyle = '#000';
+  g.fillRect(L, 110, SK_W, 2);
+  // volume: as pontas da saia ficam na sombra
+  const edge = g.createLinearGradient(L, 0, -L, 0);
+  edge.addColorStop(0, 'rgba(0,0,0,0.5)');
+  edge.addColorStop(0.1, 'rgba(0,0,0,0)');
+  edge.addColorStop(0.9, 'rgba(0,0,0,0)');
+  edge.addColorStop(1, 'rgba(0,0,0,0.5)');
+  g.fillStyle = edge;
+  g.fillRect(L, 0, SK_W, SK_H);
+  // luz quente do holofote a cair no centro da saia
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = 0.14;
+  g.drawImage(glowSprite('#ffe6c0'), -360, -60, 720, 160);
+  g.globalAlpha = 1;
+  g.globalCompositeOperation = 'source-over';
+  return c;
+}
+
+let stepsC: HTMLCanvasElement | null = null;
+const ST_W = 118;
+const ST_H = 104;
+/** Degraus de aço do canto (lado direito; o esquerdo é o espelho). Mais altos junto ao ringue. */
+function makeSteps(): HTMLCanvasElement {
+  const [c, g] = mk(ST_W * 2, ST_H * 2);
+  g.scale(2, 2);
+  const blocks = [
+    { w: 114, y: 70 },
+    { w: 78, y: 36 },
+    { w: 42, y: 2 },
+  ];
+  for (const b of blocks) {
+    const steel = g.createLinearGradient(0, b.y, 0, b.y + 34);
+    steel.addColorStop(0, '#80849a');
+    steel.addColorStop(0.5, '#4a4d5e');
+    steel.addColorStop(1, '#25262f');
+    g.beginPath();
+    g.rect(2, b.y, b.w, ST_H - b.y - 1);
+    inked(g, steel, 2.5);
+    // chapa xadrez
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    for (let yy = b.y + 12; yy < b.y + 32; yy += 6) {
+      for (let xx = 8 + ((yy / 6) % 2) * 4; xx < b.w - 4; xx += 8) g.fillRect(xx, yy, 3, 1.2);
+    }
+    // cobertura acolchoada do degrau
+    g.beginPath();
+    g.roundRect(1, b.y - 1, b.w + 2, 9, 3);
+    inked(g, '#1a1426', 2);
+    g.fillStyle = '#c4122c';
+    g.fillRect(4, b.y + 4, b.w - 4, 2);
+    g.fillStyle = 'rgba(255,255,255,0.25)';
+    g.fillRect(4, b.y + 0.5, b.w - 4, 1.2);
+    // rebites
+    g.fillStyle = '#c9ccd6';
+    for (const rx of [8, b.w - 6]) {
+      g.beginPath();
+      g.arc(rx, b.y + 14, 1.6, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  // sombra junto ao ringue
+  const sh = g.createLinearGradient(2, 0, 30, 0);
+  sh.addColorStop(0, 'rgba(0,0,0,0.45)');
+  sh.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = sh;
+  g.fillRect(2, 0, 28, ST_H);
+  return c;
+}
+
+export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t = 0, hype = 0.3): void {
+  skirtC ??= makeSkirt();
+  stepsC ??= makeSteps();
+  // degraus de aço nos cantos da frente
+  ctx.drawImage(stepsC, FRONT_X + 10, FRONT_Y + 110 - ST_H, ST_W, ST_H);
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.drawImage(stepsC, FRONT_X + 10, FRONT_Y + 110 - ST_H, ST_W, ST_H);
+  ctx.restore();
+  // saia do ringue
+  ctx.drawImage(skirtC, -SK_W / 2, FRONT_Y, SK_W, SK_H);
   // fita de LED animada
   const seg = 26;
-  const n = Math.ceil((FRONT_X * 2 + 12) / seg);
+  const n = Math.ceil(SK_W / seg);
   const prevOp = ctx.globalCompositeOperation;
   for (let i = 0; i < n; i++) {
     const x = -FRONT_X - 6 + i * seg;
@@ -839,20 +2010,15 @@ export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = 0.25 + hype * 0.25;
   ctx.fillStyle = '#ff7ad9';
-  ctx.fillRect(-FRONT_X - 6, FRONT_Y + 8, FRONT_X * 2 + 12, 14);
+  ctx.fillRect(-FRONT_X - 6, FRONT_Y + 8, SK_W, 14);
+  // reflexo que varre o letreiro de vez em quando
+  const gx = ((t * 260) % 2600) - 1300;
+  if (Math.abs(gx) < SK_W / 2) {
+    ctx.globalAlpha = 0.12;
+    ctx.drawImage(glowSprite('#ffffff'), gx - 70, FRONT_Y + 24, 140, 76);
+  }
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = prevOp;
-  ctx.fillStyle = '#c4122c';
-  ctx.fillRect(-FRONT_X - 6, FRONT_Y + 104, FRONT_X * 2 + 12, 6);
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.font = '44px "Luckiest Guy", Impact, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('KINGS OF THE RING', 0, FRONT_Y + 60);
-  ctx.fillStyle = '#ffd23d';
-  ctx.font = '26px "Luckiest Guy", Impact, sans-serif';
-  ctx.fillText('★', -260, FRONT_Y + 58);
-  ctx.fillText('★', 260, FRONT_Y + 58);
 
   // postes da frente
   post(ctx, -FRONT_X, FRONT_Y, POST_H, 18, 0);
@@ -872,52 +2038,115 @@ export function drawRingFront(ctx: CanvasRenderingContext2D, ropes: RopeState, t
 
 let fgA: HTMLCanvasElement | null = null;
 let fgB: HTMLCanvasElement | null = null;
+let fgRail: HTMLCanvasElement | null = null;
 const FW = 3200;
 const FH = 420;
 
 function makeForeground(odd: boolean): HTMLCanvasElement {
-  const c = document.createElement('canvas');
-  c.width = FW / 2;
-  c.height = FH / 2;
-  const g = c.getContext('2d')!;
+  const [c, g] = mk(FW / 2, FH / 2);
   g.scale(0.5, 0.5);
+  const body = odd ? '#140c24' : '#1c1131';
+  const rim = odd ? 'rgba(120,190,255,0.5)' : 'rgba(255,140,220,0.5)';
+  g.lineCap = 'round';
   for (let i = 0, x = 20; x < FW; i++, x += 70 + hash(i * 5) * 40) {
     if ((i % 2 === 1) !== odd) continue;
     const y = 120 + hash(i * 3 + 1) * 40;
-    const r = 36 + hash(i * 7) * 10;
-    // ombros
-    g.fillStyle = odd ? '#150d26' : '#1d1233';
-    g.beginPath();
-    g.ellipse(x, y + r * 2.3, r * 1.9, r * 1.5, 0, Math.PI, 0);
-    g.lineTo(x + r * 1.9, FH);
-    g.lineTo(x - r * 1.9, FH);
-    g.fill();
-    // cabeça
-    g.beginPath();
-    g.arc(x, y, r, 0, Math.PI * 2);
-    g.fill();
-    // luz de recorte
-    g.strokeStyle = 'rgba(180,140,255,0.45)';
-    g.lineWidth = 4;
-    g.beginPath();
-    g.arc(x, y, r - 2, Math.PI * 1.1, Math.PI * 1.75);
-    g.stroke();
-    // telemóveis no ar
-    if (hash(i * 11) > 0.72) {
+    const r = 34 + hash(i * 7) * 12;
+    const kind = Math.floor(hash(i * 9.7) * 7);
+    const wide = 1.7 + hash(i * 4.1) * 0.5;
+    g.fillStyle = body;
+    // braço no ar (telemóvel, dedo de espuma ou cartaz)
+    const up = hash(i * 11);
+    if (up > 0.7) {
       const px = x + (hash(i) - 0.5) * 40;
-      g.strokeStyle = odd ? '#150d26' : '#1d1233';
-      g.lineWidth = 14;
-      g.lineCap = 'round';
+      g.strokeStyle = body;
+      g.lineWidth = 15;
       g.beginPath();
       g.moveTo(x + r * 0.8, y + r * 1.4);
       g.lineTo(px + 10, y - r * 1.3);
       g.stroke();
-      g.fillStyle = '#1a1430';
-      g.fillRect(px - 6, y - r * 2.2, 34, 56);
-      g.fillStyle = 'rgba(190,220,255,0.85)';
-      g.fillRect(px - 2, y - r * 2.2 + 4, 26, 46);
+      if (up > 0.9) {
+        // dedo de espuma em contraluz
+        g.beginPath();
+        g.roundRect(px - 8, y - r * 1.9, 38, 40, 10);
+        g.roundRect(px + 3, y - r * 1.9 - 46, 16, 54, 8);
+        g.fill();
+        g.strokeStyle = rim;
+        g.lineWidth = 3;
+        g.beginPath();
+        g.moveTo(px + 4, y - r * 1.9 - 38);
+        g.lineTo(px + 4, y - r * 1.9 - 4);
+        g.stroke();
+      } else if (up > 0.8) {
+        // cartaz visto por trás com luz a passar no bordo
+        g.fillStyle = '#2a1d24';
+        g.fillRect(px - 50, y - r * 2.6, 110, 62);
+        g.strokeStyle = 'rgba(255,230,190,0.45)';
+        g.lineWidth = 3;
+        g.strokeRect(px - 50, y - r * 2.6, 110, 62);
+        g.fillStyle = body;
+      } else {
+        g.fillStyle = '#1a1430';
+        g.fillRect(px - 6, y - r * 2.2, 34, 56);
+        g.fillStyle = 'rgba(190,220,255,0.85)';
+        g.fillRect(px - 2, y - r * 2.2 + 4, 26, 46);
+        g.fillStyle = body;
+      }
     }
+    // ombros
+    g.beginPath();
+    g.ellipse(x, y + r * 2.3, r * wide, r * 1.5, 0, Math.PI, 0);
+    g.lineTo(x + r * wide, FH);
+    g.lineTo(x - r * wide, FH);
+    g.fill();
+    // cabeça e cabelo/chapéu
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    if (kind === 0) g.arc(x, y - r * 0.2, r * 1.3, 0, Math.PI * 2); // afro
+    else if (kind === 1) g.arc(x, y - r * 1.05, r * 0.42, 0, Math.PI * 2); // carrapito
+    else if (kind === 2) g.ellipse(x + r * 0.7, y - r * 0.35, r * 0.85, r * 0.18, 0, 0, Math.PI * 2); // pala do boné
+    else if (kind === 3) g.ellipse(x - r * 0.9, y + r * 0.4, r * 0.3, r * 0.65, 0.3, 0, Math.PI * 2); // rabo de cavalo
+    else if (kind === 4) g.ellipse(x, y - r * 0.55, r * 1.55, r * 0.22, 0, 0, Math.PI * 2); // chapéu
+    g.fill();
+    // luz de recorte (vem do ringue, por cima)
+    g.strokeStyle = rim;
+    g.lineWidth = 4;
+    g.beginPath();
+    const rr = kind === 0 ? r * 1.3 : r;
+    g.arc(x, y - (kind === 0 ? r * 0.2 : 0), rr - 2, Math.PI * 1.15, Math.PI * 1.8);
+    g.stroke();
+    g.lineWidth = 3;
+    g.beginPath();
+    g.ellipse(x, y + r * 2.3, r * wide - 2, r * 1.5 - 2, 0, Math.PI * 1.15, Math.PI * 1.45);
+    g.stroke();
   }
+  return c;
+}
+
+/** Barreira à volta do ringue (entre o ringue e a primeira fila). */
+function makeRail(): HTMLCanvasElement {
+  const [c, g] = mk(FW / 2, 30);
+  g.scale(0.5, 0.5);
+  const labels = ['FIGHT!', 'KOTR ♛', 'LIVE'];
+  const cols = ['#8e1622', '#16307e', '#16101f'];
+  for (let x = 0, k = 0; x < FW; x += 200, k++) {
+    g.fillStyle = cols[k % 3];
+    g.fillRect(x + 3, 10, 194, 50);
+    g.fillStyle = 'rgba(255,255,255,0.12)';
+    g.fillRect(x + 3, 12, 194, 3);
+    g.font = '26px "Luckiest Guy", Impact, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(255,255,255,0.7)';
+    g.fillText(labels[k % 3], x + 100, 37);
+    g.fillStyle = '#6d7080';
+    g.fillRect(x - 3, 0, 6, 60);
+  }
+  const rail = g.createLinearGradient(0, 0, 0, 10);
+  rail.addColorStop(0, '#c9ccd6');
+  rail.addColorStop(1, '#3a3c48');
+  g.fillStyle = rail;
+  g.fillRect(0, 0, FW, 10);
   return c;
 }
 
@@ -926,7 +2155,9 @@ export function drawForeground(ctx: CanvasRenderingContext2D, camX: number, t: n
   if (!fgA) {
     fgA = makeForeground(false);
     fgB = makeForeground(true);
+    fgRail = makeRail();
   }
+  ctx.drawImage(fgRail!, -FW / 2 + camX * 0.12, FRONT_Y + 128, FW, 60);
   const par = camX * 0.25;
   const y0 = FRONT_Y + 30;
   const b1 = Math.abs(Math.sin(t * (5 + hype * 5))) * hype * 16;
@@ -935,8 +2166,42 @@ export function drawForeground(ctx: CanvasRenderingContext2D, camX: number, t: n
   ctx.drawImage(fgA!, -FW / 2 + par + 35, y0 - b1, FW, FH);
 }
 
+let floorC: HTMLCanvasElement | null = null;
+/** Chão à volta do ringue: tapete de proteção, cabos e a luz que transborda do ringue. */
+function makeFloor(): HTMLCanvasElement {
+  const [c, g] = mk(1600, 300);
+  g.scale(0.5, 0.5);
+  g.translate(1600, 0);
+  const base = g.createLinearGradient(0, 0, 0, 600);
+  base.addColorStop(0, '#171126');
+  base.addColorStop(0.4, '#0b0814');
+  base.addColorStop(1, '#07050c');
+  g.fillStyle = base;
+  g.fillRect(-1600, 0, 3200, 600);
+  g.fillStyle = '#10162a';
+  g.fillRect(-680, 0, 1360, 200);
+  g.fillStyle = 'rgba(90,140,255,0.25)';
+  g.fillRect(-680, 198, 1360, 3);
+  g.strokeStyle = '#05040a';
+  g.lineWidth = 5;
+  g.beginPath();
+  g.moveTo(-900, 30);
+  g.bezierCurveTo(-700, 120, -800, 220, -600, 320);
+  g.moveTo(820, 10);
+  g.bezierCurveTo(700, 140, 900, 260, 760, 400);
+  g.stroke();
+  g.globalCompositeOperation = 'lighter';
+  g.globalAlpha = 0.3;
+  g.drawImage(glowSprite('#7b5cff'), -900, -150, 1800, 330);
+  g.globalAlpha = 0.18;
+  g.drawImage(glowSprite('#ff7ad9'), -600, -60, 1200, 140);
+  return c;
+}
+
 /** Chão fora do ringue (à frente da saia). */
 export function drawFloor(ctx: CanvasRenderingContext2D): void {
-  ctx.fillStyle = '#0a0710';
+  floorC ??= makeFloor();
+  ctx.fillStyle = '#07050c';
   ctx.fillRect(-3000, FRONT_Y + 110, 6000, 600);
+  ctx.drawImage(floorC, -1600, FRONT_Y + 110, 3200, 600);
 }

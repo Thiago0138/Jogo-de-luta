@@ -88,8 +88,9 @@ function curves(ctx: CanvasRenderingContext2D, col: string, alpha: number, w: nu
 function outerShade(ctx: CanvasRenderingContext2D, col: string, alpha: number, cx: number, cy: number, r: number) {
   ctx.globalAlpha = alpha;
   ctx.fillStyle = col;
+  const m = r + 34;
   ctx.beginPath();
-  ctx.rect(cx - 200, cy - 200, 400, 400);
+  ctx.rect(cx - m, cy - m, m * 2, m * 2);
   ctx.arc(cx, cy, r, 0, TAU);
   ctx.fill('evenodd');
   ctx.globalAlpha = 1;
@@ -840,25 +841,25 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
   const shadeC = L.skinShade;
   // orelha (lado do crânio, atrás da patilha)
   ctx.beginPath();
-  ctx.ellipse(-10.5, 5, 5.4, 7.6, 0.18, 0, TAU);
+  ctx.ellipse(-10.5, 5.5, 4.8, 7, 0.22, 0, TAU);
   ctx.fillStyle = skin;
   ctx.fill();
-  ctx.lineWidth = 2.4;
+  ctx.lineWidth = 2.1;
   ctx.strokeStyle = OC();
   ctx.stroke();
   if (!PS.F) {
     // hélice em "C" aberta para a frente + concha
-    ctx.strokeStyle = sh(shadeC, -0.2);
-    ctx.lineWidth = 1.7;
-    ctx.beginPath();
-    ctx.moveTo(-8.6, 0.4);
-    ctx.quadraticCurveTo(-14.2, 0.6, -13.2, 6);
-    ctx.quadraticCurveTo(-12.6, 10.6, -9.2, 10.4);
-    ctx.stroke();
-    ctx.globalAlpha = 0.7;
+    ctx.globalAlpha = 0.85;
     ctx.fillStyle = shadeC;
     ctx.beginPath();
-    ctx.ellipse(-10, 5.6, 2, 2.8, 0.2, 0, TAU);
+    ctx.moveTo(-9, 1.8);
+    ctx.quadraticCurveTo(-13.4, 2.4, -12.4, 6.5);
+    ctx.quadraticCurveTo(-11.8, 9.6, -9.4, 9.4);
+    ctx.quadraticCurveTo(-11, 6, -9, 1.8);
+    ctx.fill();
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.ellipse(-9.6, 6, 1.4, 2, 0.2, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = '#ffffff';
@@ -945,11 +946,11 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
     ctx.fill();
     ctx.globalAlpha = 1;
   }
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.9;
   ctx.strokeStyle = OC();
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(21.2, 4.6);
+  ctx.moveTo(22.6, 6);
   ctx.quadraticCurveTo(27.5, 9.5, 23, 13.2);
   ctx.quadraticCurveTo(20, 14.8, 16.8, 12.2);
   ctx.stroke();
@@ -2387,6 +2388,76 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   }
 }
 
+/** Joelheira almofadada: costuras, sombra e brilho. */
+function kneePad(ctx: CanvasRenderingContext2D, kx: number, ky: number, hx: number, hy: number, fx: number, fy: number, col: string) {
+  const ax = kx + (hx - kx) * 0.18;
+  const ay = ky + (hy - ky) * 0.18;
+  const bx = kx + (fx - kx) * 0.2;
+  const by = ky + (fy - ky) * 0.2;
+  const pr: Prof = [10.5, 11.4, 10];
+  ctx.beginPath();
+  capsule(ctx, ax, ay, bx, by, pr);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = OC();
+  ctx.stroke();
+  ctx.fillStyle = C(col);
+  ctx.fill();
+  if (PS.F) return;
+  ctx.save();
+  ctx.clip();
+  const [snx, sny] = shadeSide(bx - ax, by - ay);
+  ctx.globalAlpha = 0.4;
+  ctx.fillStyle = sh(col, -0.45);
+  ctx.beginPath();
+  capsule(ctx, ax, ay, bx, by, pr, 0.6, snx * 7, sny * 7);
+  ctx.fill();
+  // costuras dos gomos almofadados
+  const dx = bx - ax;
+  const dy = by - ay;
+  ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = sh(col, -0.45);
+  ctx.lineWidth = 1.3;
+  ctx.beginPath();
+  for (const q of [0.12, 0.88]) {
+    const mx = ax + dx * q;
+    const my = ay + dy * q;
+    ctx.moveTo(mx - snx * 12, my - sny * 12);
+    ctx.quadraticCurveTo(mx + dx * 0.08, my + dy * 0.08, mx + snx * 12, my + sny * 12);
+  }
+  ctx.stroke();
+  ctx.globalAlpha = 0.5;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(ax + dx * 0.5 - snx * 5.5, ay + dy * 0.5 - sny * 5.5, 2, Math.max(2, Math.hypot(dx, dy) * 0.32), Math.atan2(dy, dx) + Math.PI / 2, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+/** Pescoço com sombra do maxilar e esternocleidomastóideo. */
+function drawNeck(ctx: CanvasRenderingContext2D, s: Skel, col: string, shadeC: string) {
+  const x0 = s.x[J_SH];
+  const y0 = s.y[J_SH];
+  const x1 = s.x[J_HEAD] * 0.45 + s.x[J_NECK] * 0.55;
+  const y1 = s.y[J_HEAD] * 0.45 + s.y[J_NECK] * 0.55;
+  seg(ctx, x0, y0, x1, y1, 19, col);
+  if (PS.F) return;
+  const nx = Math.cos(s.torsoA);
+  const ny = Math.sin(s.torsoA);
+  ctx.globalAlpha = 0.5;
+  seg(ctx, x0 - nx * 4, y0 - ny * 4, x1 - nx * 4, y1 - ny * 4, 9, shadeC, false);
+  ctx.globalAlpha = 0.55;
+  seg(ctx, x1 + nx * 1, y1 + ny * 1, x1 + (x0 - x1) * 0.3 + nx, y1 + (y0 - y1) * 0.3 + ny, 15, shadeC, false);
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = shadeC;
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(x1 - nx * 3, y1 - ny * 3);
+  ctx.quadraticCurveTo(x0 + (x1 - x0) * 0.4 + nx * 2, y0 + (y1 - y0) * 0.4 + ny * 2, x0 + nx * 6, y0 + ny * 6);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
 // ───────────────────────── Corpo completo ─────────────────────────
 
 /**
@@ -2484,23 +2555,15 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
   // perna de trás
   limb(ctx, X[J_HIP] - 3, Y[J_HIP], X[J_BK], Y[J_BK], X[J_BF], Y[J_BF], LEG_U, LEG_L, legB, shade(legB, -0.3), out.mat && legC === L.body ? deco(3) : undefined);
   drawBoot(ctx, X[J_BK], Y[J_BK], X[J_BF], Y[J_BF], s.blL, shade(boots, -0.15), out.mat);
+  const pads = (style === 'trunks' || style === 'singlet') && !out.suit;
+  if (pads) kneePad(ctx, X[J_BK], Y[J_BK], X[J_HIP], Y[J_HIP], X[J_BF], Y[J_BF], sh(out.c2 ?? '#ffffff', -0.18));
   // perna da frente
   limb(ctx, X[J_HIP] + 3, Y[J_HIP], X[J_FK], Y[J_FK], X[J_FF], Y[J_FF], LEG_U, LEG_L, legC, legC === L.body ? L.bodyShade : shade(legC, -0.3), out.mat && legC === L.body ? deco(5) : undefined);
-  if ((style === 'trunks' || style === 'singlet') && !out.suit) {
-    // joelheira
-    const kx = X[J_FK], ky = Y[J_FK];
-    ctx.beginPath();
-    capsule(ctx, kx + (X[J_HIP] - kx) * 0.18, ky + (Y[J_HIP] - ky) * 0.18, kx + (X[J_FF] - kx) * 0.2, ky + (Y[J_FF] - ky) * 0.2, [10.5, 11, 10]);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = OC();
-    ctx.stroke();
-    ctx.fillStyle = C(out.c2 ?? '#fff');
-    ctx.fill();
-  }
+  if (pads) kneePad(ctx, X[J_FK], Y[J_FK], X[J_HIP], Y[J_HIP], X[J_FF], Y[J_FF], out.c2 ?? '#fff');
   drawBoot(ctx, X[J_FK], Y[J_FK], X[J_FF], Y[J_FF], s.flL, boots, out.mat);
 
   // pescoço
-  seg(ctx, X[J_SH], Y[J_SH], X[J_HEAD] * 0.45 + X[J_NECK] * 0.55, Y[J_HEAD] * 0.45 + Y[J_NECK] * 0.55, 19, suit && out.head !== 'astro' ? L.body : L.skin);
+  drawNeck(ctx, s, suit && out.head !== 'astro' ? L.body : L.skin, suit && out.head !== 'astro' ? L.bodyShade : L.skinShade);
   drawTorso(ctx, L, s, t);
   if (style === 'none' && legC === L.body) blendJoint(ctx, s, L.body, L.bodyShade, X[J_HIP] + 3, Y[J_HIP], X[J_FK], Y[J_FK], LEG_U, 0.35, false, false);
 
@@ -2519,6 +2582,20 @@ function drawBody(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) 
     const tp = new Path2D();
     torsoPath(tp, s, 19, 30);
     soft = { over: tp, color: shade(L.bodyShade, -0.25) };
+  }
+  if (!PS.F) {
+    // sombra projetada do braço da frente no tronco (dá profundidade ao braço cruzado)
+    ctx.save();
+    torsoPath(ctx, s, 19, 30);
+    ctx.clip();
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = '#1a1020';
+    ctx.beginPath();
+    capsule(ctx, X[J_SH] - 2, Y[J_SH] + 4, X[J_FE] - 3, Y[J_FE] + 6, ARM_U);
+    capsule(ctx, X[J_FE] - 3, Y[J_FE] + 6, X[J_FH] - 3, Y[J_FH] + 6, ARM_L);
+    ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
   limb(ctx, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], X[J_FH], Y[J_FH], ARM_U, ARM_L, L.body, L.bodyShade, out.mat ? deco(7) : undefined, soft);
   if (bareTorso && !sleeve) blendJoint(ctx, s, L.body, L.bodyShade, X[J_SH], Y[J_SH], X[J_FE], Y[J_FE], ARM_U, 0.42, !out.mat);

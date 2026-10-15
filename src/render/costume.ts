@@ -1,7 +1,7 @@
 import { shade } from '../data/appearance';
 import { ITEMS, type Vis } from '../data/items';
 import {
-  C, Cam, DL, OC, OW, PS, TAU, ell, glowSprite, hash, poly, proj3D, sheet, sphereRegion, spherePt, spike, tube, viewDir, type Proj,
+  C, Cam, DL, OC, OW, PS, TAU, ell, glowSprite, hash, poly, proj3D, sphereRegion, spherePt, spike, tube, viewDir, type Proj,
 } from './paint';
 import { HEAD_R } from './pose';
 
@@ -490,6 +490,207 @@ export function matPattern(
   }
 }
 
+/** Cintilação de metal nobre num ponto do ecrã (aparece e some, com um período por peça). */
+function glint(ctx: CanvasRenderingContext2D, p: number[], t: number, seed: number, size = 7) {
+  const ph = (t * 0.45 + hash(seed) * 0.9) % 1;
+  if (ph > 0.22) return;
+  lighter(ctx, () => {
+    const k = Math.sin((ph / 0.22) * Math.PI);
+    ctx.globalAlpha = k;
+    ctx.drawImage(glowSprite('#fff3b0'), p[0] - size, p[1] - size, size * 2, size * 2);
+    twinkle(ctx, p[0], p[1], size * (0.6 + k * 0.5), '#ffffff');
+  });
+}
+
+/**
+ * Tecido (capas): como `sheet`, mas cada quadrado recebe luz conforme a sua normal,
+ * em 3 tons cel por face — as pregas e ondas ficam legíveis. `trim` pinta a bainha.
+ */
+function cloth(ctx: CanvasRenderingContext2D, P: Proj, grid: number[][][], front: string, back: string, line = 4, trim?: string): number {
+  const rows = grid.length;
+  const cols = grid[0].length;
+  const g = grid.map((r) => r.map((v) => P.p(v[0], v[1], v[2])));
+  if (line > 0) {
+    ctx.beginPath();
+    for (let j = 0; j < cols; j++) ctx.lineTo(g[0][j][0], g[0][j][1]);
+    for (let i = 1; i < rows; i++) ctx.lineTo(g[i][cols - 1][0], g[i][cols - 1][1]);
+    for (let j = cols - 2; j >= 0; j--) ctx.lineTo(g[rows - 1][j][0], g[rows - 1][j][1]);
+    for (let i = rows - 2; i > 0; i--) ctx.lineTo(g[i][0][0], g[i][0][1]);
+    ctx.closePath();
+    ctx.lineWidth = line;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = OC();
+    ctx.stroke();
+  }
+  const F = [sh(front, -0.3), front, sh(front, 0.14)];
+  const B = [sh(back, -0.3), back, sh(back, 0.12)];
+  // luz: de cima, ligeiramente à frente e virada para quem vê
+  const lx = 0.3, ly = -0.72, lz = 0.62;
+  const quads: { d: number; i: number; j: number; c: string }[] = [];
+  let dsum = 0;
+  for (let i = 0; i < rows - 1; i++) {
+    for (let j = 0; j < cols - 1; j++) {
+      const a = g[i][j], b = g[i][j + 1], c = g[i + 1][j + 1], d = g[i + 1][j];
+      const area = (b[0] - a[0]) * (d[1] - a[1]) - (b[1] - a[1]) * (d[0] - a[0]) + (c[0] - b[0]) * (d[1] - b[1]) - (c[1] - b[1]) * (d[0] - b[0]);
+      const ux = c[0] - a[0], uy = c[1] - a[1], uz = c[2] - a[2];
+      const vx = d[0] - b[0], vy = d[1] - b[1], vz = d[2] - b[2];
+      let nx = uy * vz - uz * vy;
+      let ny = uz * vx - ux * vz;
+      let nz = ux * vy - uy * vx;
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      if (nz < 0) {
+        nx = -nx;
+        ny = -ny;
+        nz = -nz;
+      }
+      const lam = (nx * lx + ny * ly + nz * lz) / nl;
+      const band = lam > 0.8 ? 2 : lam > 0.3 ? 1 : 0;
+      const dd = (a[2] + b[2] + c[2] + d[2]) / 4;
+      dsum += dd;
+      quads.push({ d: dd, i, j, c: (area >= 0 ? F : B)[band] });
+    }
+  }
+  quads.sort((p, q) => p.d - q.d);
+  ctx.lineWidth = 1;
+  for (const q of quads) {
+    const a = g[q.i][q.j], b = g[q.i][q.j + 1], c = g[q.i + 1][q.j + 1], d = g[q.i + 1][q.j];
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.lineTo(c[0], c[1]);
+    ctx.lineTo(d[0], d[1]);
+    ctx.closePath();
+    const col = C(q.c);
+    ctx.fillStyle = col;
+    ctx.strokeStyle = col;
+    ctx.fill();
+    ctx.stroke();
+  }
+  if (trim && !PS.F) {
+    const last = g[rows - 1];
+    ctx.beginPath();
+    last.forEach((p, j) => (j ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 3.2;
+    ctx.strokeStyle = trim;
+    ctx.stroke();
+  }
+  return dsum / Math.max(1, quads.length);
+}
+
+type P3 = number[];
+const lerp3 = (a: P3, b: P3, k: number): P3 => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+/** Ponto ao longo de uma polilinha 3D (k de 0 a 1, por segmentos iguais). */
+function along(pts: P3[], k: number): P3 {
+  const n = pts.length - 1;
+  const f = Math.max(0, Math.min(0.9999, k)) * n;
+  const i = Math.floor(f);
+  return lerp3(pts[i], pts[i + 1], f - i);
+}
+
+/**
+ * Asa de fénix: três camadas de penas (rémiges longas, coberteiras e penugem junto ao braço)
+ * presas ao esqueleto da asa, com chamas nas pontas das rémiges.
+ */
+function fireWing(
+  ctx: CanvasRenderingContext2D, P: Proj, root: P3, elbow: P3, tips: P3[], c1: string, c2: string, c3: string, t: number, sd: number, low: boolean,
+) {
+  // normal do plano da asa (para dar largura às penas dentro desse plano)
+  const e1 = [elbow[0] - root[0], elbow[1] - root[1], elbow[2] - root[2]];
+  const e2 = [tips[3][0] - root[0], tips[3][1] - root[1], tips[3][2] - root[2]];
+  const nw = [e1[1] * e2[2] - e1[2] * e2[1], e1[2] * e2[0] - e1[0] * e2[2], e1[0] * e2[1] - e1[1] * e2[0]];
+  const arm: P3[] = [lerp3(elbow, tips[0], 0.75), elbow, root];
+  const feather = (base: P3, tip: P3, w: number, col: string, line: number) => {
+    const d = [tip[0] - base[0], tip[1] - base[1], tip[2] - base[2]];
+    let px = d[1] * nw[2] - d[2] * nw[1];
+    let py = d[2] * nw[0] - d[0] * nw[2];
+    let pz = d[0] * nw[1] - d[1] * nw[0];
+    const l = Math.hypot(px, py, pz) || 1;
+    px = (px / l) * w;
+    py = (py / l) * w;
+    pz = (pz / l) * w;
+    const m = lerp3(base, tip, 0.55);
+    poly(ctx, P, [
+      [base[0] + px * 0.6, base[1] + py * 0.6, base[2] + pz * 0.6],
+      [m[0] + px, m[1] + py, m[2] + pz],
+      tip,
+      [m[0] - px * 0.8, m[1] - py * 0.8, m[2] - pz * 0.8],
+      [base[0] - px * 0.6, base[1] - py * 0.6, base[2] - pz * 0.6],
+    ], col, line);
+    if (!PS.F && line > 0) {
+      const a = P.p(base[0], base[1], base[2]);
+      const b = P.p(m[0] * 0.3 + tip[0] * 0.7, m[1] * 0.3 + tip[1] * 0.7, m[2] * 0.3 + tip[2] * 0.7);
+      ctx.strokeStyle = c3;
+      ctx.globalAlpha = 0.65;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+  };
+  const N = 9;
+  const fan = (k: number) => along(tips, k);
+  // brilho por trás
+  lighter(ctx, () => {
+    const e = P.p(elbow[0] - 20, elbow[1] + 20, elbow[2]);
+    ctx.globalAlpha = 0.45 + Math.sin(t * 3) * 0.1;
+    ctx.drawImage(glowSprite(c2), e[0] - 60, e[1] - 60, 120, 120);
+  });
+  // rémiges (compridas): da ponta (k=0) ao corpo (k=1); as de dentro desenham-se primeiro
+  const longTips: P3[] = [];
+  for (let i = N - 1; i >= 0; i--) {
+    const k = i / (N - 1);
+    const base = along(arm, k);
+    const sway = Math.sin(t * 5 + i * 0.8 + sd) * 2.5;
+    const f = fan(k);
+    const tip = [base[0] + (f[0] - base[0]) * 1.12 + sway, base[1] + (f[1] - base[1]) * 1.12 + sway * 0.5, base[2] + (f[2] - base[2]) * 1.12];
+    longTips[i] = tip;
+    feather(base, tip, 6.5, k < 0.3 ? sh(c2, 0.25) : c2, 2.2);
+  }
+  // coberteiras
+  for (let i = N - 2; i >= 0; i--) {
+    const k = (i + 0.5) / (N - 1);
+    const base = along(arm, k);
+    const tip = lerp3(base, longTips[Math.min(N - 1, i + 1)], 0.55);
+    feather(base, tip, 6, c1, 2);
+  }
+  // penugem junto ao braço
+  for (let i = 5; i >= 0; i--) {
+    const k = i / 5;
+    const base = along(arm, k);
+    const tip = lerp3(base, longTips[Math.round(k * (N - 1))], 0.28);
+    feather(base, tip, 5.5, sh(c1, -0.15), 1.8);
+  }
+  tube(ctx, P, [root, elbow, tips[0]], [4.5, 3.5, 1.5], c1, sh(c1, -0.35), 3);
+  // chamas nas pontas
+  lighter(ctx, () => {
+    for (let i = 0; i < N; i += low ? 2 : 1) {
+      const tip = longTips[i];
+      const p = P.p(tip[0], tip[1], tip[2]);
+      const q = P.p(tip[0] - 8, tip[1] - 12, tip[2]);
+      const ux = q[0] - p[0];
+      const uy = q[1] - p[1];
+      const l = Math.hypot(ux, uy) || 1;
+      ctx.globalAlpha = 0.85;
+      flame(ctx, p[0], p[1], ux / l, uy / l, 16 + (i % 3) * 6, 5, c2, c3, t, i + sd * 3);
+    }
+    // brasas que se soltam
+    if (!low) {
+      for (let i = 0; i < 3; i++) {
+        const ph = (t * 0.7 + i / 3) % 1;
+        const k = Math.floor(t * 0.7 + i / 3);
+        const tip = longTips[Math.floor(hash(k * 3 + i + sd) * N)];
+        const p = P.p(tip[0], tip[1], tip[2]);
+        ctx.globalAlpha = 1 - ph;
+        ctx.fillStyle = i % 2 ? c3 : '#ffffff';
+        ctx.fillRect(p[0] + Math.sin(t * 4 + i) * 4, p[1] - ph * 30, 2.4, 2.4);
+      }
+    }
+  });
+}
+
 // ───────────────────────── Peças do corpo ─────────────────────────
 
 /**
@@ -506,36 +707,70 @@ export function bodyPieces(
   // profundidade de uma peça das costas (em perfil fica sempre atrás)
   const backD = (x: number, y: number, z: number, bias = 0) => (flat ? -60 + z * 0.1 + bias * 0.1 : Tb.p(x, y, z)[2] + bias);
   // as peças das costas assentam atrás do tronco
-  const sh = flat ? -15 : -2;
-  const Tb: Proj = { p: (x, y, z) => T.p(x + sh, y, z) };
+  const shOff = flat ? -15 : -2;
+  const Tb: Proj = { p: (x, y, z) => T.p(x + shOff, y, z) };
 
   switch (o.back) {
     case 'cape':
     case 'cape_long':
     case 'royalcape': {
       const long = o.back !== 'cape';
+      const royal = o.back === 'royalcape';
       const L = o.back === 'cape' ? 62 : 112;
-      const outer = o.back === 'royalcape' ? '#a3121f' : o.c3 ?? '#c22';
-      const inner = o.back === 'royalcape' ? '#5e0a12' : o.c4 ?? shade(outer, -0.35);
-      const rows = long ? 6 : 4;
-      const cols = 7;
+      const outer = royal ? '#a3121f' : o.c3 ?? '#cc2222';
+      const inner = royal ? '#5e0a12' : o.c4 ?? sh(outer, -0.35);
+      const trimC = royal ? '#ffd23d' : o.back === 'cape' ? (o.c4 ?? '#ffd700') : sh(outer, -0.3);
+      const rows = long ? 7 : 5;
+      const cols = 10;
       const grid: number[][][] = [];
       for (let i = 0; i <= rows; i++) {
         const k = i / rows;
         const row: number[][] = [];
         for (let j = 0; j <= cols; j++) {
           const u = j / cols - 0.5;
-          const zz = u * (46 + k * 26);
-          const wave = Math.sin(t * 3.2 + k * 2.4 + u * 3) * 5 * k;
+          const zz = u * (46 + k * 30);
+          // onda que desce pela capa + agitação mais rápida nas pontas (movimento secundário)
+          const wave = (Math.sin(t * 3.2 - k * 3 + u * 2.6) * 5 + Math.sin(t * 5.3 - k * 4.6 + u * 5.5) * 2.2 * k) * k;
+          const flut = Math.sin(t * 7 + u * 9 + k * 2) * 1.6 * k * k;
           const wrap = Math.cos(u * Math.PI) * 6 * (1 - k);
           const bulge = (1 - 4 * u * u) * (6 + 14 * k);
-          row.push([-2 - k * (long ? 30 : 20) - wave + wrap * 0.5 - bulge, -3 + k * L * (long ? 0.94 : 1), zz]);
+          // pregas verticais (o tecido cai em ondas)
+          const pleat = Math.cos(u * Math.PI * 3.2 + Math.sin(t * 2 + k) * 0.6) * 4.5 * k;
+          row.push([-2 - k * (long ? 30 : 20) - wave + wrap * 0.5 - bulge + pleat, -3 + k * L * (long ? 0.94 : 1) + flut, zz + Math.sin(t * 2.1 + k * 2) * 3 * k]);
         }
         grid.push(row);
       }
       dl.add(backD(-16, 30, 0, -6), () => {
-        sheet(ctx, Tb, grid, outer, inner, 4.5);
-        if (o.back === 'royalcape' && !PS.F) {
+        cloth(ctx, Tb, grid, outer, inner, 4.5, trimC);
+        if (!PS.F) {
+          // estrelas / brasão na face de fora
+          if (o.back === 'cape') {
+            const spots = [[2, 2.5], [2, 6.5], [3, 4.5]];
+            for (const [i, j] of spots) {
+              const a = Tb.p(grid[i][Math.floor(j)][0], grid[i][Math.floor(j)][1], grid[i][Math.floor(j)][2]);
+              const b = Tb.p(grid[i][Math.floor(j) + 1][0], grid[i][Math.floor(j) + 1][1], grid[i][Math.floor(j) + 1][2]);
+              const d = Tb.p(grid[i + 1][Math.floor(j)][0], grid[i + 1][Math.floor(j)][1], grid[i + 1][Math.floor(j)][2]);
+              const area = (b[0] - a[0]) * (d[1] - a[1]) - (b[1] - a[1]) * (d[0] - a[0]);
+              if (area < 0) continue;
+              const cx = (a[0] + b[0] + d[0]) / 3 + (b[0] - a[0]) * 0.3;
+              const cy = (a[1] + b[1] + d[1]) / 3 + (d[1] - a[1]) * 0.2;
+              const r = Math.min(9, Math.max(3, Math.hypot(b[0] - a[0], b[1] - a[1]) * 0.55));
+              ctx.fillStyle = royal ? '#ffd23d' : (o.c4 ?? '#ffd700');
+              ctx.strokeStyle = OC();
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              for (let q = 0; q < 10; q++) {
+                const aa = -Math.PI / 2 + (q * Math.PI) / 5;
+                const rr = q % 2 ? r * (royal ? 0.55 : 0.42) : r;
+                ctx.lineTo(cx + Math.cos(aa) * rr, cy + Math.sin(aa) * rr);
+              }
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+            }
+          }
+        }
+        if (royal && !PS.F) {
           // arminho na barra
           const trim: number[][][] = [];
           for (let i = 0; i <= 1; i++) {
@@ -548,66 +783,118 @@ export function bodyPieces(
             }
             trim.push(row);
           }
-          sheet(ctx, Tb, trim, '#f7f4ee', '#e2ddd2', 0);
+          cloth(ctx, Tb, trim, '#f7f4ee', '#e2ddd2', 0);
           ctx.fillStyle = '#16121a';
           for (let j = 1; j < cols; j += 2) {
             const p = Tb.p(grid[rows][j][0], grid[rows][j][1] - 7, grid[rows][j][2]);
-            ctx.fillRect(p[0] - 1.5, p[1] - 2.5, 3, 5);
+            ctx.beginPath();
+            ctx.moveTo(p[0], p[1] - 3);
+            ctx.lineTo(p[0] + 1.8, p[1] + 2.5);
+            ctx.lineTo(p[0] - 1.8, p[1] + 2.5);
+            ctx.fill();
           }
         }
-        // fecho dourado nos ombros
-        for (const zz of [-20, 20]) ell(ctx, Tb, 4, -1, zz, 4.5, 4.5, 4.5, o.back === 'cape' ? (o.c4 ?? '#ffd700') : '#ffd23d', { line: 2 });
+        // fechos nos ombros (com brilho)
+        for (const zz of [-20, 20]) {
+          ell(ctx, Tb, 4, -1, zz, 4.8, 4.8, 4.8, o.back === 'cape' ? (o.c4 ?? '#ffd700') : '#ffd23d', { line: 2 });
+          if (royal) ell(ctx, Tb, 5, -1, zz, 2, 2, 2, '#d6202f', { line: 1.2, shade: null });
+        }
+        if ((royal || o.anim === 'gold') && !PS.F) glint(ctx, Tb.p(4, -1, 20), t, 1);
       });
       break;
     }
     case 'wings_dragon':
     case 'wings_fire': {
       const fire = o.back === 'wings_fire';
-      const flap = Math.sin(t * (fire ? 4 : 3)) * 0.22;
+      const spd = fire ? 4 : 3;
       for (const sd of [-1, 1]) {
         const rx = -12;
         const ry = 6;
         const rz = sd * 8;
+        // cada ponta bate com atraso em relação ao braço (movimento secundário / chicote)
         const tips = [
           [-58, -62, 34],
           [-82, -22, 52],
           [-70, 18, 46],
           [-40, 44, 30],
-        ].map(([x, y, z]) => [rx + x * (1 - flap * 0.3) * 0.8, ry + y - flap * 26 * (y < 0 ? 1 : 0.3), rz + sd * z * 1.7 * (1 + flap)]);
-        const elbow = [rx - 22, ry - 34 - flap * 12, rz + sd * 30 * (1 + flap)];
-        const draw = () => {
-          // membrana: leque entre os dedos
-          const mem = fire ? c1 : shade(c1, -0.05);
-          for (let i = 0; i < tips.length - 1; i++) {
-            const a = tips[i];
-            const b = tips[i + 1];
-            const mid = [(a[0] + b[0]) / 2 * 0.82 + rx * 0.18, (a[1] + b[1]) / 2 * 0.82 + ry * 0.18, (a[2] + b[2]) / 2 * 0.82 + rz * 0.18];
-            poly(ctx, Tb, [[rx, ry, rz], i === 0 ? elbow : [rx, ry, rz], a, mid, b], i % 2 ? shade(mem, -0.12) : mem, 3);
-          }
-          if (fire) {
-            lighter(ctx, () => {
-              for (let i = 0; i < tips.length; i++) {
-                const p = pp(Tb, tips[i][0], tips[i][1], tips[i][2]);
-                ctx.globalAlpha = 0.85;
-                const up = pp(Tb, tips[i][0] - 10, tips[i][1] - 14, tips[i][2]);
-                const ux = up[0] - p[0];
-                const uy = up[1] - p[1];
-                const l = Math.hypot(ux, uy) || 1;
-                flame(ctx, p[0], p[1], ux / l, uy / l, 26, 7, c2, c3, t, i + sd * 3);
+        ].map(([x, y, z], i) => {
+          const f = Math.sin(t * spd - 0.35 - i * 0.28) * 0.24 + Math.sin(t * spd * 2.1 + i) * 0.025;
+          return [rx + x * (1 - f * 0.3) * 0.8, ry + y - f * 26 * (y < 0 ? 1 : 0.3), rz + sd * z * 1.7 * (1 + f)];
+        });
+        const fe = Math.sin(t * spd) * 0.22;
+        const elbow = [rx - 22, ry - 34 - fe * 12, rz + sd * 30 * (1 + fe)];
+        const root = [rx, ry, rz];
+        const draw = fire
+          ? () => fireWing(ctx, Tb, root, elbow, tips, c1, c2, c3, t, sd, low)
+          : () => {
+            // membrana: leque entre os dedos, com tom conforme a face visível
+            const mem = c1;
+            const pulse = o.anim === 'glow' ? 0.5 + Math.sin(t * 3) * 0.3 : 0;
+            for (let i = 0; i < tips.length - 1; i++) {
+              const a = tips[i];
+              const b = tips[i + 1];
+              const mid = [(a[0] + b[0]) / 2 * 0.8 + rx * 0.2, (a[1] + b[1]) / 2 * 0.8 + ry * 0.2, (a[2] + b[2]) / 2 * 0.8 + rz * 0.2];
+              const pr = Tb.p(rx, ry, rz);
+              const pa = Tb.p(a[0], a[1], a[2]);
+              const pb = Tb.p(b[0], b[1], b[2]);
+              const facing = (pa[0] - pr[0]) * (pb[1] - pr[1]) - (pa[1] - pr[1]) * (pb[0] - pr[0]) > 0 === sd > 0;
+              const col = facing ? sh(mem, i % 2 ? -0.08 : 0.06) : sh(mem, i % 2 ? -0.42 : -0.32);
+              const pts = [root, i === 0 ? elbow : root, a, mid, b];
+              poly(ctx, Tb, pts, col, 3);
+              if (!PS.F) {
+                const pm = Tb.p(mid[0], mid[1], mid[2]);
+                // veias
+                ctx.strokeStyle = sh(mem, -0.45);
+                ctx.lineWidth = 1.2;
+                ctx.globalAlpha = 0.7;
+                ctx.beginPath();
+                ctx.moveTo(pr[0], pr[1]);
+                ctx.quadraticCurveTo((pr[0] + pm[0]) / 2 + 4, (pr[1] + pm[1]) / 2, pm[0], pm[1]);
+                ctx.stroke();
+                // orla translúcida da membrana (luz a passar)
+                ctx.strokeStyle = sh(mem, 0.35);
+                ctx.lineWidth = 1.6;
+                ctx.globalAlpha = 0.6;
+                ctx.beginPath();
+                ctx.moveTo(pa[0], pa[1]);
+                ctx.lineTo(pm[0], pm[1]);
+                ctx.lineTo(pb[0], pb[1]);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+                if (pulse > 0) {
+                  lighter(ctx, () => {
+                    ctx.globalAlpha = pulse * 0.55;
+                    ctx.strokeStyle = c2;
+                    ctx.lineWidth = 2.4;
+                    ctx.beginPath();
+                    ctx.moveTo(pa[0], pa[1]);
+                    ctx.lineTo(pm[0], pm[1]);
+                    ctx.lineTo(pb[0], pb[1]);
+                    ctx.stroke();
+                  });
+                }
               }
-              const e = pp(Tb, elbow[0], elbow[1], elbow[2]);
-              ctx.globalAlpha = 0.5;
-              ctx.drawImage(glowSprite(c2), e[0] - 40, e[1] - 40, 80, 80);
-            });
-          }
-          // ossos
-          const bone = fire ? c2 : c2;
-          tube(ctx, Tb, [[rx, ry, rz], elbow, tips[0]], [4, 3, 1], bone, shade(bone, -0.3), 3);
-          for (let i = 1; i < tips.length; i++) tube(ctx, Tb, [elbow, tips[i]], [2.6, 0.8], bone, undefined, 2.5);
-          // garra no cotovelo
-          const e2 = [elbow[0] + 2, elbow[1] - 10, elbow[2]];
-          spike(ctx, Tb, elbow[0], elbow[1], elbow[2], e2[0], e2[1], e2[2], 3, '#f2e6d0', 2);
-        };
+            }
+            // ossos
+            tube(ctx, Tb, [root, elbow, tips[0]], [4, 3, 1], c2, sh(c2, -0.3), 3);
+            for (let i = 1; i < tips.length; i++) tube(ctx, Tb, [elbow, tips[i]], [2.6, 0.8], c2, undefined, 2.5);
+            if (!PS.F) {
+              const a = Tb.p(root[0], root[1], root[2]);
+              const b = Tb.p(elbow[0], elbow[1], elbow[2]);
+              ctx.strokeStyle = sh(c2, 0.5);
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.moveTo(a[0], a[1] - 2);
+              ctx.lineTo(b[0], b[1] - 1.5);
+              ctx.stroke();
+            }
+            // garras no cotovelo e nas pontas
+            spike(ctx, Tb, elbow[0], elbow[1], elbow[2], elbow[0] + 2, elbow[1] - 11, elbow[2], 3.2, '#f2e6d0', 2);
+            for (let i = 1; i < tips.length; i++) {
+              const p = tips[i];
+              spike(ctx, Tb, p[0], p[1], p[2], p[0] - 4, p[1] + 6, p[2], 1.6, '#f2e6d0', 1.5);
+            }
+          };
         dl.add(backD(rx - 30, ry - 10, rz + sd * 30, -14), draw);
       }
       break;
@@ -820,22 +1107,41 @@ export function bodyPieces(
     const tip = pts[pts.length - 1];
     dl.add(backD(-40, 20, 0, -3), () => {
       if (o.tail === 'fire') {
-        // penas de fogo em leque
-        for (let i = 0; i < 5; i++) {
-          const a = -0.5 + i * 0.25 + Math.sin(t * 3 + i) * 0.05;
-          const L = 70 + (i % 2) * 14;
+        // penas de fogo em leque, a ondular com atraso de pena para pena
+        for (let i = 0; i < 7; i++) {
+          const a = -0.62 + i * 0.2 + Math.sin(t * 3 - i * 0.45) * 0.09;
+          const L = 66 + (i % 2) * 16 + (i === 3 ? 10 : 0);
           const ex = -10 - Math.cos(a) * L;
-          const ey = 4 + Math.sin(a) * L * 0.6 + 20;
-          const ez = (i - 2) * 6;
-          poly(ctx, Hp, [[-10, 2, 0], [(-10 + ex) / 2, (4 + ey) / 2 - 7, ez], [ex, ey, ez * 1.5], [(-10 + ex) / 2, (4 + ey) / 2 + 7, ez]], i % 2 ? c2 : c1, 2.5);
+          const ey = 4 + Math.sin(a) * L * 0.6 + 20 + Math.sin(t * 4 - i * 0.6) * 3;
+          const ez = (i - 3) * 5;
+          const mx = (-10 + ex) / 2;
+          const my = (4 + ey) / 2;
+          poly(ctx, Hp, [[-10, 2, 0], [mx, my - 7, ez], [ex, ey, ez * 1.5], [mx, my + 7, ez]], i % 2 ? c2 : c1, 2.5);
+          if (!PS.F) {
+            // ráquis clara + olho de brasa perto da ponta
+            const p0 = Hp.p(-10, 2, 0);
+            const p1 = Hp.p(ex * 0.85 - 1.5, ey * 0.85 + 0.6, ez * 1.3);
+            ctx.strokeStyle = c3;
+            ctx.lineWidth = 1.2;
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(p0[0], p0[1]);
+            ctx.lineTo(p1[0], p1[1]);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
           lighter(ctx, () => {
             const p = Hp.p(ex, ey, ez * 1.5);
-            const q = Hp.p(ex - 8, ey + 2, ez * 1.5);
+            const q = Hp.p(ex - 8, ey - 6, ez * 1.5);
             const ux = q[0] - p[0];
             const uy = q[1] - p[1];
             const l = Math.hypot(ux, uy) || 1;
             ctx.globalAlpha = 0.9;
-            flame(ctx, p[0], p[1], ux / l, uy / l, 22, 6, c2, c3, t, i);
+            flame(ctx, p[0], p[1], ux / l, uy / l, 20 + (i % 3) * 5, 5.5, c2, c3, t, i);
+            if (!low && i % 2 === 0) {
+              ctx.globalAlpha = 0.5;
+              ctx.drawImage(glowSprite(c2), p[0] - 12, p[1] - 12, 24, 24);
+            }
           });
         }
         return;
@@ -892,7 +1198,10 @@ function shoulder(ctx: CanvasRenderingContext2D, o: Vis, T: Proj, z: number, sd:
     case 'gold':
       ell(ctx, T, -1, -2, z, 11.5, 8, 11, o.shoulders === 'gold' ? c1 : c2, { rot: -0.2 });
       ell(ctx, T, -1, 4, z + sd * 2, 10, 3, 10, c3, { line: 2, shade: null });
-      if (o.shoulders === 'gold') ell(ctx, T, 0, -3, z + sd * 10, 2.8, 2.8, 1.6, '#d6202f', { line: 1.5 });
+      if (o.shoulders === 'gold') {
+        ell(ctx, T, 0, -3, z + sd * 10, 2.8, 2.8, 1.6, '#d6202f', { line: 1.5 });
+        if (!PS.F) glint(ctx, T.p(-4, -7, z + sd * 8), t, sd + 3, 6);
+      }
       break;
     case 'rock': {
       ell(ctx, T, -3, -2, z, 13, 11, 12, '#3a2620', { rot: 0.3 });
@@ -1285,7 +1594,7 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
             }
             grid.push(row);
           }
-          sheet(ctx, H, grid, c1, shade(c1, -0.35), 3.5);
+          cloth(ctx, H, grid, c1, sh(c1, -0.35), 3.5);
         });
       }
       if (phase === 'front') {
@@ -1300,7 +1609,7 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
           }
           brim.push(row);
         }
-        sheet(ctx, H, brim, '#1a1a1a', '#0b0b0b', 3);
+        cloth(ctx, H, brim, '#2a2a2a', '#0b0b0b', 3);
         // crista dourada (kuwagata)
         for (const sd of [-1, 1]) {
           poly(ctx, H, [[R + 3, -12, sd * 2], [R + 6, -30, sd * 10], [R + 8, -50, sd * 24], [R + 6, -46, sd * 26], [R + 3, -26, sd * 14], [R + 1, -12, sd * 7]], c3, 2.5);
@@ -1356,7 +1665,7 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
           for (let j = 0; j <= n; j++) row.push(ringAt(-30 + i * 10, 19 + i * 2, (j / n) * TAU));
           grid.push(row);
         }
-        dl.add(0, () => sheet(ctx, H, grid, '#ffd23d', '#b8860b', 3));
+        dl.add(0, () => cloth(ctx, H, grid, '#ffd23d', '#b8860b', 3));
         for (let k = 0; k < 8; k++) {
           const a = (k / 8) * TAU;
           const b = ringAt(-30, 19, a);
@@ -1373,6 +1682,10 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
           });
         }
         dl.flush();
+        if (!PS.F) {
+          const f = ringAt(-40, 20, 0);
+          glint(ctx, H.p(f[0], f[1], f[2]), t, 7, 7);
+        }
       }
       break;
     case 'horns':
@@ -1623,6 +1936,24 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
         ctx.lineWidth = 4;
         ctx.strokeStyle = C('#ffe27a');
         ctx.stroke();
+        if (!PS.F) {
+          const ex = Math.max(rx, 20);
+          const ey = ry * 0.4 + 3;
+          // núcleo de luz branca e faíscas a orbitar o halo
+          ctx.lineWidth = 1.4;
+          ctx.strokeStyle = '#fffbe6';
+          ctx.beginPath();
+          ctx.ellipse(c[0], c[1] - 0.6, ex, ey, 0, Math.PI * 1.05, Math.PI * 1.95);
+          ctx.stroke();
+          lighter(ctx, () => {
+            for (let i = 0; i < 3; i++) {
+              const a = t * 1.6 + (i * TAU) / 3;
+              const fr = Math.sin(a) > 0 ? 1 : 0.5;
+              ctx.globalAlpha = (0.6 + Math.sin(t * 7 + i) * 0.3) * fr;
+              twinkle(ctx, c[0] + Math.cos(a) * ex, c[1] + Math.sin(a) * ey, 4.5, '#ffffff');
+            }
+          });
+        }
         eyesGlow(ctx, H, '#ffffff', t);
       }
       break;
