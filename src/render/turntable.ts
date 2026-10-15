@@ -873,7 +873,7 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
   };
   const longs = style === 'longo' || style === 'rabo' || style === 'trancas' || style === 'mullet';
   const low = longs || style === 'cometa' ? 0.55 : 0.42;
-  const cap = () => sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, (l) => hairline(l, low), c1, { line: 3, n: 40, m: 6 });
+  const cap = () => sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, (l) => hairline(l, low), c1, { line: 3, n: 48, m: 12 });
   const shine = () => {
     if (PS.F) return;
     const p = spherePt(H, R + 3, 0, -0.4, -1.0);

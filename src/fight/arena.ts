@@ -768,7 +768,7 @@ function drawRows(g: CanvasRenderingContext2D, spots: Spot[], group: number, r0:
         personAccessory(g, p);
       }
     }
-    if (r < r1 || r1 < 7) hazeFill(g, r < 5 ? haze : haze * 0.45);
+    hazeFill(g, r < 5 ? haze : haze * 0.55);
   }
 }
 
@@ -1126,7 +1126,7 @@ function drawStands(g: CanvasRenderingContext2D): void {
       g.fillRect(a - 18, y + 1, 3, 2);
       g.fillRect(a + 15, y + 1, 3, 2);
     }
-    g.strokeStyle = '#8a86a6';
+    g.strokeStyle = '#4c4766';
     g.lineWidth = 2.5;
     g.beginPath();
     g.moveTo(a, 236);
@@ -1387,10 +1387,10 @@ export function ensureArena(): void {
   crowdArms = [];
   for (let gi = 0; gi < CROWD_GROUPS; gi++) {
     // filas de trás: mais pequenas, enevoadas e desfocadas
-    crowdBack.push(makeLayer(186, 545, 0.55, 'blur(0.8px) saturate(0.8)', (g) => drawRows(g, spots, gi, 0, 4, 0.15, false)));
+    crowdBack.push(makeLayer(186, 545, 0.55, 'blur(0.8px) saturate(0.72)', (g) => drawRows(g, spots, gi, 0, 4, 0.19, false)));
     // filas da frente (plano médio): mais nítidas e com mais resolução
-    crowdFront.push(makeLayer(470, 700, 0.8, 'saturate(0.95)', (g) => drawRows(g, spots, gi, 5, 7, 0.15, false)));
-    crowdArms.push(makeLayer(150, 700, 0.6, 'blur(0.4px) saturate(0.88)', (g) => drawRows(g, spots, gi, 0, 7, 0.13, true)));
+    crowdFront.push(makeLayer(470, 700, 0.8, 'saturate(0.86)', (g) => drawRows(g, spots, gi, 5, 7, 0.19, false)));
+    crowdArms.push(makeLayer(150, 700, 0.6, 'blur(0.4px) saturate(0.82)', (g) => drawRows(g, spots, gi, 0, 7, 0.17, true)));
   }
   barrier = makeBarrier();
   vignette = makeVignette();
@@ -1498,7 +1498,7 @@ export function drawBackdrop(
       const dy = ty - ly;
       const len = Math.hypot(dx, dy);
       const fl = 0.9 + 0.1 * Math.sin(t * 7 + i * 1.3);
-      shaft(ctx, warm, lx, ly, Math.atan2(-dx, dy), len * 1.05, 260 * zoom, (0.07 + hype * 0.05) * fl);
+      shaft(ctx, warm, lx, ly, Math.atan2(-dx, dy), len * 1.05, 260 * zoom, (0.09 + hype * 0.07) * fl);
     }
     // holofotes móveis coloridos
     for (let i = 0; i < 4; i++) {

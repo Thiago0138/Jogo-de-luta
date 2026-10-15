@@ -71,6 +71,7 @@ function inside(ctx: CanvasRenderingContext2D, f: () => void) {
 
 /** Traços curvos: [x0, y0, cx, cy, x1, y1, ...] num só caminho. */
 function curves(ctx: CanvasRenderingContext2D, col: string, alpha: number, w: number, q: readonly number[]) {
+  if (PS.LOW) return;
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = col;
   ctx.lineWidth = w;
@@ -798,7 +799,7 @@ export function eye(ctx: CanvasRenderingContext2D, x: number, y: number, r: numb
   const ox = x - inner * rx;
   const oy = inner > 0 ? y + ry * 0.12 : y;
   ctx.moveTo(ox + inner * 0.5, oy - 0.4);
-  ctx.lineTo(ox - inner * 2.2, oy - ry * 0.45);
+  ctx.lineTo(ox - inner * 1.5, oy - ry * 0.32);
   ctx.stroke();
   ctx.lineWidth = 1.3;
   ctx.globalAlpha = 0.6;
@@ -1122,11 +1123,9 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
         inside(ctx, () => {
           ctx.fillStyle = hairC;
           ctx.globalAlpha = 0.55;
-          for (let i = 0; i < 46; i++) {
-            const px = -4 + hash(i * 3.1) * 28;
-            const py = 12 + hash(i * 7.3 + 1) * 18;
-            ctx.fillRect(px, py, 1.1, 1.1);
-          }
+          ctx.beginPath();
+          for (let i = 0; i < 46; i++) ctx.rect(-4 + hash(i * 3.1) * 28, 12 + hash(i * 7.3 + 1) * 18, 1.1, 1.1);
+          ctx.fill();
           ctx.globalAlpha = 1;
         });
         break;
@@ -2465,6 +2464,7 @@ function drawNeck(ctx: CanvasRenderingContext2D, s: Skel, col: string, shadeC: s
  * O chamador trata da translação, espelhamento e escala.
  */
 export function drawFighter(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: DrawOpts) {
+  PS.LOW = !!o.low;
   if (o.rim && !o.flash) {
     // silhueta desviada para trás/cima: fica uma orla colorida à volta do corpo
     PS.F = true;
@@ -2478,6 +2478,7 @@ export function drawFighter(ctx: CanvasRenderingContext2D, L: Look, s: Skel, o: 
   PS.F = o.flash;
   drawBody(ctx, L, s, o);
   PS.F = false;
+  PS.LOW = false;
 }
 
 const bodyDL = new DL();

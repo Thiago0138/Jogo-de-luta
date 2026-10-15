@@ -5,7 +5,7 @@ export const OW = 5;
 export const TAU = Math.PI * 2;
 
 /** Estado de pintura partilhado: flash branco ao ser atingido e silhueta da luz de recorte. */
-export const PS = { F: false, SIL: null as string | null };
+export const PS = { F: false, SIL: null as string | null, /** Qualidade baixa: menos detalhes finos. */ LOW: false };
 export const C = (c: string) => PS.SIL ?? (PS.F ? '#ffffff' : c);
 export const OC = () => PS.SIL ?? OUT;
 
@@ -181,6 +181,10 @@ function limbShade(
       capsule(ctx, x1, y1, x2, y2, profs[i], k, sx * w * off, sy * w * off);
     }
     ctx.fill();
+  }
+  if (PS.LOW) {
+    ctx.globalAlpha = 1;
+    return;
   }
   // luz refletida (fria) na orla do lado da sombra
   ctx.globalAlpha = 0.2;
