@@ -169,6 +169,8 @@ export class Fight {
   private slamFacing: 1 | -1 | null = null;
   /** carry() segura só com esta mão (ex.: chokeslam, pela garganta); null = as duas. */
   private carryHand: number | null = null;
+  /** Articulação do defensor que carry() prende ao ponto de pega (cabeça numa chave, pescoço num chokeslam...). */
+  private carryAnchor = 0;
   /** Peso 0–1 da câmara lenta em curso (a câmara aproxima-se de cineX/cineY). */
   cineW = 0;
   cineX = 0;
@@ -1650,7 +1652,8 @@ export class Fight {
     this.tire(f, 4);
     this.telegraph(f, o, 'kick', true);
     const cd = hitWith('superkick', J_FF, false);
-    yield* this.lungeTo(f, o, cd, 0.15);
+    // passo de aproximação com o joelho já armado, depois o pé sobe ao queixo
+    yield* this.lungeTo(f, o, cd, 0.16);
     this.cinematic((f.x + o.x) / 2, -170, 0.3, 0.8);
     yield* this.lungeTo(f, o, cd, 0.09);
     const ok = this.strike(f, o, { dmg: 21, reach: Math.max(cd, this.lastLunge) + 25, kind: 'kick', heavy: true, kb: 260, kd: !!this.demo || Math.random() < (st ? 0.85 : 0.5), launch: 300, hitJ: J_FF });
@@ -1829,11 +1832,20 @@ export class Fight {
     this.pop('SPEAR!', f.x, -240, '#ff6a3d', 30);
     this.styleFx(f, 'spear', o.x, -90);
     if (f.spec.isPlayer) this.tally.grapples++;
-    f.vx = f.facing * 300;
-    yield 0.18;
+    // atravessa-o: os dois vão ao chão, ele por cima, de barriga para baixo
+    f.play('prone');
+    f.blendIn(0.16);
+    f.vx = f.facing * 280;
+    f.vz = 170;
+    f.z = 1;
+    t = 0;
+    while (f.z > 0 && t < 0.5) {
+      t += this.dt;
+      yield FRAME;
+    }
     f.vx = 0;
     this.dust(f.x + f.facing * 40, 12, 90);
-    this.selfDown(f, 0.35);
+    yield* this.proneRecover(f, 0.3);
   }
 
   private *catchBreath(f: Fighter, o: Fighter): Script {
@@ -1975,16 +1987,16 @@ export class Fight {
    * (a animação do atacante é que o levanta e projeta, por isso o contacto fica sempre certo).
    * Offsets em coordenadas do atacante (x para a frente, y para baixo) e rotação do defensor.
    */
-  private *carry(f: Fighter, o: Fighter, dur: number, from: [number, number, number], to: [number, number, number], ease = (t: number) => t, landX?: number): Script {
+  private *carry(f: Fighter, o: Fighter, dur: number, from: [number, number, number] | null, to: [number, number, number], ease = (t: number) => t, landX?: number): Script {
     let t = 0;
     const k = this.scale(f);
-    if (!o.override) {
-      // primeira pega: parte de onde o defensor está de facto (sem o "puxar" de repente para as mãos)
-      const one = this.carryHand;
-      const hx = one != null ? this.jx(f, one) : (this.jx(f, J_FH) + this.jx(f, J_BH)) / 2;
-      const hy = one != null ? this.jy(f, one) : (this.jy(f, J_FH) + this.jy(f, J_BH)) / 2;
-      from = [((this.hipX(o) - hx) * f.facing) / k, (this.hipY(o) - hy) / k, from[2]];
+    // sem `from` (ou na primeira pega) parte de onde o defensor está de facto: nada de saltos
+    // quando se troca de mão/articulação presa entre fases
+    if (!o.override || !from) {
+      const cur = this.measureCarry(f, o);
+      from = [cur[0], cur[1], from ? from[2] : cur[2]];
     }
+    const fr = from;
     // fase final de uma projeção: o corpo vai largando as mãos e acaba deitado no tapete
     // exatamente onde land() o vai pousar (sem teleporte nem rotação extra no impacto)
     let gx = 0;
@@ -2004,22 +2016,62 @@ export class Fight {
     while (t < dur) {
       t += this.dt * this.spd(f);
       const u = ease(clamp(t / dur, 0, 1));
-      const one = this.carryHand;
-      const hx = one != null ? this.jx(f, one) : (this.jx(f, J_FH) + this.jx(f, J_BH)) / 2;
-      const hy = one != null ? this.jy(f, one) : (this.jy(f, J_FH) + this.jy(f, J_BH)) / 2;
-      const x = hx + f.facing * (from[0] + (to[0] - from[0]) * u) * k;
-      const y = hy + (from[1] + (to[1] - from[1]) * u) * k;
-      const rot = (from[2] + (to[2] - from[2]) * u) * -1;
-      if (landX != null) {
-        const w = clamp(t / dur, 0, 1) ** 2;
-        const r = rot + (grot - rot) * w;
-        // nunca atravessa o tapete
-        copyPose(tmpPose, o.pose);
-        tmpPose.rot = o.pose.rot - (o.override?.rot ?? 0) + r;
-        solve(tmpPose, tmpSkel);
-        const ny = Math.min(y + (gy - y) * w, -tmpSkel.minY * this.scale(o));
-        o.override = { x: x + (gx - x) * w, y: ny, rot: r };
-      } else o.override = { x, y, rot };
+      const [hx, hy] = this.carryPoint(f);
+      const x = hx + f.facing * (fr[0] + (to[0] - fr[0]) * u) * k;
+      const y = hy + (fr[1] + (to[1] - fr[1]) * u) * k;
+      const rot = (fr[2] + (to[2] - fr[2]) * u) * -1;
+      const w = landX != null ? clamp(t / dur, 0, 1) ** 2 : 0;
+      const r = rot + (grot - rot) * w;
+      // a articulação presa (cabeça, pescoço ou anca) fica na mão; a anca segue-a
+      const [ax, ay] = this.anchorOff(o, r);
+      const px = x - ax;
+      const py = y - ay;
+      // nunca atravessa o tapete
+      const ny = Math.min(py + (gy - py) * w, -tmpSkel.minY * this.scale(o));
+      o.override = { x: px + (gx - px) * w, y: ny, rot: r };
+      yield FRAME;
+    }
+  }
+
+  /** Ponto de pega do atacante: uma articulação (carryHand) ou o meio das duas mãos. */
+  private carryPoint(f: Fighter): [number, number] {
+    const one = this.carryHand;
+    if (one != null) return [this.jx(f, one), this.jy(f, one)];
+    return [(this.jx(f, J_FH) + this.jx(f, J_BH)) / 2, (this.jy(f, J_FH) + this.jy(f, J_BH)) / 2];
+  }
+
+  /**
+   * Deslocamento (mundo) da articulação presa do defensor em relação à anca dele, com a rotação `rot`
+   * do corpo inteiro. Deixa tmpSkel resolvido com essa rotação.
+   */
+  private anchorOff(o: Fighter, rot: number): [number, number] {
+    copyPose(tmpPose, o.pose);
+    tmpPose.rot = o.pose.rot - (o.override?.rot ?? 0) - o.spinAng + rot;
+    solve(tmpPose, tmpSkel);
+    const a = this.carryAnchor;
+    if (a === J_HIP) return [0, 0];
+    const s = this.scale(o);
+    return [o.facing * tmpSkel.x[a] * s, tmpSkel.y[a] * s];
+  }
+
+  /** Posição atual da articulação presa do defensor, em coordenadas da pega do atacante (+ rotação). */
+  private measureCarry(f: Fighter, o: Fighter): [number, number, number] {
+    const k = this.scale(f);
+    const [hx, hy] = this.carryPoint(f);
+    const a = this.carryAnchor;
+    const ax = a === J_HIP ? this.hipX(o) : this.jx(o, a);
+    const ay = a === J_HIP ? this.hipY(o) : this.jy(o, a);
+    return [((ax - hx) * f.facing) / k, (ay - hy) / k, -(o.override?.rot ?? 0)];
+  }
+
+  /** Puxa/empurra o defensor (ainda nos próprios pés) até `x`, com a pose que já tem. */
+  private *slide(o: Fighter, x: number, dur: number): Script {
+    const x0 = o.x;
+    let t = 0;
+    while (t < dur) {
+      t += this.dt;
+      const u = clamp(t / dur, 0, 1);
+      o.x = x0 + (x - x0) * u * u * (3 - 2 * u);
       yield FRAME;
     }
   }
@@ -2066,19 +2118,44 @@ export class Fight {
     o.vz = Math.min(o.vz, 140);
   }
 
-  private *suplex(f: Fighter, o: Fighter, power: number, atomic: boolean): Script {
+  /** Chave de cabeça à frente: ele dobra-se pela cintura com a cabeça debaixo do braço da frente. */
+  private *frontFacelock(f: Fighter, o: Fighter): Script {
     this.lock(f, o);
-    o.play('hitBody');
-    f.play('grab', 1.4);
-    yield* this.carry(f, o, 0.12, [24, 40, 0], [16, 34, 0.3]);
-    f.play('lift', 1);
-    // levanta-o de cabeça para baixo por cima da cabeça
-    yield* this.carry(f, o, 0.38, [16, 34, 0.3], [-4, 4, 2.9], (t) => t * t * (3 - 2 * t));
-    f.play('arch');
-    // ponte para trás: as costas dele batem no tapete atrás do atacante
-    const lx = f.x - f.facing * 78 * this.scale(f);
-    if (atomic) this.cinematic(lx, -60, 0.3, 0.8, true);
-    yield* this.carry(f, o, 0.24, [-4, 4, 2.9], [-30, 30, 4.4], (t) => t * t, lx);
+    o.play('bent');
+    o.blendIn(0.14);
+    f.play('facelock');
+    yield* this.slide(o, f.x + f.facing * (24 * this.scale(f) + 66 * this.scale(o)), 0.14);
+  }
+
+  /** Larga as pegas especiais de carry() (mão/articulação). */
+  private releaseCarry(): void {
+    this.carryHand = null;
+    this.carryAnchor = J_HIP;
+  }
+
+  /**
+   * Suplex vertical: chave de cabeça, levanta-o de pernas para o ar (a cabeça dele fica junto ao ombro)
+   * e cai em ponte para trás; as pernas dele passam por cima e as costas batem no tapete atrás.
+   */
+  private *suplex(f: Fighter, o: Fighter, power: number, atomic: boolean): Script {
+    yield* this.frontFacelock(f, o);
+    yield 0.06;
+    const lx = f.x - f.facing * 128 * this.scale(f);
+    try {
+      this.carryAnchor = J_HEAD;
+      this.carryHand = J_NECK;
+      f.play('lift', 1.1);
+      yield* this.carry(f, o, 0.36, null, [20, 16, -1.95], (t) => t * t * (3 - 2 * t));
+      // um instante lá em cima, na vertical
+      yield* this.carry(f, o, 0.1, null, [20, 14, -2.1]);
+      f.play('arch');
+      o.play('stiff');
+      o.blendIn(0.2);
+      if (atomic) this.cinematic(lx, -60, 0.3, 0.8, true);
+      yield* this.carry(f, o, 0.26, null, [-14, 24, -4.55], (t) => t * t, lx);
+    } finally {
+      this.releaseCarry();
+    }
     o.play('lieKO');
     this.land(o, lx, f, 30 * power, 'grapple', atomic ? 3 : 1);
     this.pop(atomic ? 'ATOMIC SUPLEX!' : 'SUPLEX!', f.x, -230, '#ffb31a', 30);
@@ -2105,20 +2182,33 @@ export class Fight {
     yield 0.6;
   }
 
-  /** Powerbomb: senta-o nos ombros e esmaga-o de costas à frente. */
+  /**
+   * Powerbomb: dobra-o com a cabeça entre as pernas, agarra-o pela cintura, senta-o nos ombros
+   * (de frente para si) e crava-o de costas no tapete à frente, a acompanhá-lo num agachamento.
+   */
   private *powerbomb(f: Fighter, o: Fighter): Script {
     this.special(f, 'm_powerbomb');
     this.lock(f, o);
-    o.play('hitBody');
-    f.play('grab', 1.4);
-    yield* this.carry(f, o, 0.14, [24, 40, 0], [16, 30, -0.9]);
-    f.play('lift', 0.85);
-    yield* this.carry(f, o, 0.45, [16, 30, -0.9], [4, -12, -2.75], (t) => t * t * (3 - 2 * t));
-    yield* this.carry(f, o, 0.22, [4, -12, -2.75], [4, -12, -2.75]);
-    f.play('slam', 1.1);
-    const lx = f.x + f.facing * 80 * this.scale(f);
-    this.cinematic(lx, -60, 0.3, 0.8);
-    yield* this.carry(f, o, 0.16, [4, -12, -2.75], [44, 40, -4.5], (t) => t * t, lx);
+    o.play('bentDeep');
+    o.blendIn(0.16);
+    f.play('pbGrab');
+    yield* this.slide(o, f.x + f.facing * (10 * this.scale(f) + 74 * this.scale(o)), 0.16);
+    yield 0.05;
+    const lx = f.x + f.facing * 84 * this.scale(f);
+    try {
+      f.play('pbHold');
+      o.play('seated');
+      o.blendIn(0.3);
+      // a anca dele sobe até aos ombros/cara do atacante
+      yield* this.carry(f, o, 0.42, null, [8, -4, 0.08], (t) => t * t * (3 - 2 * t));
+      yield* this.carry(f, o, 0.2, null, [8, -4, 0.12]);
+      f.play('pbSlam', 1.1);
+      this.cinematic(lx, -60, 0.3, 0.8);
+      // cai de costas: as pernas ficam por cima, a cabeça longe dele
+      yield* this.carry(f, o, 0.17, null, [40, 26, 1.62], (t) => t * t, lx);
+    } finally {
+      this.releaseCarry();
+    }
     o.play('lieKO');
     this.land(o, lx, f, 32, 'grapple', 2);
     this.styleFx(f, 'powerbomb', o.x, 0);
@@ -2126,20 +2216,34 @@ export class Fight {
     yield 0.7;
   }
 
+  /** DDT: chave de cabeça e cai de costas, a cravar a cabeça dele no tapete; o corpo dele tomba para a frente. */
   private *ddt(f: Fighter, o: Fighter): Script {
     this.special(f, 'm_ddt');
-    this.lock(f, o);
-    o.play('hitBody');
-    f.play('grab', 1.4);
-    // chave de cabeça: dobra-o para a frente
-    yield* this.carry(f, o, 0.22, [24, 40, 0], [22, 50, -1.2]);
-    f.play('fall');
-    const lx = f.x + f.facing * 55 * this.scale(f);
-    // cai para trás, a afastar-se: a cabeça dele é que vai ao tapete à sua frente (sem cair em cima dele)
-    f.vx = -f.facing * 150;
-    this.cinematic(lx, -50, 0.32, 0.7);
-    yield* this.carry(f, o, 0.2, [22, 50, -1.2], [20, 70, -2.7], (t) => t * t, lx);
-    f.vx = 0;
+    yield* this.frontFacelock(f, o);
+    yield 0.05;
+    let lx = o.x;
+    try {
+      this.carryAnchor = J_HEAD;
+      this.carryHand = J_FH;
+      f.play('ddtFall');
+      // recua um pouco ao cair (não cai em cima dele)
+      f.vx = -f.facing * 110;
+      this.cinematic(f.x + f.facing * 40, -40, 0.32, 0.7);
+      yield* this.carry(f, o, 0.22, null, [-4, 16, -1.95], (t) => t * t);
+      f.vx = 0;
+      // a cabeça bate no tapete com as pernas no ar
+      this.shake(9, 0.2);
+      this.dust(this.jx(o, J_HEAD), 8, 40);
+      this.fallSfx(1.3);
+      lx = this.jx(o, J_HEAD) + f.facing * 82 * this.scale(o);
+      o.play('stiff');
+      o.blendIn(0.16);
+      // o corpo tomba para o lado de lá, de barriga para baixo
+      yield* this.carry(f, o, 0.16, null, [16, 30, -1.52], (t) => t, lx);
+    } finally {
+      f.vx = 0;
+      this.releaseCarry();
+    }
     o.play('lieKO');
     this.land(o, lx, f, 24, 'grapple', 1);
     this.pop('DDT!', f.x, -230, '#ff8a3d', 30);
@@ -2315,9 +2419,18 @@ export class Fight {
     this.special(f, 'm_lariat');
     yield* this.bounceRopes(f, -f.facing, 470);
     let t = 0;
-    // o braço abre 0.04 s antes do impacto: começa a essa distância (sem atravessar o adversário)
-    while (Math.abs(o.x - f.x) > this.contactDist(f, o, 'clothes', J_FH, false) + (Math.abs(f.vx) * 0.04) / this.spd(f) && t < 1.6) {
+    const cd = () => this.contactDist(f, o, 'clothes', J_FH, false);
+    let armed = false;
+    // a correr, o braço abre-se ~0.15 s antes do impacto (as pernas continuam a correr)
+    // e o golpe sai quando o antebraço chega ao pescoço dele
+    while (Math.abs(o.x - f.x) > cd() && t < 1.6) {
       t += this.dt;
+      if (!armed && Math.abs(o.x - f.x) < cd() + Math.abs(f.vx) * 0.15) {
+        armed = true;
+        this.armOut(f, 0.5);
+        this.telegraph(f, o, 'punch', true);
+        this.cinematic((f.x + o.x) / 2, -150, 0.35, 0.7);
+      }
       yield FRAME;
     }
     if (o.state === 'down' || o.state === 'ko') {
@@ -2325,16 +2438,52 @@ export class Fight {
       return;
     }
     f.play('clothes');
-    this.telegraph(f, o, 'punch', true);
-    this.cinematic((f.x + o.x) / 2, -150, 0.35, 0.7);
-    yield 0.04;
-    const landed = this.strike(f, o, { dmg: 26, reach: 140, kind: 'punch', heavy: true, kd: Math.random() < 0.5, kb: 300, hitJ: J_FH });
-    if (landed) this.pop('LARIAT!', f.x, -230, '#ff6a3d', 28);
-    f.vx *= 0.4;
-    yield 0.25;
-    f.vx = 0;
+    f.blendIn(0.05);
+    if (!armed) {
+      this.telegraph(f, o, 'punch', true);
+      this.cinematic((f.x + o.x) / 2, -150, 0.35, 0.7);
+    }
+    const kd = !!this.demo || Math.random() < 0.5;
+    const landed = this.strike(f, o, { dmg: 26, reach: 140, kind: 'punch', heavy: true, kd, kb: kd ? 230 : 300, launch: 400, hitJ: J_FH });
+    if (landed) {
+      this.pop('LARIAT!', f.x, -230, '#ff6a3d', 28);
+      // o braço apanha-o pelo pescoço e as pernas passam por cima: um mortal para trás completo
+      if (kd && (o.state as string) === 'down') o.spinRate = (-Math.PI * 2 * GRAV) / (2 * 400);
+    }
+    // o braço segue pelo pescoço fora, mas o corpo trava (não lhe passa por dentro)
+    yield* this.followThrough(f, o, 0.4);
     f.play('guard');
+    f.blendIn(0.12);
     yield 0.2;
+  }
+
+  /** Braço da frente esticado à altura do pescoço enquanto corre (lariat), por no máximo `dur` s. */
+  private armOut(f: Fighter, dur: number): void {
+    const until = this.t + dur;
+    f.poseHook = (p) => {
+      if (this.t > until || f.anim !== 'run') {
+        f.poseHook = null;
+        return;
+      }
+      p.fa1 = 1.8 - p.lean;
+      p.fa2 = 0.05;
+    };
+  }
+
+  /** Trava a corrida depois de um golpe e acaba a rotação de quem foi virado no ar quando assenta. */
+  private *followThrough(f: Fighter, o: Fighter, dur: number): Script {
+    let t = 0;
+    while (t < dur || o.spinRate !== 0) {
+      t += this.dt;
+      f.vx *= Math.pow(0.002, this.dt);
+      if (o.state !== 'down' && o.state !== 'ko' && Math.abs(o.x - f.x) < 62 * this.scale(f)) f.vx = 0;
+      if (o.spinRate !== 0 && ((o.z <= 0 && t > 0.05) || (o.state !== 'down' && o.state !== 'ko') || t > 1)) {
+        o.spinRate = 0;
+        o.spinAng = 0;
+      }
+      yield FRAME;
+    }
+    f.vx = 0;
   }
 
   /** Dropkick: 2-3 passos, salto com os dois pés esticados ao peito no ponto mais alto. */
@@ -2407,48 +2556,64 @@ export class Fight {
     this.special(f, 'm_cutter', true);
     if (f.spec.isPlayer) this.tally.grapples++;
     this.lock(f, o);
-    o.play('hitBody');
-    f.play('tuck');
+    o.play('hitHi');
+    // salta e prende-lhe a cabeça com o braço por cima do ombro (chave de 3/4)
+    f.play('cutJump');
     f.vz = 420;
     f.z = 1;
-    yield* this.carry(f, o, 0.18, [24, 40, 0], [26, 46, -0.6]);
-    f.play('fall');
-    const lx = f.x + f.facing * 60 * this.scale(f);
-    f.vx = -f.facing * 130;
-    this.cinematic(lx, -60, 0.3, 0.75);
-    yield* this.carry(f, o, 0.2, [26, 46, -0.6], [30, 70, -1.5], (k) => k * k, lx);
+    const lx = f.x + f.facing * 74 * this.scale(o);
+    try {
+      this.carryAnchor = J_HEAD;
+      this.carryHand = J_FH;
+      yield* this.carry(f, o, 0.16, null, [-2, 8, -0.3]);
+      // cai de costas e puxa-o de cara para o tapete
+      f.play('ddtFall');
+      f.vx = -f.facing * 110;
+      o.play('stiff');
+      o.blendIn(0.15);
+      this.cinematic(lx, -60, 0.3, 0.75);
+      yield* this.carry(f, o, 0.22, null, [12, 22, -1.55], (k) => k * k, lx);
+    } finally {
+      this.releaseCarry();
+    }
     o.play('lieKO');
     this.land(o, lx, f, 30, 'grapple', 2);
     this.pop('CUTTER!', f.x, -250, '#ff4f7b', 34);
     yield () => f.z <= 0;
     f.vx = 0;
     f.play('lie');
+    f.blendIn(0.12);
     yield 0.35;
     f.play('kipup', 1.1);
     yield 0.5;
   }
 
-  /** Chokeslam: agarra pelo pescoço, levanta-o bem alto e atira-o de costas. */
+  /** Chokeslam: agarra pela garganta, levanta-o bem alto a espernear e crava-o de costas à frente. */
   private *chokeslam(f: Fighter, o: Fighter): Script {
     this.special(f, 'm_chokeslam');
     this.lock(f, o);
     o.play('hitHi');
-    f.play('reach', 1.3);
-    // agarra pela garganta com a mão da frente: o pescoço dele fica na mão
-    this.carryHand = J_FH;
+    f.play('chokeGrab', 1.2);
+    const lx = f.x + f.facing * 92 * this.scale(f);
     try {
-      yield* this.carry(f, o, 0.15, [24, 40, 0], [-18, 56, 0]);
-      f.play('rise', 0.8);
-      yield* this.carry(f, o, 0.4, [-18, 56, 0], [-14, 52, 0.15], (k) => k * k * (3 - 2 * k));
-      yield* this.carry(f, o, 0.2, [-14, 52, 0.15], [-14, 52, 0.15]);
-      f.play('slam', 1.2);
-      const lx = f.x + f.facing * 70 * this.scale(f);
+      // a mão da frente fecha-se no pescoço dele
+      this.carryHand = J_FH;
+      this.carryAnchor = J_NECK;
+      yield* this.carry(f, o, 0.14, null, [8, 2, 0]);
+      f.play('chokeLift', 0.95);
+      o.play('hang');
+      o.blendIn(0.2);
+      yield* this.carry(f, o, 0.4, null, [12, 0, -0.08], (k) => k * k * (3 - 2 * k));
+      yield* this.carry(f, o, 0.18, null, [12, 0, -0.1]);
+      // crava-o: o corpo roda para trás (pernas para cima) e as costas batem no tapete
+      f.play('chokeSlam');
+      this.carryAnchor = J_HIP;
       this.cinematic(lx, -80, 0.3, 0.8);
-      yield* this.carry(f, o, 0.15, [-14, 52, 0.15], [30, 50, 1.57], (k) => k * k, lx);
+      const m = this.measureCarry(f, o);
+      yield* this.carry(f, o, 0.16, null, [m[0] + 22, m[1] + 24, 1.57], (k) => k * k, lx);
     } finally {
-      this.carryHand = null;
+      this.releaseCarry();
     }
-    const lx = clamp(f.x + f.facing * 70 * this.scale(f), -RING + 20, RING - 20);
     o.play('lieKO');
     this.land(o, lx, f, 32, 'grapple', 2);
     this.styleFx(f, 'chokeslam', o.x, 0);
@@ -2570,7 +2735,7 @@ export class Fight {
       this.damage(f, 8);
     }
     this.dust(f.x, 8);
-    this.selfDown(f, 0.35);
+    yield* this.proneRecover(f, 0.35);
   }
 
   private *topRopeDive(f: Fighter, o: Fighter, vsStanding = false): Script {
@@ -2596,9 +2761,13 @@ export class Fight {
     const sd = (side > 0 ? 1 : 0) as 0 | 1;
     yield* this.climbRopes(f, side);
     let t = 0;
-    // vira-se para o ringue em cima da corda de cima, que cede e balança debaixo dos pés
-    f.face(o);
-    f.blendIn(0.2);
+    // moonsault: fica de costas para o ringue (o mortal para trás leva-o até ele);
+    // senão vira-se para o ringue em cima da corda de cima, que cede e balança debaixo dos pés
+    const moonPick = o.state === 'down' && f.can('m_moonsault') && (!f.can('m_splash') || Math.random() < 0.55);
+    if (!moonPick) {
+      f.face(o);
+      f.blendIn(0.2);
+    }
     this.pop('TO THE TOP ROPE!', f.x, -330, '#ffffff', 22);
     this.emit('climb', f);
     this.addHype(0.2);
@@ -2633,7 +2802,8 @@ export class Fight {
     }
     // esquiva rolando?
     const roll = !this.demo && Math.random() < clamp(0.08 + o.s.esq * 0.004, 0.05, 0.35);
-    const moon = f.can('m_moonsault') && (!f.can('m_splash') || Math.random() < 0.55);
+    const moon = moonPick;
+    if (!moon) f.face(o);
     if (moon || f.can('m_splash')) this.special(f, moon ? 'm_moonsault' : 'm_splash', true);
     const msty = moon ? f.styleOf('moonsault') : null;
     // salto alto e poderoso: a corda impulsiona-o bem acima do canto antes de cair sobre o alvo
@@ -2644,7 +2814,7 @@ export class Fight {
     const T = (vz0 + Math.sqrt(vz0 * vz0 + 2 * GRAV * Math.max(0, f.z - land))) / GRAV;
     f.vx = (target - f.x) / T;
     f.vz = vz0;
-    f.play(moon ? 'tuck' : 'splash');
+    f.play(moon ? 'moonArch' : 'splash');
     sfx.whoosh();
     sfx.whoosh();
     this.dust(f.x, 6);
@@ -2660,7 +2830,8 @@ export class Fight {
       if (Math.abs(f.vz) < 140 && el > 0.15) this.cinematic(f.x, -f.z - 60, 0.45, 0.5);
       if (f.vz < 0 && f.z < 110 && o.state === 'down') this.cinematic(target, -40, 0.3, 0.9, true);
       if (el > 0.05 && Math.random() < 0.6) this.parts.spawn(PK.Star, f.x - f.vx * 0.02, -f.z - 70, 0, 0, 0.3, 7, '#ffffff', 0);
-      if (moon) f.spinAng = -Math.min(1, el / T) * Math.PI * 2;
+      // mortal para trás de 3/4: acaba estendido de barriga para baixo em cima dele
+      if (moon) f.spinAng = -Math.min(1, (el / T) ** 1.2) * Math.PI * 1.5;
       if (msty && Math.random() < 0.8) this.parts.spawn(PK.Star, f.x, -f.z - 80, 0, 0, 0.5, 10, msty.color, 0);
       yield FRAME;
     }
@@ -2687,17 +2858,16 @@ export class Fight {
         f.vz = 0;
         yield FRAME;
       }
-      this.selfDown(f, 0.7);
+      f.z = 0;
+      yield* this.proneRecover(f, 0.45);
       return;
-    } else {
-      f.play('lie');
-      this.pop('MISSED!', f.x, -200, '#aaaaaa', 30);
-      this.damage(f, 22);
-      this.shake(8, 0.3);
-      this.fallSfx(1);
     }
+    this.pop('MISSED!', f.x, -200, '#aaaaaa', 30);
+    this.damage(f, 22);
+    this.shake(8, 0.3);
+    this.fallSfx(1);
     this.dust(f.x, 14, 100);
-    this.selfDown(f, 0.9);
+    yield* this.proneRecover(f, 0.9);
   }
 
   /**
@@ -2745,21 +2915,19 @@ export class Fight {
       f.noClamp = false;
       f.vx = 0;
       this.dust(f.x, 12, 90);
-      f.play('lie');
-      this.selfDown(f, 0.45);
+      yield* this.proneRecover(f, 0.4);
       return;
     }
     // falhou: espalha-se no tapete
     yield () => f.z <= 0;
     f.noClamp = false;
     f.vx = 0;
-    f.play('lie');
     this.pop('MISSED!', f.x, -200, '#aaaaaa', 28);
     this.damage(f, 14);
     this.shake(8, 0.3);
     this.fallSfx(0.9);
     this.dust(f.x, 12, 90);
-    this.selfDown(f, 0.9);
+    yield* this.proneRecover(f, 0.9);
   }
 
   /** Corre às cordas, ressalta e voa de corpo inteiro para cima do adversário. */
@@ -2854,9 +3022,28 @@ export class Fight {
   /** O próprio lutador fica no chão (ex.: depois de um dropkick). */
   private selfDown(f: Fighter, t: number): void {
     f.play('lie');
+    f.blendIn(0.14);
     if (this.phase !== 'fight') return;
     f.setState('down');
     f.downT = t;
+  }
+
+  /**
+   * Ficou de barriga para baixo (por cima dele depois de um spear/splash, ou no tapete depois de falhar):
+   * fica lá `t` s (vulnerável, como selfDown) e levanta-se pelas mãos e joelhos.
+   */
+  private *proneRecover(f: Fighter, t: number): Script {
+    f.play('prone');
+    f.blendIn(0.12);
+    if (this.phase === 'fight') {
+      f.setState('down');
+      f.downT = 99;
+    }
+    yield t;
+    if (f.state !== 'down' && this.phase === 'fight') return;
+    f.play('proneUp', 1.1);
+    yield 0.75 / 1.1;
+    if (f.state === 'down') f.setState('act');
   }
 
   private *taunt(f: Fighter): Script {
@@ -3855,15 +4042,23 @@ export class Fight {
     f.vx = 0;
   }
 
-  private *sSoco(f: Fighter, o: Fighter, p: number, c: string): Script {
-    yield 0.45;
+  /** Aproxima-se a correr (se estiver longe) até ficar a `stop` do adversário. */
+  private *superDash(f: Fighter, o: Fighter, speed: number, stop: number, cine = 0): Script {
+    if (Math.abs(o.x - f.x) <= stop + 40) return;
     f.play('run');
-    yield* this.dashTo(f, o, 700, 90);
+    yield* this.dashTo(f, o, speed, stop, cine);
+  }
+
+  private *sSoco(f: Fighter, o: Fighter, p: number, c: string): Script {
+    // carrega (agachado), aproxima-se, arma o braço de trás e descarrega o peso todo no soco
+    yield 0.45;
+    const cd = () => this.contactDist(f, o, 'haymaker', J_BH, false);
+    yield* this.superDash(f, o, 700, cd() + 30);
     this.cinematic((f.x + o.x) / 2, -130, 0.3, 0.9, true);
     f.play('haymakerW');
-    yield 0.12;
+    yield* this.lungeTo(f, o, cd(), 0.14);
     f.play('haymaker');
-    yield 0.07;
+    yield 0.08;
     const x = (f.x + o.x) / 2;
     this.superHit(f, o, 75 * p, c);
     this.wave(x, -120, 260, c);
@@ -3879,29 +4074,47 @@ export class Fight {
     f.facing = away as 1 | -1;
     yield* this.bounceRopes(f, away, 600);
     f.facing = -away as 1 | -1;
+    f.play('run');
+    // volta como um comboio: o braço abre-se pouco antes e apanha-o pelo pescoço
+    const cd = () => this.contactDist(f, o, 'clothes', J_FH, false);
+    let armed = false;
+    let t = 0;
+    while (Math.abs(o.x - f.x) > cd() && t < 1.5) {
+      t += this.dt;
+      const d = Math.abs(o.x - f.x);
+      f.vx = Math.sign(o.x - f.x) * 800;
+      if (!armed && d < cd() + 800 * 0.15) {
+        armed = true;
+        this.armOut(f, 0.5);
+      }
+      if (d < cd() + 80) this.cinematic((f.x + o.x) / 2, -130, 0.3, 0.9, true);
+      if (Math.random() < 0.5) this.parts.spawn(PK.Ember, f.x, -80 - Math.random() * 80, -f.facing * 60, 0, 0.3, 26, c, 0);
+      yield FRAME;
+    }
     f.play('clothes');
-    yield* this.dashTo(f, o, 800, 70, 80);
-    this.superHit(f, o, 80 * p, c, { launch: 600 });
-    // uma volta completa no ar (acaba direito, sem salto de rotação quando pára)
-    if (o.state !== 'ko') o.spinRate = (-o.facing * Math.PI * 2 * this.spd(f)) / 0.48;
+    this.superHit(f, o, 80 * p, c, { launch: 600, kd: !!this.demo || Math.random() < 0.45 });
+    // vira-o do avesso: um mortal para trás completo enquanto voa (acaba deitado de costas)
+    if (o.state === 'down') o.spinRate = (-Math.PI * 2 * GRAV) / (2 * 600);
     this.shake(18, 0.4);
     this.flash = 0.4;
     this.sparks(o.x, -150, 30, c, 900);
-    yield 0.48;
-    o.spinRate = 0;
-    o.spinAng = 0;
+    yield* this.followThrough(f, o, 0.45);
+    f.play('guard');
+    f.blendIn(0.15);
     yield 0.2;
   }
 
   private *sRelampago(f: Fighter, o: Fighter, p: number, c: string): Script {
     yield 0.3;
-    f.play('run');
-    yield* this.dashTo(f, o, 900, 80);
+    const jab = () => this.contactDist(f, o, 'jab', J_FH, false);
+    const cross = () => this.contactDist(f, o, 'cross', J_BH, false);
+    yield* this.superDash(f, o, 900, jab() + 20);
     f.ghost = true;
     for (let i = 0; i < 8; i++) {
+      // cada soco à distância certa (ele vai recuando com os golpes)
       f.play(i % 2 ? 'cross' : 'jab', 2.6);
-      yield 0.07;
-      this.strike(f, o, { dmg: 9 * p, reach: 9999, kind: 'super', unblockable: true, kb: 30, color: c });
+      yield* this.lungeTo(f, o, i % 2 ? cross() : jab(), 0.07);
+      this.strike(f, o, { dmg: 9 * p, reach: 9999, kind: 'super', unblockable: true, kb: 30, color: c, hitJ: i % 2 ? J_BH : J_FH });
       this.bolts.push({ x: o.x + (Math.random() - 0.5) * 40, y0: -260, y1: -60, life: 0.1, color: c, seed: Math.random() * 999, width: 4 });
       this.freeze = 0.02;
       yield 0.05;
@@ -3911,7 +4124,7 @@ export class Fight {
     if (o.state !== 'ko') {
       f.play('upper', 1.5);
       this.cinematic((f.x + o.x) / 2, -150, 0.3, 0.9, true);
-      yield 0.18;
+      yield* this.lungeTo(f, o, this.contactDist(f, o, 'upper', J_FH, false), 0.19);
       this.superHit(f, o, 30 * p, c, { launch: 700, kb: 200 });
       this.flash = 0.5;
       this.shake(14, 0.3);
@@ -3921,12 +4134,17 @@ export class Fight {
 
   private *sTrovao(f: Fighter, o: Fighter, p: number, c: string): Script {
     yield 0.35;
-    f.play('run');
-    yield* this.dashTo(f, o, 700, 75);
+    const cd = () => this.contactDist(f, o, 'upper', J_FH, false);
+    yield* this.superDash(f, o, 700, cd() + 25);
+    // agacha-se e sobe com o uppercut por baixo do queixo
     f.play('upper', 1.3);
-    yield 0.2;
-    this.superHit(f, o, 45 * p, c, { launch: 1100, kb: 60, kd: true });
+    yield* this.lungeTo(f, o, cd(), 0.28 / 1.3);
+    this.superHit(f, o, 45 * p, c, { launch: 1100, kb: 60, kd: true, hitJ: J_FH });
     this.shake(10, 0.2);
+    // e aponta para o céu a chamar o raio
+    yield 0.15;
+    f.play('call');
+    f.blendIn(0.15);
     yield () => o.vz <= 260 || o.state === 'ko';
     this.cinematic(o.x, this.jy(o, J_HIP), 0.3, 1, true);
     yield () => o.vz <= 0 || o.state === 'ko';
@@ -3947,17 +4165,20 @@ export class Fight {
     let hits = 0;
     let next = 0;
     sfx.whoosh();
+    // os braços abertos tocam-lhe ao passar: aproxima-se só até essa distância (nada de lhe entrar pelo corpo)
+    const cd = () => this.contactDist(f, o, 'spin', J_FH, false);
     while (t < 1.4 && hits < 6) {
       t += this.dt;
       f.facing = (Math.floor(t * 14) % 2 ? 1 : -1) as 1 | -1;
-      f.vx = Math.sign(o.x - f.x) * 380;
+      const reach = cd();
+      f.vx = Math.abs(o.x - f.x) > reach - 6 ? Math.sign(o.x - f.x) * 380 : 0;
       if (Math.random() < 0.7) {
         const a = t * 20;
         this.parts.spawn(PK.Smoke, f.x + Math.cos(a) * 70, -100 + Math.sin(a * 0.5) * 80, -Math.sin(a) * 200, -40, 0.4, 16, c, 0);
       }
       next -= this.dt;
       if (hits === 5 && next < 0.08) this.cinematic(o.x, -120, 0.3, 0.9, true);
-      if (Math.abs(o.x - f.x) < 95 && next <= 0) {
+      if (Math.abs(o.x - f.x) < reach + 12 && next <= 0) {
         next = 0.16;
         hits++;
         const last = hits === 6;
@@ -3973,11 +4194,26 @@ export class Fight {
   }
 
   private *sDragao(f: Fighter, o: Fighter, p: number, c: string): Script {
-    yield 0.5;
+    yield 0.3;
+    // recua para ganhar espaço, arma o braço e lança o dragão com o soco
+    let t = 0;
+    f.face(o);
+    if (Math.abs(o.x - f.x) < 240) {
+      f.play('walkBack');
+      while (Math.abs(o.x - f.x) < 240 && t < 0.45) {
+        t += this.dt;
+        f.vx = -f.facing * 340;
+        yield FRAME;
+      }
+      f.vx = 0;
+    }
+    f.play('haymakerW');
+    yield 0.22;
     f.play('haymaker');
+    yield 0.06;
     sfx.fire();
     const dir = f.facing;
-    const pr: Proj = { kind: 'dragon', x: f.x + dir * 70, y: this.jy(f, J_NECK) + 10, vx: dir * 900, life: 2, dir, color: c };
+    const pr: Proj = { kind: 'dragon', x: this.jx(f, J_BH) + dir * 20, y: this.jy(f, J_BH), vx: dir * 900, life: 2, dir, color: c };
     this.projs.push(pr);
     yield () => (o.x - pr.x) * dir < 260 || pr.life <= 0;
     this.cinematic(o.x, -110, 0.3, 0.9, true);
@@ -4012,15 +4248,22 @@ export class Fight {
     f.vx = f.facing * 420;
     sfx.fire();
     let t = 0;
+    let hit = false;
+    // o corpo apanha-o de cima (à altura do peito) e os dois vão ao tapete
+    const hitZ = 70 * this.scale(o);
     while (f.z > 0 && t < 2) {
       t += this.dt;
       if (f.z < 520) this.cinematic(o.x, -60, 0.3, 0.9, true);
       for (let i = 0; i < 3; i++) this.parts.spawn(PK.Ember, f.x + (Math.random() - 0.5) * 40, -f.z - 60, (Math.random() - 0.5) * 80, -200, 0.4, 34, i % 2 ? '#ffd000' : c, 0);
+      if (!hit && f.z < hitZ && Math.abs(o.x - f.x) < 110) {
+        hit = true;
+        this.superHit(f, o, 125 * p, c, { launch: 700, kb: 300 });
+      }
       yield FRAME;
     }
     f.vx = 0;
     f.z = 0;
-    this.superHit(f, o, 125 * p, c, { launch: 700, kb: 300 });
+    if (!hit) this.superHit(f, o, 125 * p, c, { launch: 700, kb: 300 });
     this.wave(f.x, 0, 520, c, 0.7);
     this.wave(f.x, 0, 300, '#ffd000', 0.5);
     for (let i = 0; i < 50; i++) {
@@ -4032,39 +4275,49 @@ export class Fight {
     this.flash = 1;
     this.flashColor = '#ffcf8a';
     this.shake(30, 0.7);
-    f.play('getup', 1.2);
-    yield 0.8;
+    // de barriga no tapete, levanta-se pelas mãos e joelhos
+    f.play('prone');
+    f.blendIn(0.08);
+    yield 0.25;
+    f.play('proneUp', 1.2);
+    yield 0.65;
   }
 
   private *sAtomico(f: Fighter, o: Fighter, p: number, c: string): Script {
     yield 0.3;
     f.play('run');
-    yield* this.dashTo(f, o, 800, 60);
-    this.lock(f, o);
-    o.play('hitBody');
-    f.play('lift');
-    yield* this.carry(f, o, 0.25, [24, 40, 0], [16, 30, 0.8]);
-    // salta com o adversário preso nas mãos e roda-o por cima da cabeça (suplex no ar)
-    // salto alto mas dentro do enquadramento
+    yield* this.dashTo(f, o, 800, 85);
+    // chave de cabeça, salta com ele e faz o suplex no ar: as pernas dele passam por cima
+    yield* this.frontFacelock(f, o);
+    yield 0.05;
     f.vz = 1050;
     f.z = 1;
-    f.play('arch', 0.5);
+    f.play('lift', 1.4);
     const flight = (2 * 1050) / GRAV;
     const k = this.spd(f);
     const trail = () => {
       for (let i = 0; i < 2; i++) this.parts.spawn(PK.Ember, f.x, -f.z - 60, (Math.random() - 0.5) * 100, 100, 0.4, 30, c, 0);
     };
-    const up = this.carry(f, o, flight * 0.5 * k, [16, 30, 0.8], [-4, 4, 2.9], (t) => t * t * (3 - 2 * t));
-    for (let r = up.next(); !r.done; r = up.next()) {
-      trail();
-      yield r.value;
-    }
-    const lx = f.x - f.facing * 78 * this.scale(f);
-    this.cinematic(lx, -60, 0.3, 0.9, true);
-    const down = this.carry(f, o, flight * 0.47 * k, [-4, 4, 2.9], [-30, 30, 4.4], (t) => t * t, lx);
-    for (let r = down.next(); !r.done; r = down.next()) {
-      trail();
-      yield r.value;
+    const lx = f.x - f.facing * 128 * this.scale(f);
+    try {
+      this.carryAnchor = J_HEAD;
+      this.carryHand = J_NECK;
+      const up = this.carry(f, o, flight * 0.5 * k, null, [20, 16, -2.1], (t) => t * t * (3 - 2 * t));
+      for (let r = up.next(); !r.done; r = up.next()) {
+        trail();
+        yield r.value;
+      }
+      f.play('arch');
+      o.play('stiff');
+      o.blendIn(0.25);
+      this.cinematic(lx, -60, 0.3, 0.9, true);
+      const down = this.carry(f, o, flight * 0.47 * k, null, [-14, 24, -4.55], (t) => t * t, lx);
+      for (let r = down.next(); !r.done; r = down.next()) {
+        trail();
+        yield r.value;
+      }
+    } finally {
+      this.releaseCarry();
     }
     yield () => f.z <= 0;
     o.play('lieKO');
@@ -4100,8 +4353,9 @@ export class Fight {
     f.play('haymakerW');
     yield 0.25;
     f.play('haymaker');
+    yield 0.06;
     const dir = f.facing;
-    const pr: Proj = { kind: 'fist', x: f.x + dir * 60, y: -130, vx: dir * 1100, life: 2, dir, color: c };
+    const pr: Proj = { kind: 'fist', x: this.jx(f, J_BH) + dir * 20, y: -130, vx: dir * 1100, life: 2, dir, color: c };
     this.projs.push(pr);
     sfx.charge();
     yield () => (o.x - pr.x) * dir < 320 || pr.life <= 0;

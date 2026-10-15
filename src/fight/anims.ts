@@ -89,9 +89,44 @@ const TIRED = P({ lean: 0.55, head: -0.2, dy: 10, fa1: 0.55, fa2: 0.7, ba1: 0.45
 const TIRED2 = P({ lean: 0.62, head: -0.1, dy: 13, fa1: 0.6, fa2: 0.6, ba1: 0.5, ba2: 0.55, fl1: 0.45, fl2: -0.75, bl1: -0.25, bl2: -0.55 });
 const CLINCH = P({ lean: 0.55, head: 0.3, fa1: 1.5, fa2: 1.2, ba1: 1.4, ba2: 1.3, fl1: 0.5, bl1: -0.6, bl2: -0.2 });
 
-const SKICK_W = P({ lean: -0.05, fl1: 1.1, fl2: -1.8, bl1: -0.1, bl2: -0.1, fa1: 0.5, fa2: 1.6, ba1: -0.2, ba2: 1.2, dy: -2 });
-const SKICK = P({ lean: -0.7, head: 0.35, fl1: 2.2, fl2: -0.05, bl1: 0.15, bl2: -0.05, fa1: -0.4, fa2: 0.8, ba1: -0.9, ba2: 0.6, dy: 4 });
-const SPEAR = P({ lean: 1.25, head: 0.35, fa1: 1.05, fa2: 0.45, ba1: 0.95, ba2: 0.55, fl1: 0.65, fl2: -0.7, bl1: -0.95, bl2: -0.3, dy: 16 });
+// superkick: joelho ao peito (câmara), depois o corpo inclina-se para trás e a sola sobe ao queixo
+const SKICK_W = P({ lean: 0.05, head: 0.1, fl1: 1.55, fl2: -2.0, bl1: -0.05, bl2: -0.15, fa1: 0.7, fa2: 1.7, ba1: -0.3, ba2: 1.3, dy: 2 });
+const SKICK = P({ lean: -0.85, head: 0.45, fl1: 2.6, fl2: -0.05, bl1: 0.2, bl2: -0.1, fa1: -0.3, fa2: 0.8, ba1: -1.0, ba2: 0.6, dy: 2 });
+const SKICK_R = P({ lean: -0.35, head: 0.2, fl1: 1.1, fl2: -1.4, bl1: 0.1, bl2: -0.15, fa1: 0.3, fa2: 1.3, ba1: -0.4, ba2: 1.0 });
+// spear: baixo, ombro à frente à altura do abdómen dele
+const SPEAR = P({ lean: 1.38, head: 0.2, fa1: 0.95, fa2: 0.5, ba1: 0.85, ba2: 0.6, fl1: 0.85, fl2: -1.0, bl1: -0.95, bl2: -0.45, dy: 26 });
+
+// ── agarrões: poses do atacante e da vítima para cada fase (o motor prende-os pelas articulações) ──
+// chave de cabeça à frente: o braço da frente enrola-se à volta da cabeça dele, a outra mão nas costas
+const FACELOCK = P({ lean: 0.45, head: 0.15, fa1: 1.05, fa2: 1.95, ba1: 1.25, ba2: 0.8, fl1: 0.5, fl2: -0.35, bl1: -0.5, bl2: -0.3, dy: 6 });
+// vítima dobrada pela cintura, braços pendurados
+const BENT = P({ lean: 0.95, head: 0.3, fa1: -0.7, fa2: 0.3, ba1: -0.85, ba2: 0.25, fl1: 0.3, fl2: -0.35, bl1: -0.15, bl2: -0.25, dy: 6 });
+const BENT_DEEP = P({ lean: 1.55, head: 0.25, fa1: -1.2, fa2: 0.2, ba1: -1.35, ba2: 0.2, fl1: 0.35, fl2: -0.5, bl1: -0.1, bl2: -0.45, dy: 10 });
+// corpo hirto no ar (suplex / projeções)
+const STIFF = P({ lean: 0.05, head: 0.25, fa1: 0.35, fa2: 0.4, ba1: -0.25, ba2: 0.35, fl1: 0.12, fl2: -0.05, bl1: -0.05, bl2: -0.05 });
+// cai de costas com a cabeça dele presa debaixo do braço (DDT / cutter)
+const DDT_FALL = P({ rot: -1.35, lean: 0.3, head: 0.45, fa1: -0.15, fa2: 0.45, ba1: 1.1, ba2: 1.0, fl1: 0.8, fl2: -0.45, bl1: 0.45, bl2: -0.35 });
+const CUT_JUMP = P({ lean: 0.25, head: 0.1, fa1: 1.25, fa2: 1.9, ba1: 0.6, ba2: 1.2, fl1: 1.2, fl2: -1.5, bl1: 0.7, bl2: -1.4 });
+// powerbomb
+const PB_GRAB = P({ lean: 0.95, head: 0.35, fa1: 0.45, fa2: 0.5, ba1: 0.4, ba2: 0.6, fl1: 0.65, fl2: -0.8, bl1: -0.45, bl2: -0.6, dy: 14 });
+const PB_HOLD = P({ lean: -0.12, head: 0.1, fa1: 0.9, fa2: 2.3, ba1: 0.8, ba2: 2.35, fl1: 0.42, fl2: -0.3, bl1: -0.42, bl2: -0.25, dy: 5 });
+const PB_SLAM = P({ lean: 0.7, head: 0.3, fa1: 1.35, fa2: 0.25, ba1: 1.25, ba2: 0.35, fl1: 1.2, fl2: -1.85, bl1: 0.75, bl2: -1.95, dy: 4 });
+// sentado nos ombros dele, de frente, pernas por cima dos ombros
+const SEATED = P({ lean: -0.15, head: 0.15, fa1: 2.5, fa2: 0.9, ba1: 2.1, ba2: 1.1, fl1: 1.6, fl2: -1.45, bl1: 1.45, bl2: -1.55 });
+// chokeslam
+const CHOKE_GRAB = P({ lean: 0.12, head: 0.05, fa1: 1.62, fa2: 0.12, ba1: 0.9, ba2: 1.4, fl1: 0.45, fl2: -0.2, bl1: -0.4, bl2: -0.2 });
+const CHOKE_LIFT = P({ lean: -0.32, head: -0.3, fa1: 2.85, fa2: 0.05, ba1: 1.75, ba2: 0.9, fl1: 0.4, fl2: -0.15, bl1: -0.5, bl2: -0.2, dy: -5 });
+const CHOKE_SLAM = P({ lean: 0.75, head: 0.3, fa1: 1.15, fa2: 0.05, ba1: 0.55, ba2: 0.9, fl1: 0.85, fl2: -1.1, bl1: -0.45, bl2: -0.7, dy: 18 });
+// pendurado pelo pescoço: mãos no pulso dele, pernas a espernear
+const HANG = P({ lean: 0.08, head: -0.45, fa1: 2.65, fa2: 0.55, ba1: 2.4, ba2: 0.75, fl1: 0.55, fl2: -0.95, bl1: 0.05, bl2: -0.45 });
+const HANG2 = P({ lean: 0.04, head: -0.4, fa1: 2.55, fa2: 0.65, ba1: 2.5, ba2: 0.65, fl1: 0.15, fl2: -0.4, bl1: 0.45, bl2: -0.95 });
+// de barriga para baixo (por cima do adversário depois de um spear/splash, ou a falhar um mergulho)
+const PRONE = P({ rot: 1.52, lean: 0.05, head: -0.45, fa1: 1.25, fa2: 0.9, ba1: 1.5, ba2: 0.6, fl1: 0.12, fl2: -0.3, bl1: -0.15, bl2: -0.2 });
+const PUSH_UP = P({ rot: 0.75, lean: 0.55, head: -0.3, dy: 22, fa1: 0.6, fa2: 0.3, ba1: 0.7, ba2: 0.3, fl1: 1.35, fl2: -1.75, bl1: 0.4, bl2: -1.7 });
+// moonsault: costas arqueadas, braços para trás por cima da cabeça
+const MOON = P({ lean: -0.4, head: -0.45, fa1: 2.85, fa2: 0.25, ba1: 2.7, ba2: 0.3, fl1: 0.35, fl2: -0.7, bl1: 0.15, bl2: -0.6 });
+// a apontar para o céu (chama o raio)
+const CALL = P({ lean: -0.2, head: -0.5, fa1: 3.0, fa2: 0.05, ba1: 0.5, ba2: 1.4, fl1: 0.3, bl1: -0.3 });
 
 const ROPES = P({ lean: -0.5, head: -0.25, fa1: -0.7, fa2: 1.3, ba1: -0.9, ba2: 1.1, fl1: 0.45, fl2: -0.6, bl1: -0.25, bl2: -0.2, dy: 4 });
 const KIPUP = P({ rot: -1.2, lean: 0.2, fl1: 1.9, fl2: -1.6, bl1: 1.7, bl2: -1.7, fa1: 2.7, fa2: 1.8, ba1: 2.6, ba2: 1.8, head: 0.3 });
@@ -170,8 +205,26 @@ export const ANIMS = {
   rise: A([[0, CHARGE], [0.2, RISE, snap], [10, RISE]]),
   stun: A([[0, STUN1], [0.45, STUN2], [0.9, STUN1]], true),
   lieKO: A([[0, LIE2], [10, LIE2]]),
-  superkick: A([[0, GUARD], [0.14, SKICK_W], [0.24, SKICK, snap], [0.42, SKICK], [0.7, GUARD]]),
+  superkick: A([[0, GUARD], [0.16, SKICK_W], [0.25, SKICK, snap], [0.4, SKICK], [0.55, SKICK_R], [0.75, GUARD]]),
   spear: A([[0, SPEAR, snap], [10, SPEAR]]),
+  facelock: A([[0, GRAB], [0.12, FACELOCK, easeOut], [10, FACELOCK]]),
+  bent: A([[0, BENT], [10, BENT]]),
+  bentDeep: A([[0, BENT_DEEP], [10, BENT_DEEP]]),
+  stiff: A([[0, STIFF], [10, STIFF]]),
+  ddtFall: A([[0, FACELOCK], [0.22, DDT_FALL, (t: number) => t * t], [10, DDT_FALL]]),
+  cutJump: A([[0, CUT_JUMP, snap], [10, CUT_JUMP]]),
+  pbGrab: A([[0, GRAB], [0.14, PB_GRAB, easeOut], [10, PB_GRAB]]),
+  pbHold: A([[0, PB_GRAB], [0.4, PB_HOLD, easeInOut], [0.7, P({ ...PB_HOLD, dy: 8 })], [1.0, PB_HOLD], [10, PB_HOLD]]),
+  pbSlam: A([[0, PB_HOLD], [0.16, PB_SLAM, (t: number) => t * t], [0.6, PB_SLAM], [0.95, GUARD]]),
+  seated: A([[0, SEATED], [0.25, P({ ...SEATED, fa1: 2.2, ba1: 2.4 })], [0.5, SEATED]], true),
+  chokeGrab: A([[0, GUARD], [0.12, CHOKE_GRAB, snap], [10, CHOKE_GRAB]]),
+  chokeLift: A([[0, CHOKE_GRAB], [0.38, CHOKE_LIFT, easeInOut], [10, CHOKE_LIFT]]),
+  chokeSlam: A([[0, CHOKE_LIFT], [0.15, CHOKE_SLAM, (t: number) => t * t], [0.6, CHOKE_SLAM], [0.95, GUARD]]),
+  hang: A([[0, HANG], [0.16, HANG2], [0.32, HANG]], true),
+  prone: A([[0, PRONE], [10, PRONE]]),
+  proneUp: A([[0, PRONE], [0.25, PUSH_UP], [0.5, KNEEL], [0.75, GUARD]]),
+  moonArch: A([[0, PERCH], [0.12, MOON, easeOut], [10, MOON]]),
+  call: A([[0, GUARD], [0.15, CALL, snap], [10, CALL]]),
   ropes: A([[0, ROPES, snap], [10, ROPES]]),
   kipup: A([[0, P({ ...KIPUP, rot: -1.57 })], [0.12, KIPUP], [0.3, P({ dy: 18, lean: 0.3, fl1: 0.9, fl2: -1.4, bl1: -0.3, bl2: -1.3 })], [0.45, GUARD, easeOut]]),
   dance: A([[0, DANCE1], [0.3, DANCE3], [0.6, DANCE2], [0.9, DANCE3], [1.2, DANCE1]], true),

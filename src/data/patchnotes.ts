@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.14.0',
+    date: '2026-10-16',
+    title: 'Realistic special moves',
+    items: [
+      'Every grapple now holds the right body part: suplex and DDT lock the head in a front facelock, chokeslam grabs the throat, powerbomb grips the waist — and both bodies move together with no jumps between phases.',
+      'Suplex: lifted vertical, a hang at the top, then a bridge backwards dropping the opponent back-first behind you.',
+      'Powerbomb: opponent bent over, lifted to sit on your shoulders facing you, then driven back-first into the mat.',
+      'DDT drives the head into the mat; Cutter is a jumping three-quarter facelock planting the face; Chokeslam hangs the opponent high, legs kicking, before the slam.',
+      'Superkick chambers the knee and lands the sole on the jaw; Spear puts the shoulder into the midsection and both go down; Lariat opens the arm just before contact and flips the opponent fully.',
+      'Moonsault is a real backflip off the top rope; splashes, elbow drops and flying moves end face-down with a push-up recovery.',
+      'Supers move with weight: wind-ups, punches timed to contact, the Tornado stops at arm\'s reach, the Fire Dragon and Cosmic Punch launch from the fist, and the Atomic Suplex uses the new suplex mechanics mid-air.',
+    ],
+  },
+  {
     version: '1.13.3',
     date: '2026-10-15',
     title: 'Long hair in one piece',
