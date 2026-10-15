@@ -1025,12 +1025,16 @@ function drawFace(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number,
         ctx.globalAlpha = 0.18;
         ctx.fillStyle = '#000';
         ctx.fillRect(6, 13, 16, 2.6);
-        ctx.globalAlpha = 0.7;
+        ctx.globalAlpha = 0.75;
         ctx.strokeStyle = OC();
         ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.moveTo(7, 18.6);
         ctx.quadraticCurveTo(13, 19.4, 20, 18.2);
+        ctx.stroke();
+        ctx.globalAlpha = 0.3;
+        ctx.lineWidth = 0.9;
+        ctx.beginPath();
         for (const xx of [10.5, 13.4, 16.2]) {
           ctx.moveTo(xx, 15.4);
           ctx.lineTo(xx + 0.2, 21.6);

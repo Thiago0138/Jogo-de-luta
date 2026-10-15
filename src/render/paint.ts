@@ -568,7 +568,7 @@ export function sheet(
 export function sphereRegion(
   ctx: CanvasRenderingContext2D, P: Proj, R: number, cy: number,
   lon0: number, lon1: number, latTop: (lon: number) => number, latBot: (lon: number) => number,
-  fill: string, o: { line?: number; alpha?: number; n?: number; m?: number; edges?: boolean } = {},
+  fill: string, o: { line?: number; alpha?: number; n?: number; m?: number; edges?: boolean; top?: boolean } = {},
 ): void {
   const v = viewDir(P);
   const n = o.n ?? 28;
@@ -616,7 +616,7 @@ export function sphereRegion(
       const B = cols[j + 1];
       if (!A.some((p) => p[2]) && !B.some((p) => p[2])) continue;
       // bordas de cima e de baixo visíveis
-      for (const k of [0, m]) {
+      for (const k of o.top === false ? [m] : [0, m]) {
         if (A[k][2] || B[k][2]) {
           ctx.moveTo(A[k][0], A[k][1]);
           ctx.lineTo(B[k][0], B[k][1]);

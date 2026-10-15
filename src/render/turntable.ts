@@ -765,6 +765,31 @@ function beard3D(ctx: CanvasRenderingContext2D, H: Proj, beard: string, col: str
       break;
     case 'grande':
       sphereRegion(ctx, Hs, R + 2.5, 0, -1.45, 1.45, (l) => 0.12 + (1 - Math.abs(l) / 1.45) * 0.3, () => 1.12, col, { line: 2, n: 22, m: 4 });
+      if (!PS.F) {
+        // madeixas da barba
+        const dark = col.length === 7 && col[0] === '#' ? shade(col, -0.4) : col;
+        ctx.strokeStyle = dark;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.65;
+        for (let k = 0; k < 9; k++) {
+          const lon = -1.2 + k * 0.3;
+          ctx.beginPath();
+          let on = false;
+          for (let i = 0; i <= 4; i++) {
+            const q = i / 4;
+            const p = spherePt(Hs, R + 2.6, 0, lon * (1 - q * 0.25), 0.3 + (1 - Math.abs(lon) / 1.45) * 0.25 + q * 0.5);
+            if (p[3] < 0.1) {
+              on = false;
+              continue;
+            }
+            if (on) ctx.lineTo(p[0], p[1]);
+            else ctx.moveTo(p[0], p[1]);
+            on = true;
+          }
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      }
       break;
     case 'bigode':
       sphereRegion(ctx, H, R + 1, 0, -0.34, 0.34, (l) => 0.37 + Math.abs(l) * 0.1, (l) => 0.45 + Math.abs(l) * 0.12, col, { line: 0, n: 8, m: 2 });
@@ -873,7 +898,7 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
   };
   const longs = style === 'longo' || style === 'rabo' || style === 'trancas' || style === 'mullet';
   const low = longs || style === 'cometa' ? 0.55 : 0.42;
-  const cap = () => sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, (l) => hairline(l, low), c1, { line: 3, n: 48, m: 12 });
+  const cap = () => sphereRegion(ctx, H, R + 2.5, 0, -Math.PI, Math.PI, () => -Math.PI / 2 + 0.001, (l) => hairline(l, low), c1, { line: 3, n: 48, m: 12, top: false });
   const shine = () => {
     if (PS.F) return;
     const p = spherePt(H, R + 3, 0, -0.4, -1.0);
