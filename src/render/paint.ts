@@ -37,16 +37,25 @@ export function circle(ctx: CanvasRenderingContext2D, x: number, y: number, r: n
 
 // ───────────────────────── Membros musculados ─────────────────────────
 
-export type Prof = readonly [number, number, number];
-export const ARM_U: Prof = [10.5, 11.8, 7.6];
-export const ARM_L: Prof = [7.8, 9.2, 6.4];
-export const LEG_U: Prof = [13.5, 13.8, 9.2];
-export const LEG_L: Prof = [9.4, 10.8, 6.6];
-const PTS = 6;
+/** Perfil de um segmento: raio na raiz, raio do bojo, raio na ponta e (opcional) posição do bojo (0..1). */
+export type Prof = readonly [number, number, number, number?];
+export const ARM_U: Prof = [10.5, 12.3, 7.6, 0.48];
+export const ARM_L: Prof = [7.9, 9.6, 6.2, 0.26];
+export const LEG_U: Prof = [13.5, 14.2, 9.2, 0.36];
+export const LEG_L: Prof = [9.4, 11.2, 6.4, 0.28];
+const PTS = 8;
 
 export function profR(p: Prof, t: number): number {
   const base = p[0] + (p[2] - p[0]) * t;
-  return base + (p[1] - (p[0] + (p[2] - p[0]) * 0.42)) * Math.sin(Math.PI * Math.min(1, t * 1.1));
+  const pk = p[3];
+  let b: number;
+  if (pk == null) b = Math.sin(Math.PI * Math.min(1, t * 1.1));
+  else {
+    // bojo assimétrico: sobe depressa até ao pico e desce suave até à articulação seguinte
+    const tt = t < pk ? (t / pk) * 0.5 : 0.5 + ((t - pk) / (1 - pk)) * 0.5;
+    b = Math.sin(Math.PI * Math.min(1, tt * 1.06));
+  }
+  return base + (p[1] - (p[0] + (p[2] - p[0]) * 0.42)) * b;
 }
 
 /** Cápsula afunilada com bojo muscular, de (x1,y1) a (x2,y2). */
@@ -136,24 +145,93 @@ export function limb(
     });
     ctx.restore();
   }
-  // sombra (interior, do lado afastado da luz)
+  limbShade(ctx, ax, ay, bx, by, pu, dark);
+  limbShade(ctx, bx, by, cx, cy, pl, dark);
+  ctx.globalAlpha = 1;
+}
+
+/**
+ * Cel shading de um segmento de membro, com luz principal por cima/à frente:
+ * sombra própria + sombra de núcleo, luz refletida na orla, vinco muscular e brilho de suor.
+ */
+function limbShade(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, p: Prof, dark: string) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const tx = dx / len;
+  const ty = dy / len;
+  const [snx, sny] = shadeSide(dx, dy);
+  const w = p[1];
+  const M = (t: number, s: number): [number, number] => {
+    const r = profR(p, t);
+    return [x1 + dx * t + snx * s * r, y1 + dy * t + sny * s * r];
+  };
+  // sombra própria (metade afastada da luz)
   ctx.fillStyle = dark;
   ctx.globalAlpha = 0.55;
   ctx.beginPath();
-  let [snx, sny] = shadeSide(bx - ax, by - ay);
-  capsule(ctx, ax, ay, bx, by, pu, 0.5, snx * pu[1] * 0.42, sny * pu[1] * 0.42);
-  [snx, sny] = shadeSide(cx - bx, cy - by);
-  capsule(ctx, bx, by, cx, cy, pl, 0.5, snx * pl[1] * 0.42, sny * pl[1] * 0.42);
+  capsule(ctx, x1, y1, x2, y2, p, 0.56, snx * w * 0.44, sny * w * 0.44);
   ctx.fill();
-  // brilho
+  // sombra de núcleo (mais escura, junto à orla)
   ctx.globalAlpha = 0.32;
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2.2;
   ctx.beginPath();
-  [snx, sny] = shadeSide(bx - ax, by - ay);
-  ctx.moveTo(ax + (bx - ax) * 0.2 - snx * pu[1] * 0.55, ay + (by - ay) * 0.2 - sny * pu[1] * 0.55);
-  ctx.lineTo(ax + (bx - ax) * 0.6 - snx * pu[1] * 0.6, ay + (by - ay) * 0.6 - sny * pu[1] * 0.6);
+  capsule(ctx, x1, y1, x2, y2, p, 0.3, snx * w * 0.66, sny * w * 0.66);
+  ctx.fill();
+  // luz refletida na orla do lado da sombra
+  ctx.globalAlpha = 0.2;
+  ctx.strokeStyle = '#d8ecff';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for (let i = 0; i <= 6; i++) {
+    const q = M(0.14 + i * 0.12, 0.8);
+    if (i) ctx.lineTo(q[0], q[1]);
+    else ctx.moveTo(q[0], q[1]);
+  }
   ctx.stroke();
+  // vincos musculares (deltóide/bíceps, gémeos, rótula)
+  ctx.strokeStyle = dark;
+  ctx.lineWidth = 1.8;
+  ctx.globalAlpha = 0.55;
+  ctx.beginPath();
+  if (p === ARM_U) {
+    let q = M(0.2, -0.95);
+    ctx.moveTo(q[0], q[1]);
+    q = M(0.34, -0.2);
+    const c = M(0.36, -0.75);
+    ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
+  } else if (p === LEG_L) {
+    let q = M(0.12, 0.15);
+    ctx.moveTo(q[0], q[1]);
+    const c = M(0.3, 0.55);
+    q = M(0.58, 0.5);
+    ctx.quadraticCurveTo(c[0], c[1], q[0], q[1]);
+  } else if (p === LEG_U) {
+    // rótula: arco curto junto ao joelho, do lado da frente
+    const q = M(0.9, -0.55);
+    ctx.moveTo(q[0], q[1]);
+    const c = M(0.98, -0.1);
+    const e = M(0.86, 0.05);
+    ctx.quadraticCurveTo(c[0], c[1], e[0], e[1]);
+  } else if (p === ARM_L) {
+    const q = M(0.08, 0.5);
+    ctx.moveTo(q[0], q[1]);
+    const e = M(0.16, 0.05);
+    ctx.lineTo(e[0], e[1]);
+  }
+  ctx.stroke();
+  // brilho de suor no bojo (lado da luz)
+  const pk = p[3] ?? 0.45;
+  const h = M(pk, -0.5);
+  const ang = Math.atan2(ty, tx);
+  ctx.fillStyle = '#ffffff';
+  ctx.globalAlpha = 0.3;
+  ctx.beginPath();
+  ctx.ellipse(h[0], h[1], Math.max(2, len * 0.2), Math.max(1, w * 0.14), ang, 0, TAU);
+  ctx.fill();
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.ellipse(h[0] + tx * len * 0.06, h[1] + ty * len * 0.06, Math.max(1, len * 0.05), Math.max(0.6, w * 0.07), ang, 0, TAU);
+  ctx.fill();
   ctx.globalAlpha = 1;
 }
 

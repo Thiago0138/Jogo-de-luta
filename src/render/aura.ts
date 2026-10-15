@@ -1,7 +1,7 @@
 import type { Vis } from '../data/items';
 import { flame } from './costume';
 import { PS, TAU, circle, glowSprite, hash } from './paint';
-import { J_HIP, J_NECK, type Skel } from './pose';
+import { HEAD_R, J_BE, J_BF, J_BH, J_BK, J_FE, J_FF, J_FH, J_FK, J_HEAD, J_HIP, J_NECK, J_SH, type Skel } from './pose';
 
 /**
  * Auras: efeito à volta do lutador (lutas e menus) e cenário de fundo animado nos menus.
@@ -15,223 +15,855 @@ function add(ctx: CanvasRenderingContext2D, f: () => void) {
   ctx.globalAlpha = 1;
 }
 
-/** Aura em volta do corpo, centrada no tronco e alinhada com ele (deitado, a aura deita-se também). */
+// ───────────────────────── Aura do lutador (lutas e menus) ─────────────────────────
+//
+// Camadas, de trás para a frente:
+//  1. halo que abraça a silhueta (traço grosso sobre os ossos, num só path → alpha uniforme),
+//     em composição normal para se ler mesmo sobre o tapete branco do ringue;
+//  2. brilho aditivo nas articulações (sprites em cache);
+//  3. efeitos próprios de cada aura (chamas, raios, pétalas, ...).
+// Tudo é determinístico a partir de `t` (hash), sem gradientes criados por frame.
+
+const hexCache = new Map<number, string>();
+/** Cor HSL quantizada (36 tons) em #rrggbb — serve de chave para os sprites em cache. */
+function hueHex(h: number, s = 100, l = 60): string {
+  const q = ((Math.round(h / 10) % 36) + 36) % 36;
+  const key = q * 1e6 + s * 1e3 + l;
+  let c = hexCache.get(key);
+  if (c) return c;
+  const hh = q * 10;
+  const S = s / 100;
+  const Lr = l / 100;
+  const a = S * Math.min(Lr, 1 - Lr);
+  const f = (n: number) => {
+    const k = (n + hh / 30) % 12;
+    return Lr - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+  };
+  const to = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
+  c = '#' + to(f(0)) + to(f(8)) + to(f(4));
+  hexCache.set(key, c);
+  return c;
+}
+
+const stripCache = new Map<string, HTMLCanvasElement>();
+/** Faixa vertical suave (cortina de aurora), criada uma vez por cor. */
+function stripSprite(color: string): HTMLCanvasElement {
+  let c = stripCache.get(color);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = 16;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  const v = g.createLinearGradient(0, 0, 0, 128);
+  v.addColorStop(0, color + '00');
+  v.addColorStop(0.2, color + 'ee');
+  v.addColorStop(0.55, color + '77');
+  v.addColorStop(1, color + '00');
+  g.fillStyle = v;
+  g.fillRect(0, 0, 16, 128);
+  g.globalCompositeOperation = 'destination-in';
+  const h = g.createLinearGradient(0, 0, 16, 0);
+  h.addColorStop(0, '#0000');
+  h.addColorStop(0.5, '#000f');
+  h.addColorStop(1, '#0000');
+  g.fillStyle = h;
+  g.fillRect(0, 0, 16, 128);
+  stripCache.set(color, c);
+  return c;
+}
+
+const ADD = 'lighter';
+const NORM = 'source-over';
+
+/** Path com todos os ossos (cabeça, tronco largo, braços, pernas) — um único traço = alpha uniforme. */
+function bonePath(ctx: CanvasRenderingContext2D, s: Skel, w: number) {
+  const X = s.x;
+  const Y = s.y;
+  ctx.beginPath();
+  // tronco: três linhas paralelas para ficar largo
+  const dx = X[J_NECK] - X[J_HIP];
+  const dy = Y[J_NECK] - Y[J_HIP];
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = (-dy / len) * 12;
+  const ny = (dx / len) * 12;
+  for (let k = -1; k <= 1; k++) {
+    ctx.moveTo(X[J_HIP] + nx * k, Y[J_HIP] + ny * k);
+    ctx.lineTo(X[J_SH] + nx * k, Y[J_SH] + ny * k);
+  }
+  ctx.moveTo(X[J_FH], Y[J_FH]);
+  ctx.lineTo(X[J_FE], Y[J_FE]);
+  ctx.lineTo(X[J_SH], Y[J_SH]);
+  ctx.lineTo(X[J_BE], Y[J_BE]);
+  ctx.lineTo(X[J_BH], Y[J_BH]);
+  ctx.moveTo(X[J_FF], Y[J_FF]);
+  ctx.lineTo(X[J_FK], Y[J_FK]);
+  ctx.lineTo(X[J_HIP], Y[J_HIP]);
+  ctx.lineTo(X[J_BK], Y[J_BK]);
+  ctx.lineTo(X[J_BF], Y[J_BF]);
+  ctx.moveTo(X[J_NECK], Y[J_NECK]);
+  ctx.lineTo(X[J_HEAD], Y[J_HEAD]);
+  // cabeça: anel cujo traço cobre o disco todo
+  const r = Math.max(2, HEAD_R - 4);
+  ctx.moveTo(X[J_HEAD] + r, Y[J_HEAD]);
+  ctx.arc(X[J_HEAD], Y[J_HEAD], r, 0, TAU);
+  ctx.lineWidth = w;
+}
+
+function halo(ctx: CanvasRenderingContext2D, s: Skel, w: number, color: string, alpha: number) {
+  if (alpha <= 0.01) return;
+  ctx.globalAlpha = Math.min(1, alpha);
+  ctx.strokeStyle = color;
+  bonePath(ctx, s, w);
+  ctx.stroke();
+}
+
+/** Brilho aditivo nas zonas principais do corpo. */
+function jointGlow(ctx: CanvasRenderingContext2D, s: Skel, color: string, alpha: number, size: number, low: boolean) {
+  const sp = glowSprite(color);
+  const js = low ? JG_LOW : JG;
+  ctx.globalCompositeOperation = ADD;
+  for (let i = 0; i < js.length; i++) {
+    const j = js[i];
+    const k = j === J_SH || j === J_HIP ? 1.25 : j === J_HEAD ? 1.1 : 0.75;
+    const r = size * k;
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sp, s.x[j] - r, s.y[j] - r, r * 2, r * 2);
+  }
+  ctx.globalCompositeOperation = NORM;
+}
+const JG = [J_HEAD, J_SH, J_HIP, J_FH, J_BH, J_FF, J_BF];
+const JG_LOW = [J_HEAD, J_SH, J_HIP];
+/** Articulações de onde nascem chamas/raios/fumo. */
+const JOINTS = [J_HEAD, J_SH, J_FE, J_BE, J_FH, J_BH, J_HIP, J_FK, J_BK, J_FF, J_BF];
+
+/** Brilho de quatro pontas. */
+function sparkle(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.quadraticCurveTo(x, y, x, y + r);
+  ctx.quadraticCurveTo(x, y, x - r, y);
+  ctx.quadraticCurveTo(x, y, x, y - r);
+  ctx.fill();
+}
+
+function ellipseRing(ctx: CanvasRenderingContext2D, x: number, y: number, rx: number, color: string, lw: number, alpha: number) {
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw;
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, rx * 0.24, 0, 0, TAU);
+  ctx.stroke();
+}
+
+/** Onda de choque no chão, repetida a cada 1/rate segundos. */
+function shock(ctx: CanvasRenderingContext2D, x: number, y: number, t: number, rate: number, r0: number, r1: number, color: string, lw: number) {
+  const ph = (t * rate) % 1;
+  ellipseRing(ctx, x, y, r0 + (r1 - r0) * ph, color, lw * (1 - ph) + 0.5, (1 - ph) * 0.9);
+}
+
+/** Linha em zig-zag (raio) — acrescenta ao path atual. */
+function bolt(ctx: CanvasRenderingContext2D, x: number, y: number, ang: number, len: number, segs: number, seed: number) {
+  const ux = Math.cos(ang);
+  const uy = Math.sin(ang);
+  const st = len / segs;
+  ctx.moveTo(x, y);
+  for (let q = 1; q <= segs; q++) {
+    const off = (hash(seed + q * 7.3) - 0.5) * st * 1.3;
+    ctx.lineTo(x + ux * st * q - uy * off, y + uy * st * q + ux * off);
+  }
+}
+
+function petal(ctx: CanvasRenderingContext2D, sz: number) {
+  ctx.beginPath();
+  ctx.moveTo(0, -sz);
+  ctx.bezierCurveTo(sz * 0.9, -sz * 0.6, sz * 0.7, sz * 0.5, 0, sz);
+  ctx.bezierCurveTo(-sz * 0.7, sz * 0.5, -sz * 0.9, -sz * 0.6, 0, -sz);
+}
+
+/** Chama em camadas (exterior escura, meio, núcleo claro) — lê-se bem sobre fundo claro. */
+function bigFlame(ctx: CanvasRenderingContext2D, x: number, y: number, h: number, w: number, t: number, seed: number, cOut: string, cMid: string, cCore: string) {
+  flame(ctx, x, y, 0, -1, h * 1.12, w * 1.3, cOut, cMid, t, seed);
+  flame(ctx, x, y + w * 0.1, 0, -1, h * 0.7, w * 0.75, cMid, cCore, t, seed + 0.37);
+}
+
+/** Aura em volta do corpo: halo à volta da silhueta + efeitos próprios de cada tipo. */
 export function drawAura(ctx: CanvasRenderingContext2D, a: Vis, s: Skel, t: number, low: boolean) {
   if (PS.F) return;
-  const c1 = a.c1 ?? '#fff';
-  const c2 = a.c2 ?? '#fff';
-  const cx = (s.x[J_HIP] + s.x[J_NECK]) / 2;
-  const cy = (s.y[J_HIP] + s.y[J_NECK]) / 2;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(s.torsoA - s.torsoA * 0.0);
-  const n = low ? 6 : 14;
-  const pulse = 0.55 + Math.sin(t * 3) * 0.12;
-  if (a.type !== 'sombra') {
-    add(ctx, () => {
-      ctx.globalAlpha = pulse * 0.5;
-      ctx.drawImage(glowSprite(c1), -95, -120, 190, 230);
-    });
+  const type = a.type ?? '';
+  const c1 = a.c1 ?? '#ffffff';
+  const c2 = a.c2 ?? '#ffffff';
+  const X = s.x;
+  const Y = s.y;
+  // caixa do corpo (funciona de pé ou deitado)
+  let x0 = Infinity;
+  let x1 = -Infinity;
+  let y0 = Infinity;
+  for (let j = 0; j < 12; j++) {
+    if (X[j] < x0) x0 = X[j];
+    if (X[j] > x1) x1 = X[j];
+    if (Y[j] < y0) y0 = Y[j];
   }
-  switch (a.type) {
-    case 'holofotes':
-      add(ctx, () => {
-        for (let i = 0; i < 2; i++) {
-          const sw = Math.sin(t * 0.9 + i * 2.5) * 30;
-          ctx.globalAlpha = 0.16;
-          ctx.fillStyle = i ? c2 : c1;
-          ctx.beginPath();
-          ctx.moveTo(sw - 10, -200);
-          ctx.lineTo(sw + 10, -200);
-          ctx.lineTo(sw * 0.3 + 55, 110);
-          ctx.lineTo(sw * 0.3 - 55, 110);
-          ctx.fill();
-        }
-      });
-      break;
-    case 'neon': {
-      add(ctx, () => {
-        const h = (t * 60) % 360;
-        ctx.lineWidth = 3;
-        for (let i = 0; i < 2; i++) {
-          ctx.globalAlpha = 0.55 - i * 0.2;
-          ctx.strokeStyle = i ? c2 : c1;
-          ctx.beginPath();
-          ctx.ellipse(0, 110, 70 + i * 16 + Math.sin(t * 4 + i) * 4, 13 + i * 3, 0, 0, TAU);
-          ctx.stroke();
-        }
-        for (let i = 0; i < n / 2; i++) {
-          const ph = (t * 0.7 + hash(i)) % 1;
-          ctx.globalAlpha = (1 - ph) * 0.8;
-          ctx.fillStyle = `hsl(${(h + i * 40) % 360} 100% 65%)`;
-          const x = (hash(i + 4) - 0.5) * 120;
-          ctx.fillRect(x - 1, 100 - ph * 200, 2, 14);
-        }
-      });
+  y0 = Math.min(y0, Y[J_HEAD] - HEAD_R);
+  x0 -= 16;
+  x1 += 16;
+  const gy = Math.max(Y[J_FF], Y[J_BF], Y[J_HIP] + 12) + 8;
+  const bw = x1 - x0;
+  const bh = gy - y0;
+  const mx = (x0 + x1) / 2;
+  const cx = (X[J_HIP] + X[J_NECK]) / 2;
+  const cy = (Y[J_HIP] + Y[J_NECK]) / 2;
+  const m = low ? 0.5 : 1;
+  const pulse = 0.5 + 0.5 * Math.sin(t * 3.2);
+
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalCompositeOperation = NORM;
+
+  switch (type) {
+    // ── Comum: holofotes de arena e flashes de fotógrafos ──
+    case 'holofotes': {
+      ctx.globalCompositeOperation = ADD;
+      for (let i = 0; i < 2; i++) {
+        const sw = Math.sin(t * 0.9 + i * 2.5) * 40;
+        ctx.globalAlpha = 0.16;
+        ctx.fillStyle = i ? c2 : c1;
+        ctx.beginPath();
+        ctx.moveTo(mx + sw * 2 - 10, y0 - 190);
+        ctx.lineTo(mx + sw * 2 + 10, y0 - 190);
+        ctx.lineTo(mx + sw * 0.3 + 75, gy);
+        ctx.lineTo(mx + sw * 0.3 - 75, gy);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(glowSprite('#ffffff'), mx - 110, gy - 30, 220, 60);
+      ctx.globalCompositeOperation = NORM;
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(mx, gy, 78, 17, 0, 0, TAU);
+      ctx.fill();
+      halo(ctx, s, 46 + pulse * 6, c2, 0.28);
+      halo(ctx, s, 32, '#ffffff', 0.55);
+      jointGlow(ctx, s, c2, 0.35, 34, low);
+      // flashes de câmara
+      ctx.globalCompositeOperation = ADD;
+      ctx.fillStyle = '#ffffff';
+      for (let j = 0; j < (low ? 1 : 3); j++) {
+        const v = t * 2.6 + j * 0.37;
+        const k = Math.floor(v);
+        const ph = v - k;
+        if (hash(k * 7 + j) < 0.35 || ph > 0.3) continue;
+        const x = x0 - 30 + hash(k * 3.1 + j) * (bw + 60);
+        const y = y0 + hash(k * 5.7 + j) * bh * 0.85;
+        const r = 22 * (1 - ph / 0.3);
+        ctx.globalAlpha = 1;
+        ctx.drawImage(glowSprite('#ffffff'), x - r * 1.6, y - r * 1.6, r * 3.2, r * 3.2);
+        sparkle(ctx, x, y, r);
+      }
+      // poeira nos feixes
+      for (let i = 0; i < 10 * m; i++) {
+        const ph = (t * 0.12 + hash(i + 70)) % 1;
+        ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.8;
+        ctx.fillRect(x0 + hash(i + 71) * bw + Math.sin(t + i) * 10, gy - ph * (bh + 40), 2.5, 2.5);
+      }
       break;
     }
-    case 'faiscas':
-      add(ctx, () => {
-        for (let i = 0; i < n; i++) {
-          const ph = (t * 0.6 + hash(i)) % 1;
-          const x = (hash(i + 9) - 0.5) * 120 + Math.sin(t * 3 + i) * 8;
-          const y = 100 - ph * 220;
-          const sz = 3 * (1 - ph) + 1;
-          ctx.globalAlpha = 1 - ph;
-          ctx.fillStyle = i % 2 ? c1 : c2;
-          ctx.save();
-          ctx.translate(x, y);
-          ctx.rotate(t * 3 + i);
-          ctx.fillRect(-sz, -sz * 0.3, sz * 2, sz * 0.6);
-          ctx.fillRect(-sz * 0.3, -sz, sz * 0.6, sz * 2);
-          ctx.restore();
+
+    // ── Incomum: contorno neon com aberração cromática e equalizador ──
+    case 'neon': {
+      const gl = Math.floor(t * 8);
+      const jit = hash(gl) < 0.2 ? (hash(gl + 1) - 0.5) * 10 : 0;
+      ctx.save();
+      ctx.translate(-5 + Math.sin(t * 5) * 2 + jit, -3);
+      halo(ctx, s, 44, c2, 0.5);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(4 - jit, 2);
+      halo(ctx, s, 40, c1, 0.6);
+      ctx.restore();
+      halo(ctx, s, 28, '#ffffff', 0.35 + pulse * 0.2);
+      jointGlow(ctx, s, c1, 0.45, 38, low);
+      // chão: anéis duplos + varrimento
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.6;
+      ctx.drawImage(glowSprite(c1), mx - 120, gy - 28, 240, 56);
+      ctx.globalCompositeOperation = NORM;
+      ellipseRing(ctx, mx, gy, 84 + Math.sin(t * 4) * 4, c1, 4.5, 0.95);
+      ellipseRing(ctx, mx, gy, 100 + Math.sin(t * 4 + 1) * 4, c2, 3, 0.85);
+      shock(ctx, mx, gy, t, 0.9, 40, 140, c2, 4);
+      // equalizador dos dois lados
+      const blk = 7;
+      for (let side = -1; side <= 1; side += 2) {
+        for (let i = 0; i < (low ? 3 : 5); i++) {
+          const bx = side < 0 ? x0 - 18 - i * 13 : x1 + 18 + i * 13;
+          const lvl = Math.abs(Math.sin(t * 6 + i * 1.3 + side) + Math.sin(t * 9.7 + i * 2.1)) * 0.5;
+          const nb = Math.max(1, Math.round((3 + lvl * 9) * (1 - i * 0.14)));
+          for (let q = 0; q < nb; q++) {
+            ctx.globalAlpha = 0.95 - q * 0.04;
+            ctx.fillStyle = q > 6 ? '#ffffff' : q > 3 ? c2 : c1;
+            ctx.fillRect(bx - 5, gy - 6 - q * (blk + 2), 10, blk);
+          }
         }
-      });
-      break;
-    case 'petalas':
-      for (let i = 0; i < n; i++) {
-        const ph = (t * 0.22 + hash(i)) % 1;
-        const x = (hash(i + 3) - 0.5) * 160 + Math.sin(t * 2 + i * 2) * 20;
-        const y = -130 + ph * 250;
+      }
+      // quadrados neon a subir
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 8 * m; i++) {
+        const ph = (t * 0.5 + hash(i + 20)) % 1;
+        const x = x0 + hash(i + 21) * bw;
+        const y = gy - ph * (bh + 50);
+        const sz = 5 + hash(i + 22) * 5;
+        ctx.globalAlpha = (1 - ph) * 0.95;
+        ctx.strokeStyle = i % 2 ? c1 : c2;
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(t * 2 + i);
-        ctx.scale(1, 0.4 + Math.abs(Math.sin(t * 3 + i)) * 0.6);
-        ctx.globalAlpha = Math.sin(ph * Math.PI);
-        ctx.fillStyle = i % 3 ? c1 : c2;
-        ctx.beginPath();
-        ctx.moveTo(0, -5);
-        ctx.quadraticCurveTo(6, -2, 0, 6);
-        ctx.quadraticCurveTo(-6, -2, 0, -5);
-        ctx.fill();
+        ctx.strokeRect(-sz, -sz, sz * 2, sz * 2);
         ctx.restore();
       }
-      ctx.globalAlpha = 1;
-      break;
-    case 'chamas':
-      add(ctx, () => {
-        for (let i = 0; i < n; i++) {
-          const x = (hash(i + 5) - 0.5) * 110;
-          const ph = (t * 1.1 + hash(i)) % 1;
-          ctx.globalAlpha = 0.7 * (1 - ph * 0.6);
-          flame(ctx, x, 100 - ph * 40, 0, -1, 70 + hash(i + 1) * 60, 9 + hash(i + 2) * 6, i % 2 ? c1 : '#ff2a00', c2, t, i);
-        }
-      });
-      break;
-    case 'raio': {
-      add(ctx, () => {
-        const k = Math.floor(t * 12);
-        ctx.lineWidth = 2.5;
-        for (let j = 0; j < 3; j++) {
-          if (hash(k + j * 31) < 0.5) continue;
-          let x = (hash(k * 3 + j) - 0.5) * 120;
-          let y = -120 + hash(k * 7 + j) * 30;
-          ctx.globalAlpha = 0.9;
-          ctx.strokeStyle = c2;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          for (let q = 0; q < 7; q++) {
-            x += (hash(k * 13 + q + j * 5) - 0.5) * 40;
-            y += 32;
-            ctx.lineTo(x, y);
-          }
-          ctx.stroke();
-          ctx.globalAlpha = 0.3;
-          ctx.lineWidth = 7;
-          ctx.strokeStyle = c1;
-          ctx.stroke();
-          ctx.lineWidth = 2.5;
-        }
-        for (let i = 0; i < n / 2; i++) {
-          const ang = t * 4 + i * 1.3;
-          ctx.globalAlpha = 0.8;
-          ctx.fillStyle = c1;
-          ctx.fillRect(Math.cos(ang) * 62 - 2, Math.sin(ang * 1.7) * 90 - 2, 4, 4);
-        }
-      });
       break;
     }
-    case 'aurora':
-      add(ctx, () => {
-        for (let b = 0; b < 3; b++) {
-          ctx.globalAlpha = 0.28;
-          ctx.fillStyle = b % 2 ? c2 : c1;
-          ctx.beginPath();
-          for (let i = 0; i <= 12; i++) {
-            const y = -130 + i * 20;
-            const x = -60 + b * 40 + Math.sin(t * 1.5 + i * 0.6 + b) * 18;
-            if (i) ctx.lineTo(x, y);
-            else ctx.moveTo(x, y);
-          }
-          for (let i = 12; i >= 0; i--) {
-            const y = -130 + i * 20;
-            const x = -48 + b * 40 + Math.sin(t * 1.5 + i * 0.6 + b + 0.6) * 18;
-            ctx.lineTo(x, y);
-          }
-          ctx.fill();
-        }
-      });
-      break;
-    case 'sombra': {
-      for (let i = 0; i < n; i++) {
-        const ph = (t * 0.4 + hash(i)) % 1;
-        const x = (hash(i + 7) - 0.5) * 130 + Math.sin(t + i) * 10;
-        const y = 100 - ph * 210;
-        ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.5;
-        ctx.fillStyle = i % 2 ? c1 : '#000000';
+
+    // ── Raro: chuva de faíscas douradas ──
+    case 'faiscas': {
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.45 + pulse * 0.2;
+      ctx.drawImage(glowSprite(c1), cx - 110, cy - 140, 220, 280);
+      ctx.globalCompositeOperation = NORM;
+      halo(ctx, s, 52 + pulse * 8, c1, 0.3);
+      halo(ctx, s, 34, c2, 0.6);
+      jointGlow(ctx, s, c1, 0.5, 40, low);
+      shock(ctx, mx, gy, t, 0.8, 30, 150, c1, 6);
+      ellipseRing(ctx, mx, gy, 80, c1, 3, 0.7);
+      // fontes de faíscas nos pés
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 16 * m; i++) {
+        const ph = (t * 1.2 + hash(i + 30)) % 1;
+        const fx = i % 2 ? X[J_FF] : X[J_BF];
+        const vx = (hash(i + 31) - 0.5) * 170;
+        const vy = 200 + hash(i + 32) * 140;
+        const p0 = Math.max(0, ph - 0.05);
+        const xa = fx + vx * ph * 0.6;
+        const ya = gy - (vy * ph - 330 * ph * ph) * 0.6;
+        const xb = fx + vx * p0 * 0.6;
+        const yb = gy - (vy * p0 - 330 * p0 * p0) * 0.6;
+        ctx.globalAlpha = 1 - ph;
+        ctx.strokeStyle = i % 3 ? c1 : '#ffb000';
+        ctx.lineWidth = 5;
         ctx.beginPath();
-        ctx.arc(x, y, 24 * (1 - ph * 0.5), 0, TAU);
+        ctx.moveTo(xb, yb);
+        ctx.lineTo(xa, ya);
+        ctx.stroke();
+      }
+      // traços a subir
+      for (let i = 0; i < 18 * m; i++) {
+        const ph = (t * 0.7 + hash(i)) % 1;
+        const x = x0 + hash(i + 9) * bw + Math.sin(t * 3 + i) * 8;
+        const y = gy - ph * (bh + 70);
+        ctx.globalAlpha = 1 - ph;
+        ctx.strokeStyle = i % 3 ? c1 : '#ffb000';
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x - Math.sin(t * 3 + i) * 3, y + 20);
+        ctx.stroke();
+      }
+      // brilhos em estrela
+      for (let i = 0; i < 9 * m; i++) {
+        const tw = Math.sin(t * (2.5 + hash(i + 40) * 2) + i * 1.7);
+        if (tw <= 0) continue;
+        const j = JOINTS[i % JOINTS.length];
+        const x = X[j] + (hash(i + 41) - 0.5) * 70;
+        const y = Y[j] + (hash(i + 42) - 0.5) * 60;
+        const r = 6 + tw * 15;
+        ctx.globalAlpha = tw;
+        ctx.globalCompositeOperation = ADD;
+        ctx.drawImage(glowSprite(c1), x - r * 1.5, y - r * 1.5, r * 3, r * 3);
+        ctx.globalCompositeOperation = NORM;
+        ctx.fillStyle = i % 2 ? '#ffb000' : c1;
+        sparkle(ctx, x, y, r);
+        ctx.fillStyle = '#ffffff';
+        sparkle(ctx, x, y, r * 0.5);
+      }
+      break;
+    }
+
+    // ── Épico: vórtice de pétalas de cerejeira e mandala florida no chão ──
+    case 'petalas': {
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.4 + pulse * 0.15;
+      ctx.drawImage(glowSprite(c1), cx - 120, cy - 140, 240, 280);
+      ctx.globalCompositeOperation = NORM;
+      halo(ctx, s, 58 + pulse * 8, c1, 0.3);
+      halo(ctx, s, 38, c1, 0.5);
+      halo(ctx, s, 26, c2, 0.5);
+      jointGlow(ctx, s, c1, 0.45, 40, low);
+      // mandala
+      ctx.save();
+      ctx.translate(mx, gy);
+      ctx.scale(1, 0.26);
+      ctx.rotate(t * 0.6);
+      ctx.lineWidth = 4;
+      for (let i = 0; i < 6; i++) {
+        ctx.save();
+        ctx.rotate((i / 6) * TAU);
+        ctx.translate(0, -58);
+        petal(ctx, 34);
+        ctx.globalAlpha = 0.55;
+        ctx.fillStyle = c1;
+        ctx.fill();
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = '#d04a8c';
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.restore();
+      ellipseRing(ctx, mx, gy, 104, c2, 3, 0.8);
+      shock(ctx, mx, gy, t, 0.6, 40, 140, c1, 5);
+      // vórtice
+      const PN = Math.round(28 * m);
+      for (let i = 0; i < PN; i++) {
+        const ph = (t * 0.22 + hash(i)) % 1;
+        const ang = t * 2.2 + i * 2.39;
+        const r = 52 + hash(i + 1) * 30 + ph * 30;
+        const dep = Math.sin(ang);
+        const x = mx + Math.cos(ang) * r;
+        const y = gy - ph * (bh + 60) + dep * 10;
+        const sz = (8 + hash(i + 2) * 5) * (0.9 + dep * 0.25);
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(ang + t * 2);
+        ctx.scale(1, 0.45 + Math.abs(Math.sin(t * 3 + i)) * 0.55);
+        ctx.globalAlpha = Math.min(1, Math.sin(ph * Math.PI) * 1.6);
+        petal(ctx, sz);
+        ctx.fillStyle = i % 4 === 0 ? '#ffffff' : i % 2 ? c1 : c2;
+        ctx.fill();
+        ctx.lineWidth = 1.8;
+        ctx.strokeStyle = '#c23a7c';
+        ctx.stroke();
+        ctx.restore();
+      }
+      // brilhos
+      ctx.globalCompositeOperation = ADD;
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 6 * m; i++) {
+        const tw = Math.sin(t * 3 + i * 2.2);
+        if (tw <= 0) continue;
+        ctx.globalAlpha = tw;
+        sparkle(ctx, x0 - 20 + hash(i + 60) * (bw + 40), y0 + hash(i + 61) * bh, 3 + tw * 7);
+      }
+      break;
+    }
+
+    // ── Épico: corpo envolto em chamas ──
+    case 'chamas': {
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.55 + pulse * 0.2;
+      ctx.drawImage(glowSprite('#ff5a00'), mx - bw * 0.5 - 90, y0 - 70, bw + 180, bh + 110);
+      ctx.globalCompositeOperation = NORM;
+      halo(ctx, s, 60 + pulse * 10, '#ff2a00', 0.35);
+      halo(ctx, s, 40, c1, 0.6);
+      halo(ctx, s, 26, c2, 0.6);
+      // parede de fogo no chão
+      const FW = low ? 4 : 7;
+      for (let i = 0; i < FW; i++) {
+        const x = x0 - 18 + ((i + 0.5) / FW) * (bw + 36);
+        const h = 70 + hash(i + 5) * 60 + Math.sin(t * 5 + i) * 10;
+        bigFlame(ctx, x, gy + 4, h, 15 + hash(i + 2) * 6, t, i, '#e01e00', c1, c2);
+      }
+      // labaredas a sair das articulações
+      const jn = low ? 5 : JOINTS.length;
+      for (let i = 0; i < jn; i++) {
+        const j = JOINTS[low ? i * 2 : i];
+        const h = j === J_HEAD ? 68 : 38 + hash(i + 11) * 22;
+        bigFlame(ctx, X[j] + (hash(i + 12) - 0.5) * 10, Y[j] + 6, h, j === J_HEAD ? 15 : 11, t, i + 20, '#e01e00', c1, c2);
+      }
+      ctx.globalCompositeOperation = ADD;
+      jointGlow(ctx, s, '#ff8a00', 0.5, 40, low);
+      ctx.globalCompositeOperation = ADD;
+      // brasas
+      for (let i = 0; i < 18 * m; i++) {
+        const ph = (t * (0.6 + hash(i + 3) * 0.5) + hash(i)) % 1;
+        const x = x0 + hash(i + 7) * bw + Math.sin(t * 4 + i) * 14 * ph;
+        const y = gy - ph * (bh + 90);
+        const r = 3 + (1 - ph) * 3;
+        ctx.globalAlpha = 1 - ph;
+        ctx.drawImage(glowSprite('#ff7a1a'), x - r * 3, y - r * 3, r * 6, r * 6);
+        ctx.fillStyle = i % 2 ? c2 : '#ffffff';
+        ctx.fillRect(x - r / 2, y - r / 2, r, r);
+      }
+      ctx.globalCompositeOperation = NORM;
+      shock(ctx, mx, gy, t, 0.7, 40, 150, c1, 6);
+      break;
+    }
+
+    // ── Lendário: tempestade elétrica ──
+    case 'raio': {
+      const k = Math.floor(t * 16);
+      const flick = 0.75 + hash(k) * 0.25;
+      const sv = t * 0.9;
+      const strikeK = Math.floor(sv);
+      const strikePh = sv - strikeK;
+      const strike = hash(strikeK + 0.5) > 0.35 && strikePh < 0.18 ? 1 - strikePh / 0.18 : 0;
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.5 * flick + strike * 0.5;
+      ctx.drawImage(glowSprite(c1), cx - 130, cy - 150, 260, 300);
+      ctx.globalCompositeOperation = NORM;
+      halo(ctx, s, 58 + pulse * 8, '#1f5cff', 0.3 * flick + strike * 0.2);
+      halo(ctx, s, 40, c1, 0.6 * flick);
+      halo(ctx, s, 24, c2, 0.5 * flick + strike * 0.5);
+      jointGlow(ctx, s, c1, 0.55 * flick, 40, low);
+      // arcos a saltar das articulações
+      const AN = low ? 3 : 7;
+      ctx.beginPath();
+      for (let i = 0; i < AN; i++) {
+        const j = JOINTS[Math.floor(hash(k * 5 + i) * JOINTS.length)];
+        const ang = hash(k * 3 + i * 1.7) * TAU;
+        const len = 45 + hash(k * 2 + i) * 50;
+        bolt(ctx, X[j], Y[j], ang, len, 6, k * 11 + i * 3);
+        // ramo
+        const bx = X[j] + Math.cos(ang) * len * 0.5;
+        const by = Y[j] + Math.sin(ang) * len * 0.5;
+        bolt(ctx, bx, by, ang + (hash(k + i) - 0.5) * 2, len * 0.45, 3, k * 17 + i);
+      }
+      // arco entre mãos e pés
+      if (hash(k * 0.7) > 0.4) {
+        const a1 = hash(k + 3) > 0.5 ? J_FH : J_BH;
+        const a2 = hash(k + 4) > 0.5 ? J_FF : J_BF;
+        const ddx = X[a2] - X[a1];
+        const ddy = Y[a2] - Y[a1];
+        bolt(ctx, X[a1], Y[a1], Math.atan2(ddy, ddx), Math.hypot(ddx, ddy), 7, k * 23);
+      }
+      // raio do céu
+      if (strike > 0) {
+        const sx = X[J_HEAD] + (hash(strikeK) - 0.5) * 60;
+        bolt(ctx, sx, y0 - 260, Math.atan2(Y[J_HEAD] - y0 + 260, X[J_HEAD] - sx), Math.hypot(Y[J_HEAD] - y0 + 260, X[J_HEAD] - sx), 10, strikeK * 31);
+      }
+      ctx.globalAlpha = 0.35;
+      ctx.strokeStyle = '#2a6cff';
+      ctx.lineWidth = 11;
+      ctx.stroke();
+      ctx.globalAlpha = 0.95;
+      ctx.strokeStyle = c1;
+      ctx.lineWidth = 4.5;
+      ctx.stroke();
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      // bolas de plasma em órbita
+      ctx.globalCompositeOperation = ADD;
+      for (let i = 0; i < 3; i++) {
+        for (let q = 0; q < (low ? 1 : 4); q++) {
+          const ang = t * 4.2 + (i / 3) * TAU - q * 0.12;
+          const x = cx + Math.cos(ang) * (bw * 0.5 + 34);
+          const y = cy + Math.sin(ang) * (bh * 0.42) * Math.cos(t * 0.7 + i);
+          const r = (q ? 10 : 16) * (1 - q * 0.18);
+          ctx.globalAlpha = q ? 0.35 : 1;
+          ctx.drawImage(glowSprite(c1), x - r * 1.6, y - r * 1.6, r * 3.2, r * 3.2);
+          if (!q) {
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(x, y, 3.5, 0, TAU);
+            ctx.fill();
+          }
+        }
+      }
+      ctx.globalCompositeOperation = NORM;
+      // anel elétrico no chão
+      ctx.beginPath();
+      for (let p = 0; p <= 28; p++) {
+        const ang = (p / 28) * TAU;
+        const rr = 90 + (hash(k * 31 + p) - 0.5) * 16;
+        const x = mx + Math.cos(ang) * rr;
+        const y = gy + Math.sin(ang) * rr * 0.24;
+        if (p) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      }
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = c1;
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+      shock(ctx, mx, gy, t, 0.9, 40, 170, c1, 6);
+      if (strike > 0) ellipseRing(ctx, mx, gy, 60 + (1 - strike) * 120, '#ffffff', 8 * strike, strike);
+      break;
+    }
+
+    // ── Lendário: cortinas de aurora boreal e cristais de gelo ──
+    case 'aurora': {
+      const hc = (u: number) => 150 + (Math.sin(t * 0.9 + u * 4) * 0.5 + 0.5) * 135;
+      const h0 = hueHex(hc(0), 100, 62);
+      // cortinas
+      const SN = low ? 12 : 22;
+      const ax0 = x0 - 55;
+      const aw = bw + 110;
+      const sw = (aw / SN) * 2.4;
+      for (let pass = low ? 1 : 0; pass < 2; pass++) {
+        ctx.globalCompositeOperation = pass ? ADD : NORM;
+        for (let i = 0; i < SN; i++) {
+          const u = i / (SN - 1);
+          const x = ax0 + u * aw + Math.sin(t * 1.2 + u * 6) * 10;
+          const top = y0 - 50 + Math.sin(t * 1.7 + u * 5) * 20;
+          const h = bh * 0.95 + Math.sin(t * 2.1 + u * 7) * 22;
+          const edge = Math.sin(u * Math.PI);
+          ctx.globalAlpha = (pass ? 0.7 : 0.6) * (0.45 + edge * 0.55);
+          ctx.drawImage(stripSprite(hueHex(hc(u), 100, 60)), x - sw / 2, top, sw, h);
+        }
+      }
+      ctx.globalCompositeOperation = NORM;
+      halo(ctx, s, 58 + pulse * 8, c2, 0.3);
+      halo(ctx, s, 40, h0, 0.55);
+      halo(ctx, s, 26, '#e8fff6', 0.45);
+      jointGlow(ctx, s, h0, 0.5, 40, low);
+      // gelo no chão
+      ellipseRing(ctx, mx, gy, 92, c1, 4, 0.85);
+      ctx.setLineDash([10, 9]);
+      ctx.lineDashOffset = -t * 30;
+      ellipseRing(ctx, mx, gy, 110, c2, 3, 0.8);
+      ctx.setLineDash([]);
+      shock(ctx, mx, gy, t, 0.6, 40, 150, h0, 5);
+      // cristais de gelo
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 10 * m; i++) {
+        const ph = (t * 0.18 + hash(i + 80)) % 1;
+        const x = x0 - 30 + hash(i + 81) * (bw + 60) + Math.sin(t + i) * 12;
+        const y = gy - ph * (bh + 60);
+        const r = 5 + hash(i + 82) * 4;
+        ctx.globalAlpha = Math.sin(ph * Math.PI);
+        ctx.globalCompositeOperation = ADD;
+        ctx.drawImage(glowSprite(i % 2 ? c1 : c2), x - r * 2.5, y - r * 2.5, r * 5, r * 5);
+        ctx.globalCompositeOperation = NORM;
+        ctx.strokeStyle = i % 2 ? c1 : '#7fe8ff';
+        ctx.beginPath();
+        for (let q = 0; q < 3; q++) {
+          const an = t * 1.5 + i + (q * Math.PI) / 3;
+          ctx.moveTo(x - Math.cos(an) * r, y - Math.sin(an) * r);
+          ctx.lineTo(x + Math.cos(an) * r, y + Math.sin(an) * r);
+        }
+        ctx.stroke();
+      }
+      break;
+    }
+
+    // ── Mítico: fumo do abismo, tentáculos e olhos ──
+    case 'sombra': {
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = '#05010a';
+      ctx.beginPath();
+      ctx.ellipse(mx, gy, 110, 24, 0, 0, TAU);
+      ctx.fill();
+      halo(ctx, s, 78 + pulse * 10, '#0a0212', 0.45);
+      halo(ctx, s, 54, c1, 0.6);
+      // fumo
+      for (let i = 0; i < 14 * m; i++) {
+        const ph = (t * 0.45 + hash(i)) % 1;
+        const j = JOINTS[i % JOINTS.length];
+        const x = X[j] + (hash(i + 3) - 0.5) * 50 + Math.sin(t * 1.3 + i) * 10;
+        const y = Y[j] - ph * 90;
+        ctx.globalAlpha = (1 - ph) * 0.55;
+        ctx.fillStyle = i % 2 ? '#0a0212' : c1;
+        ctx.beginPath();
+        ctx.arc(x, y, 14 + ph * 28, 0, TAU);
         ctx.fill();
       }
       // tentáculos
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 3; i++) {
-        const sx = -50 + i * 50;
-        ctx.globalAlpha = 0.75;
-        ctx.strokeStyle = '#120420';
-        ctx.lineWidth = 9 - i;
-        ctx.beginPath();
-        ctx.moveTo(sx, 110);
-        ctx.bezierCurveTo(sx + Math.sin(t * 2 + i) * 30, 50, sx - Math.sin(t * 1.6 + i) * 30, 0, sx + Math.sin(t * 2.3 + i) * 20, -40 - i * 10);
-        ctx.stroke();
-      }
-      add(ctx, () => {
-        ctx.globalAlpha = 0.8;
-        for (let i = 0; i < 5; i++) {
-          const ph = (t * 0.7 + hash(i + 40)) % 1;
-          ctx.fillStyle = c2;
-          ctx.fillRect((hash(i + 50) - 0.5) * 110, 100 - ph * 200, 3, 3);
+      const TN = low ? 2 : 4;
+      for (let i = 0; i < TN; i++) {
+        const side = i % 2 ? 1 : -1;
+        const bx = mx + side * (bw * 0.5 + 6 + (i >> 1) * 26);
+        const hgt = 110 + (i >> 1) * 40 + Math.sin(t * 1.4 + i) * 15;
+        const SEG = low ? 6 : 9;
+        let px = bx;
+        let py = gy + 4;
+        for (let pass = 0; pass < 2; pass++) {
+          px = bx;
+          py = gy + 4;
+          for (let q = 1; q <= SEG; q++) {
+            const u = q / SEG;
+            const nx2 = bx + side * (Math.sin(u * 3 + t * 2.2 + i) * 22 * u - u * u * 30 * Math.sin(t * 0.8 + i));
+            const ny2 = gy + 4 - u * hgt;
+            const w = 18 * (1 - u) + 3;
+            ctx.globalAlpha = pass ? 1 : 0.8;
+            ctx.strokeStyle = pass ? '#12031f' : c2;
+            ctx.lineWidth = pass ? w : w + 6;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(nx2, ny2);
+            ctx.stroke();
+            px = nx2;
+            py = ny2;
+          }
         }
-      });
+      }
+      ctx.globalCompositeOperation = ADD;
+      halo(ctx, s, 30, c2, 0.3 + pulse * 0.25);
+      jointGlow(ctx, s, c2, 0.4, 36, low);
+      ctx.globalCompositeOperation = ADD;
+      // olhos no fumo
+      for (let i = 0; i < (low ? 1 : 3); i++) {
+        const cyc = t * 0.25 + i * 0.33;
+        const ck = Math.floor(cyc);
+        const ph = cyc - ck;
+        const vis = Math.min(1, Math.sin(ph * Math.PI) * 2.5);
+        if (vis <= 0) continue;
+        const side = hash(ck * 3 + i) > 0.5 ? 1 : -1;
+        const x = mx + side * (bw * 0.5 + 20 + hash(ck + i * 7) * 30);
+        const y = y0 + 10 + hash(ck * 5 + i) * bh * 0.6;
+        const blink = (t * 1.3 + i) % 3 < 0.12 ? 0.15 : 1;
+        ctx.globalAlpha = vis;
+        ctx.drawImage(glowSprite(c2), x - 28, y - 16, 56, 32);
+        ctx.fillStyle = c2;
+        ctx.beginPath();
+        ctx.ellipse(x - 8, y, 5.5, 3.5 * blink, 0.25, 0, TAU);
+        ctx.ellipse(x + 8, y, 5.5, 3.5 * blink, -0.25, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x - 8.7, y - 2.5 * blink, 1.4, 5 * blink);
+        ctx.fillRect(x + 7.3, y - 2.5 * blink, 1.4, 5 * blink);
+      }
+      // brasas roxas
+      for (let i = 0; i < 12 * m; i++) {
+        const ph = (t * 0.6 + hash(i + 40)) % 1;
+        const x = x0 + hash(i + 50) * bw + Math.sin(t * 2 + i) * 10;
+        const y = gy - ph * (bh + 60);
+        ctx.globalAlpha = 1 - ph;
+        ctx.drawImage(glowSprite(c2), x - 8, y - 8, 16, 16);
+      }
+      ctx.globalCompositeOperation = NORM;
+      ellipseRing(ctx, mx, gy, 96 + pulse * 6, c2, 3.5, 0.85);
+      shock(ctx, mx, gy, t, 0.5, 120, 40, c2, 5);
       break;
     }
-    case 'cosmos': {
-      add(ctx, () => {
-        ctx.lineWidth = 1.5;
-        ctx.strokeStyle = c2;
-        ctx.globalAlpha = 0.5;
+
+    // ── Celestial: galáxia, anéis orbitais, planetas e círculo de constelações ──
+    case 'cosmos':
+    default: {
+      const hue = t * 45;
+      const hc = hueHex(hue, 100, 65);
+      const hc2 = hueHex(hue + 140, 100, 65);
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.55;
+      ctx.drawImage(glowSprite(c1), mx - bw * 0.5 - 90, y0 - 60, bw + 180, bh + 100);
+      ctx.globalAlpha = 0.4;
+      ctx.drawImage(glowSprite(c2), cx - 70 + Math.cos(t * 0.7) * 40, cy - 110 + Math.sin(t * 0.7) * 30, 140, 160);
+      ctx.globalAlpha = 0.4;
+      ctx.drawImage(glowSprite(hc), cx - 70 - Math.cos(t * 0.7) * 40, cy - 50 - Math.sin(t * 0.7) * 30, 140, 160);
+      ctx.globalCompositeOperation = NORM;
+      // círculo de constelações
+      ctx.save();
+      ctx.translate(mx, gy);
+      ctx.scale(1, 0.27);
+      ctx.rotate(t * 0.5);
+      ctx.globalAlpha = 0.95;
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 112, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = hc;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 90, 0, TAU);
+      ctx.stroke();
+      ctx.globalAlpha = 0.8;
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) {
+        const an = ((i * 5) % 12) / 12 * TAU;
+        if (i) ctx.lineTo(Math.cos(an) * 90, Math.sin(an) * 90);
+        else ctx.moveTo(Math.cos(an) * 90, Math.sin(an) * 90);
+      }
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 12; i++) {
+        const an = (i / 12) * TAU;
+        ctx.fillRect(Math.cos(an) * 101 - 3, Math.sin(an) * 101 - 6, 6, 12);
+      }
+      ctx.restore();
+      shock(ctx, mx, gy, t, 0.7, 40, 170, hc, 6);
+      // halo arco-íris
+      halo(ctx, s, 64 + pulse * 10, hc, 0.32);
+      halo(ctx, s, 44, c1, 0.55);
+      halo(ctx, s, 28, c2, 0.55);
+      jointGlow(ctx, s, hc, 0.5, 42, low);
+      // anéis orbitais com planetas
+      for (let i = 0; i < 2; i++) {
+        const tilt = -0.35 + i * 0.75 + Math.sin(t * 0.4 + i) * 0.12;
+        const rx = bw * 0.5 + 48 + i * 16;
+        const ry = 24 + i * 6;
+        ctx.save();
+        ctx.translate(cx, cy - 10 + i * 8);
+        ctx.rotate(tilt);
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = i ? hc2 : c2;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.ellipse(0, -10, 88, 22, -0.25, 0, TAU);
+        ctx.ellipse(0, 0, rx, ry, 0, 0, TAU);
         ctx.stroke();
-        for (let i = 0; i < n; i++) {
-          const ang = t * (0.8 + hash(i) * 0.6) + i * 2.1;
-          const rx = 60 + hash(i + 2) * 40;
-          const x = Math.cos(ang) * rx;
-          const y = -10 + Math.sin(ang) * rx * 0.3 - x * 0.25;
-          const tw = 0.5 + Math.sin(t * 6 + i) * 0.5;
-          ctx.globalAlpha = 0.5 + tw * 0.5;
-          ctx.fillStyle = i % 3 ? '#ffffff' : c1;
-          const sz = 1.5 + tw * 2;
-          ctx.fillRect(x - sz / 2, y - sz / 2, sz, sz);
+        // poeira estelar no anel
+        ctx.fillStyle = '#ffffff';
+        for (let q = 0; q < (low ? 4 : 9); q++) {
+          const an = t * (1.4 - i * 0.5) + (q / 9) * TAU;
+          ctx.globalAlpha = 0.5 + 0.5 * Math.sin(t * 5 + q);
+          ctx.fillRect(Math.cos(an) * rx - 1.5, Math.sin(an) * ry - 1.5, 3, 3);
         }
-      });
-      const pa = t * 0.9;
-      circle(ctx, Math.cos(pa) * 92, -10 + Math.sin(pa) * 25 - Math.cos(pa) * 22, 6, c1, false);
+        const pa = t * (1.1 - i * 0.45) + i * 2.3;
+        const px = Math.cos(pa) * rx;
+        const py = Math.sin(pa) * ry;
+        const pr = i ? 6 : 9;
+        ctx.globalCompositeOperation = ADD;
+        ctx.globalAlpha = 0.8;
+        ctx.drawImage(glowSprite(i ? hc2 : c1), px - pr * 3, py - pr * 3, pr * 6, pr * 6);
+        ctx.globalCompositeOperation = NORM;
+        ctx.globalAlpha = 1;
+        circle(ctx, px, py, pr, i ? hc2 : c1, true);
+        if (!i) {
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(px, py, pr * 1.8, pr * 0.5, -0.4, 0, TAU);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      // estrelas cintilantes
+      for (let i = 0; i < 16 * m; i++) {
+        const tw = Math.sin(t * (2 + hash(i + 90) * 3) + i * 1.9);
+        if (tw <= 0) continue;
+        const x = x0 - 45 + hash(i + 91) * (bw + 90);
+        const y = y0 - 35 + hash(i + 92) * (bh + 20);
+        const r = 3 + tw * 8;
+        ctx.globalAlpha = tw;
+        ctx.fillStyle = i % 3 ? c2 : i % 2 ? c1 : hc;
+        sparkle(ctx, x, y, r);
+        ctx.fillStyle = '#ffffff';
+        sparkle(ctx, x, y, r * 0.45);
+      }
+      // estrela cadente
+      const sp = (t * 0.45) % 1;
+      if (sp < 0.3) {
+        const u = sp / 0.3;
+        const sx = x1 + 80 - u * (bw + 180);
+        const sy = y0 - 40 + u * bh * 0.6;
+        ctx.globalAlpha = 1 - u;
+        ctx.strokeStyle = c2;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + 50, sy - 18);
+        ctx.stroke();
+        ctx.drawImage(glowSprite('#ffffff'), sx - 12, sy - 12, 24, 24);
+      }
       break;
     }
   }
-  ctx.globalAlpha = 1;
   ctx.restore();
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = NORM;
 }
 
 // ───────────────────────── Cenários de fundo (menus) ─────────────────────────

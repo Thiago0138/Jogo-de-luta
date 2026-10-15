@@ -20,6 +20,18 @@ export const HEAD_2D: Proj = proj3D(cam34, [0, 0, 0]);
 
 // ───────────────────────── Utilidades ─────────────────────────
 
+/** Cache de tons (evita refazer contas de cor a cada frame). */
+const shCache = new Map<string, string>();
+function sh(hex: string, amt: number): string {
+  const k = hex + amt;
+  let v = shCache.get(k);
+  if (v === undefined) {
+    v = hex.length === 7 ? shade(hex, amt) : hex;
+    shCache.set(k, v);
+  }
+  return v;
+}
+
 function lighter(ctx: CanvasRenderingContext2D, f: () => void) {
   if (PS.F) return;
   const prev = ctx.globalCompositeOperation;
@@ -52,6 +64,67 @@ export function flame(ctx: CanvasRenderingContext2D, x: number, y: number, ux: n
   ctx.fill();
 }
 
+/** Estrela de 4 pontas (cintilação de metais, gelo e cosmos). Cor e alfa já definidos por quem chama. */
+export function twinkle(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, col: string) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(x, y - s);
+  ctx.quadraticCurveTo(x, y, x + s, y);
+  ctx.quadraticCurveTo(x, y, x, y + s);
+  ctx.quadraticCurveTo(x, y, x - s, y);
+  ctx.quadraticCurveTo(x, y, x, y - s);
+  ctx.fill();
+  ctx.fillRect(x - s * 0.18, y - s * 0.18, s * 0.36, s * 0.36);
+}
+
+const tiles = new Map<string, HTMLCanvasElement>();
+/**
+ * Mosaico de 64×64 com nebulosa e estrelas (fundo transparente), desenhado uma vez por cor.
+ * Repete-se sem costuras: serve de "janela para o espaço" no corpo, nas luvas e nas capas cósmicas.
+ */
+export function starTile(neb: string): HTMLCanvasElement {
+  let c = tiles.get(neb);
+  if (c) return c;
+  c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d')!;
+  g.scale(2, 2);
+  // nebulosa (repetida nos 4 cantos para não ter costuras)
+  const blob = (x: number, y: number, r: number, col: string, a: number) => {
+    for (const dx of [-64, 0, 64]) {
+      for (const dy of [-64, 0, 64]) {
+        const gr = g.createRadialGradient(x + dx, y + dy, 0, x + dx, y + dy, r);
+        gr.addColorStop(0, col);
+        gr.addColorStop(1, col + '00');
+        g.globalAlpha = a;
+        g.fillStyle = gr;
+        g.fillRect(x + dx - r, y + dy - r, r * 2, r * 2);
+      }
+    }
+  };
+  blob(18, 20, 22, neb.length === 7 ? neb : '#7a5cff', 0.45);
+  blob(46, 44, 18, '#ff4fd8', 0.22);
+  blob(50, 12, 12, '#3ee6ff', 0.2);
+  g.globalAlpha = 1;
+  for (let i = 0; i < 26; i++) {
+    const x = hash(i * 3.3 + 1) * 64;
+    const y = hash(i * 7.7 + 2) * 64;
+    const s = i < 4 ? 1.6 : 0.5 + hash(i * 1.9) * 0.8;
+    g.fillStyle = i % 5 === 0 ? '#ffe9a8' : i % 4 === 0 ? '#bfe6ff' : '#ffffff';
+    g.globalAlpha = 0.5 + hash(i * 5.1) * 0.5;
+    g.beginPath();
+    g.arc(x, y, s, 0, TAU);
+    g.fill();
+    if (i < 4) {
+      g.globalAlpha = 0.7;
+      g.fillRect(x - 3, y - 0.3, 6, 0.6);
+      g.fillRect(x - 0.3, y - 3, 0.6, 6);
+    }
+  }
+  tiles.set(neb, c);
+  return c;
+}
+
 /** Converte um ponto local em ecrã (atalho). */
 const pp = (P: Proj, x: number, y: number, z: number) => P.p(x, y, z);
 
@@ -66,8 +139,9 @@ export function matPattern(
 ) {
   if (PS.F) return;
   const mat = o.mat;
-  const c2 = o.c2 ?? '#fff';
+  const c2 = o.c2 ?? '#ffffff';
   const c3 = o.c3 ?? c2;
+  const suit = o.suit ?? '#999999';
   const n = Math.max(2, Math.round(len / 14));
   const line = (pts: [number, number][], w: number, col: string, a = 1) => {
     ctx.globalAlpha = a;
@@ -77,6 +151,19 @@ export function matPattern(
     pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])));
     ctx.stroke();
     ctx.globalAlpha = 1;
+  };
+  /** Cintilações que nascem e morrem em pontos aleatórios do membro. */
+  const sparkles = (count: number, speed: number, size: number, col: string, spread = 1.4) => {
+    lighter(ctx, () => {
+      for (let i = 0; i < count; i++) {
+        const u = t * speed + hash(seed * 3.7 + i);
+        const ph = u % 1;
+        const k = Math.floor(u);
+        const p = M(0.1 + hash(k * 7.3 + seed + i) * 0.8, (hash(k * 3.1 + i * 5 + seed) - 0.5) * spread);
+        ctx.globalAlpha = Math.sin(ph * Math.PI);
+        twinkle(ctx, p[0], p[1], size * (0.5 + Math.sin(ph * Math.PI) * 0.5), col);
+      }
+    });
   };
   if (belly && (mat === 'dino' || mat === 'shark' || mat === 'dragon' || mat === 'feather')) {
     // barriga clara
@@ -93,7 +180,7 @@ export function matPattern(
     }
     ctx.fill();
     if (mat !== 'shark') {
-      ctx.strokeStyle = shade(c2, -0.25);
+      ctx.strokeStyle = sh(c2, -0.25);
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       for (let i = 1; i < 7; i++) {
@@ -107,7 +194,24 @@ export function matPattern(
   }
   switch (mat) {
     case 'lava': {
-      const pulse = 0.65 + Math.sin(t * 3 + seed) * 0.3;
+      const pulse = 0.7 + Math.sin(t * 3 + seed) * 0.25;
+      // placas de crosta arrefecida
+      ctx.fillStyle = sh(suit, -0.4);
+      ctx.beginPath();
+      for (let k = 0; k < 2; k++) {
+        const tc = 0.22 + k * 0.5 + (hash(seed * 2 + k) - 0.5) * 0.16;
+        const sc = (hash(seed * 5 + k) - 0.5) * 0.9;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * TAU;
+          const rr = 0.75 + hash(seed + k * 9 + i) * 0.4;
+          const p = M(tc + Math.cos(a) * 0.13 * rr, sc + Math.sin(a) * 0.42 * rr);
+          if (i) ctx.lineTo(p[0], p[1]);
+          else ctx.moveTo(p[0], p[1]);
+        }
+        ctx.closePath();
+      }
+      ctx.fill();
+      // fendas de magma com fluxo a correr por dentro
       for (let k = 0; k < 2; k++) {
         const pts: [number, number][] = [];
         const s0 = (hash(seed * 7 + k) - 0.5) * 1.2;
@@ -116,8 +220,13 @@ export function matPattern(
           pts.push(M(tt, s0 + (hash(seed * 13 + k * 5 + i) - 0.5) * 0.9));
         }
         lighter(ctx, () => {
-          line(pts, 4.5, c2, 0.55 * pulse);
-          line(pts, 1.8, c3, pulse);
+          line(pts, 5, c2, 0.5 * pulse);
+          line(pts, 2, c3, pulse);
+          ctx.setLineDash([3, 9]);
+          ctx.lineDashOffset = -t * 22 - seed * 7 - k * 5;
+          line(pts, 1.6, '#ffffff', 0.85);
+          ctx.setLineDash([]);
+          ctx.lineDashOffset = 0;
         });
       }
       lighter(ctx, () => {
@@ -128,13 +237,14 @@ export function matPattern(
       break;
     }
     case 'ice': {
-      ctx.fillStyle = '#ffffff';
-      for (let k = 0; k < 2; k++) {
-        const tt = 0.15 + hash(seed + k * 3) * 0.6;
-        const a = M(tt, -0.8);
-        const b = M(tt + 0.25, -0.2 + k * 0.4);
-        const c = M(tt + 0.08, 0.6);
-        ctx.globalAlpha = 0.28;
+      // facetas de cristal (claras e escuras)
+      for (let k = 0; k < 3; k++) {
+        const tt = 0.1 + hash(seed + k * 3) * 0.6;
+        const a = M(tt, -0.9 + k * 0.3);
+        const b = M(tt + 0.28, -0.2 + k * 0.35);
+        const c = M(tt + 0.06, 0.7);
+        ctx.globalAlpha = k === 2 ? 0.16 : 0.3;
+        ctx.fillStyle = k === 2 ? sh(c2, -0.3) : '#ffffff';
         ctx.beginPath();
         ctx.moveTo(a[0], a[1]);
         ctx.lineTo(b[0], b[1]);
@@ -144,69 +254,105 @@ export function matPattern(
       const pts: [number, number][] = [];
       for (let i = 0; i <= n; i++) pts.push(M(i / n, (hash(seed * 3 + i) - 0.5) * 1.1));
       line(pts, 1.3, '#ffffff', 0.7);
-      const tw = (Math.sin(t * 4 + seed * 2) + 1) / 2;
-      const p = M(0.3 + hash(seed + 9) * 0.5, -0.4);
-      ctx.globalAlpha = tw;
-      ctx.fillRect(p[0] - 0.8, p[1] - 4, 1.6, 8);
-      ctx.fillRect(p[0] - 4, p[1] - 0.8, 8, 1.6);
-      ctx.globalAlpha = 1;
+      // gelo vivo: luz fria que respira lá dentro
+      lighter(ctx, () => {
+        const p = M(0.5, -0.2);
+        ctx.globalAlpha = 0.18 + Math.sin(t * 2 + seed) * 0.08;
+        ctx.drawImage(glowSprite('#bff4ff'), p[0] - 16, p[1] - 16, 32, 32);
+      });
+      sparkles(2, 0.7, 4.5, '#ffffff');
       break;
     }
     case 'metal': {
-      const dark = shade(o.suit ?? '#999', -0.45);
+      const dark = sh(suit, -0.45);
       for (const tt of [0.34, 0.68]) line([M(tt, -1.2), M(tt, 1.2)], 1.8, dark, 0.9);
-      ctx.fillStyle = dark;
       for (const tt of [0.28, 0.62]) {
         for (const s of [-0.6, 0.6]) {
           const p = M(tt, s);
+          ctx.fillStyle = dark;
           ctx.beginPath();
-          ctx.arc(p[0], p[1], 1.4, 0, TAU);
+          ctx.arc(p[0], p[1], 1.5, 0, TAU);
           ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(p[0] - 0.9, p[1] - 0.9, 0.8, 0.8);
         }
       }
       line([M(0.05, -0.55), M(0.95, -0.55)], 2.5, '#ffffff', 0.45);
-      if (seed % 3 === 0) lighter(ctx, () => line([M(0.45, 0.2), M(0.6, 0.2)], 2, c2, 0.9));
+      // reflexo que varre o metal
+      const u = ((t * 0.35 + seed * 0.17) % 1.8) - 0.4;
+      lighter(ctx, () => {
+        line([M(u - 0.07, -1.3), M(u + 0.07, 1.3)], 6, '#ffffff', 0.18);
+        line([M(u - 0.07, -1.3), M(u + 0.07, 1.3)], 1.6, '#ffffff', 0.55);
+      });
+      if (seed % 3 === 0) lighter(ctx, () => line([M(0.45, 0.2), M(0.6, 0.2)], 2, c2, 0.7 + Math.sin(t * 5 + seed) * 0.3));
       break;
     }
     case 'cosmic': {
+      // janela para o espaço: mosaico de nebulosa a deslizar, contínuo entre membros
+      const q = [M(0, -1.3), M(1, -1.3), M(0, 1.3), M(1, 1.3)];
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const p of q) {
+        x0 = Math.min(x0, p[0]);
+        y0 = Math.min(y0, p[1]);
+        x1 = Math.max(x1, p[0]);
+        y1 = Math.max(y1, p[1]);
+      }
+      const tile = starTile(c2);
+      const ox = (t * 5) % 64;
+      const oy = (t * 2) % 64;
+      ctx.globalAlpha = 0.95;
+      for (let x = Math.floor((x0 - ox) / 64) * 64 + ox; x < x1; x += 64) {
+        for (let y = Math.floor((y0 - oy) / 64) * 64 + oy; y < y1; y += 64) ctx.drawImage(tile, x, y, 64, 64);
+      }
+      ctx.globalAlpha = 1;
       lighter(ctx, () => {
-        const p = M(0.3 + hash(seed) * 0.4, (hash(seed + 1) - 0.5));
-        ctx.globalAlpha = 0.45;
+        const p = M(0.3 + hash(seed) * 0.4, hash(seed + 1) - 0.5);
+        ctx.globalAlpha = 0.35 + Math.sin(t * 1.5 + seed) * 0.12;
         ctx.drawImage(glowSprite(c2), p[0] - 16, p[1] - 16, 32, 32);
-        for (let i = 0; i < 6; i++) {
-          const q = M(hash(seed * 5 + i), (hash(seed * 11 + i) - 0.5) * 1.6);
-          const tw = 0.4 + 0.6 * Math.abs(Math.sin(t * 3 + i * 1.7 + seed));
-          ctx.globalAlpha = tw;
-          ctx.fillStyle = i % 3 ? '#ffffff' : c2;
-          const s = 1 + tw * 1.6;
-          ctx.fillRect(q[0] - s / 2, q[1] - s / 2, s, s);
+        // estrela cadente ocasional
+        const ph = (t * 0.22 + hash(seed * 1.3)) % 1;
+        if (ph < 0.12) {
+          const k = ph / 0.12;
+          const a = M(k * 1.1 - 0.1, -0.8 + k * 1.2);
+          const b = M(k * 1.1 - 0.3, -1.1 + k * 1.2);
+          line([b, a], 1.6, '#ffffff', Math.sin(k * Math.PI));
         }
       });
+      sparkles(2, 0.9, 3.5, '#ffffff', 1.6);
       break;
     }
     case 'dragon':
     case 'dino': {
-      const dark = shade(o.suit ?? '#4a4', -0.3);
+      const dark = sh(suit, -0.32);
+      const light = sh(suit, 0.35);
+      const rows = Math.max(2, Math.round(len / 9));
+      const arcs = (dt: number, ds: number) => {
+        ctx.beginPath();
+        for (let i = 0; i < rows; i++) {
+          for (let k = -1; k <= 1; k++) {
+            const s = k * 0.55 + (i % 2) * 0.27 - 0.6;
+            if (s < -1 || s > 0.9) continue;
+            const a = M((i + 0.1) / rows + dt, s - 0.22 + ds);
+            const b = M((i + 0.75) / rows + dt, s + ds);
+            const c = M((i + 0.1) / rows + dt, s + 0.22 + ds);
+            ctx.moveTo(a[0], a[1]);
+            ctx.quadraticCurveTo(b[0], b[1], c[0], c[1]);
+          }
+        }
+        ctx.stroke();
+      };
+      // escamas: aresta escura + reflexo claro por cima (relevo)
+      ctx.strokeStyle = light;
+      ctx.lineWidth = 1.2;
+      ctx.globalAlpha = 0.45;
+      arcs(-0.03, -0.06);
       ctx.strokeStyle = dark;
       ctx.lineWidth = 1.6;
-      ctx.globalAlpha = 0.8;
-      ctx.beginPath();
-      const rows = Math.max(2, Math.round(len / 9));
-      for (let i = 0; i < rows; i++) {
-        for (let k = -1; k <= 1; k++) {
-          const s = k * 0.55 + (i % 2) * 0.27 - 0.6;
-          if (s < -1 || s > 0.9) continue;
-          const a = M((i + 0.1) / rows, s - 0.22);
-          const b = M((i + 0.75) / rows, s);
-          const c = M((i + 0.1) / rows, s + 0.22);
-          ctx.moveTo(a[0], a[1]);
-          ctx.quadraticCurveTo(b[0], b[1], c[0], c[1]);
-        }
-      }
-      ctx.stroke();
+      ctx.globalAlpha = 0.85;
+      arcs(0, 0);
       ctx.globalAlpha = 1;
       if (mat === 'dino') {
-        ctx.fillStyle = shade(o.suit ?? '#4a4', -0.18);
+        ctx.fillStyle = sh(suit, -0.18);
         for (let i = 0; i < 2; i++) {
           const p = M(0.25 + hash(seed + i) * 0.5, -0.6 + hash(seed * 2 + i) * 0.5);
           ctx.beginPath();
@@ -214,8 +360,18 @@ export function matPattern(
           ctx.fill();
         }
       } else if (o.anim === 'glow') {
+        // veias de energia a pulsar ao longo do membro
+        const pts: [number, number][] = [];
+        for (let i = 0; i <= n + 1; i++) pts.push(M(i / (n + 1), 0.05 + Math.sin(i * 1.7 + seed) * 0.25));
         lighter(ctx, () => {
-          ctx.globalAlpha = 0.25 + Math.sin(t * 3 + seed) * 0.15;
+          const a = 0.35 + Math.sin(t * 3 + seed) * 0.2;
+          line(pts, 3, c2, a * 0.6);
+          ctx.setLineDash([2, 10]);
+          ctx.lineDashOffset = -t * 16 - seed * 3;
+          line(pts, 1.5, c3, 0.9);
+          ctx.setLineDash([]);
+          ctx.lineDashOffset = 0;
+          ctx.globalAlpha = a * 0.6;
           const p = M(0.5, 0);
           ctx.drawImage(glowSprite(c2), p[0] - 14, p[1] - 14, 28, 28);
         });
@@ -235,45 +391,100 @@ export function matPattern(
         ctx.lineTo(p[0], p[1]);
       }
       ctx.fill();
+      // pele lisa e molhada: reflexo comprido
+      line([M(0.08, -0.62), M(0.5, -0.7), M(0.92, -0.6)], 2.2, '#ffffff', 0.4);
+      if (seed % 4 === 1) {
+        // cicatrizes de batalha
+        const a = M(0.4, -0.3);
+        const b = M(0.55, 0.15);
+        const c = M(0.5, -0.4);
+        const d = M(0.63, 0.05);
+        ctx.strokeStyle = sh(suit, -0.35);
+        ctx.lineWidth = 1.3;
+        ctx.beginPath();
+        ctx.moveTo(a[0], a[1]);
+        ctx.lineTo(b[0], b[1]);
+        ctx.moveTo(c[0], c[1]);
+        ctx.lineTo(d[0], d[1]);
+        ctx.stroke();
+      }
       break;
     }
     case 'astro': {
-      const dark = shade(o.suit ?? '#eee', -0.25);
+      const dark = sh(suit, -0.25);
+      // pregas do tecido almofadado (vinco escuro + aresta clara)
       for (const tt of [0.2, 0.55, 0.85]) {
-        const a = M(tt, -1);
-        const b = M(tt + 0.05, 0);
-        const c = M(tt, 1);
-        ctx.strokeStyle = dark;
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(a[0], a[1]);
-        ctx.quadraticCurveTo(b[0], b[1], c[0], c[1]);
-        ctx.stroke();
-      }
-      line([M(0.02, -0.72), M(0.98, -0.72)], 3, c2, 1);
-      break;
-    }
-    case 'feather': {
-      for (let i = 0; i < n + 1; i++) {
-        const tt = (i + 0.3) / (n + 1);
-        for (const s of [-0.5, 0.25]) {
-          const a = M(tt - 0.08, s - 0.3);
-          const b = M(tt + 0.06, s);
-          const c = M(tt - 0.08, s + 0.3);
-          ctx.strokeStyle = i % 2 ? c2 : c3;
-          ctx.lineWidth = 2;
+        for (const [dt, col, w] of [[-0.035, '#ffffff', 1.4], [0, dark, 1.7]] as const) {
+          const a = M(tt + dt, -1);
+          const b = M(tt + dt + 0.05, 0);
+          const c = M(tt + dt, 1);
+          ctx.strokeStyle = col;
+          ctx.globalAlpha = col === '#ffffff' ? 0.7 : 1;
+          ctx.lineWidth = w;
           ctx.beginPath();
           ctx.moveTo(a[0], a[1]);
-          ctx.lineTo(b[0], b[1]);
-          ctx.lineTo(c[0], c[1]);
+          ctx.quadraticCurveTo(b[0], b[1], c[0], c[1]);
           ctx.stroke();
         }
       }
+      ctx.globalAlpha = 1;
+      line([M(0.02, -0.72), M(0.98, -0.72)], 3, c2, 1);
+      ctx.setLineDash([1.4, 1.8]);
+      line([M(0.02, -0.52), M(0.98, -0.52)], 0.8, dark, 0.9);
+      ctx.setLineDash([]);
+      break;
+    }
+    case 'feather': {
+      // penas em escama: filas alternadas (cor por fila), com ráquis e pontas claras
+      const rows = n + 1;
+      const fe = (i: number, s: number) => {
+        const tt = (i + 0.35) / rows;
+        const sway = Math.sin(t * 4 + i + s * 2 + seed) * 0.03;
+        const b = M(tt - 0.16, s);
+        const l = M(tt, s - 0.36);
+        const tip = M(tt + 0.13 + sway, s + sway * 3);
+        const r = M(tt, s + 0.36);
+        ctx.moveTo(b[0], b[1]);
+        ctx.quadraticCurveTo(l[0], l[1], tip[0], tip[1]);
+        ctx.quadraticCurveTo(r[0], r[1], b[0], b[1]);
+      };
+      const cols = [-0.75, -0.15, 0.45, 1.05];
+      for (let par = 0; par < 2; par++) {
+        ctx.beginPath();
+        for (let i = par; i < rows; i += 2) for (const s of cols) fe(i, s + (i % 2) * 0.3);
+        ctx.fillStyle = par ? c2 : sh(o.c1 ?? suit, 0.08);
+        ctx.fill();
+        ctx.strokeStyle = sh(o.c1 ?? suit, -0.45);
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.75;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      // ráquis
+      ctx.strokeStyle = c3;
+      ctx.lineWidth = 0.9;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      for (let i = 0; i < rows; i++) {
+        for (const s0 of cols) {
+          const s = s0 + (i % 2) * 0.3;
+          const tt = (i + 0.35) / rows;
+          const a = M(tt - 0.12, s);
+          const b = M(tt + 0.08, s);
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+        }
+      }
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      // brilho de brasa a percorrer as penas
       lighter(ctx, () => {
-        const p = M(0.5, 0);
-        ctx.globalAlpha = 0.3 + Math.sin(t * 5 + seed) * 0.12;
-        ctx.drawImage(glowSprite(c2), p[0] - 16, p[1] - 16, 32, 32);
+        const u = (t * 0.5 + hash(seed)) % 1;
+        const p = M(u, (hash(seed + 3) - 0.5) * 0.8);
+        ctx.globalAlpha = 0.35 + Math.sin(t * 5 + seed) * 0.12;
+        ctx.drawImage(glowSprite(c2), p[0] - 18, p[1] - 18, 36, 36);
       });
+      if (o.anim === 'fire') sparkles(1, 1.2, 3, c3);
       break;
     }
   }
