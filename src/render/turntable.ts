@@ -801,88 +801,337 @@ function beard3D(ctx: CanvasRenderingContext2D, H: Proj, beard: string, col: str
   }
 }
 
+/** Polilinha sobre a esfera da cabeça (lon, lat), saltando os troços virados para trás. */
+function sphLine(ctx: CanvasRenderingContext2D, H: Proj, r: number, pts: [number, number][], minF = 0.05) {
+  let on = false;
+  for (const [lon, lat] of pts) {
+    const p = spherePt(H, r, 0, lon, lat);
+    if (p[3] < minF) {
+      on = false;
+      continue;
+    }
+    if (on) ctx.lineTo(p[0], p[1]);
+    else ctx.moveTo(p[0], p[1]);
+    on = true;
+  }
+}
+
+/** Polígono plano sobre a esfera (só se o centro estiver virado para quem vê). */
+function sphPoly(ctx: CanvasRenderingContext2D, H: Proj, r: number, pts: [number, number][], fill: string, line = 1.5, minF = 0.15): boolean {
+  let cl = 0;
+  let ct = 0;
+  for (const [lon, lat] of pts) {
+    cl += lon;
+    ct += lat;
+  }
+  if (spherePt(H, r, 0, cl / pts.length, ct / pts.length)[3] < minF) return false;
+  ctx.beginPath();
+  pts.forEach(([lon, lat], i) => {
+    const p = spherePt(H, r, 0, lon, lat);
+    if (i) ctx.lineTo(p[0], p[1]);
+    else ctx.moveTo(p[0], p[1]);
+  });
+  ctx.closePath();
+  ctx.fillStyle = C(fill);
+  ctx.fill();
+  if (line > 0) {
+    ctx.lineWidth = line;
+    ctx.strokeStyle = OC();
+    ctx.stroke();
+  }
+  return true;
+}
+
+/** Brilho aditivo (fora do passe de silhueta). */
+function addGlow(ctx: CanvasRenderingContext2D, f: () => void) {
+  if (PS.F) return;
+  const prev = ctx.globalCompositeOperation;
+  ctx.globalCompositeOperation = 'lighter';
+  f();
+  ctx.globalCompositeOperation = prev;
+  ctx.globalAlpha = 1;
+}
+
 function mask3D(ctx: CanvasRenderingContext2D, H: Proj, m: Vis, phase: 'skin' | 'front', L: Look, t: number) {
-  const c1 = m.c1 ?? '#22f';
-  const c2 = m.c2 ?? '#fff';
+  const c1 = m.c1 ?? '#2222ff';
+  const c2 = m.c2 ?? '#ffffff';
+  const sq = (x: number) => x * x;
   switch (m.style) {
     case 'luchador':
       if (phase === 'skin') {
+        // painéis laterais a contrastar
         for (const sd of [-1, 1]) {
-          sphereRegion(ctx, H, R + 0.3, 0, sd * 0.37 - 0.25, sd * 0.37 + 0.25, (l) => -0.3 + Math.pow((l - sd * 0.37) / 0.25, 2) * 0.12, (l) => 0.16 - Math.pow((l - sd * 0.37) / 0.25, 2) * 0.12, c2, { line: 0, n: 8, m: 3 });
+          sphereRegion(ctx, H, R + 0.3, 0, sd * 1.75 - 0.16, sd * 1.75 + 0.16, () => -1.2, () => 0.95, c2, { line: 1.5, n: 4, m: 8 });
         }
-        sphereRegion(ctx, H, R + 0.3, 0, -0.3, 0.3, (l) => 0.42 + Math.abs(l) * 0.2, (l) => 0.72 - Math.abs(l) * 0.3, L.skin, { line: 2, n: 8, m: 3 });
-        sphereRegion(ctx, H, R + 0.3, 0, -0.07, 0.07, () => -1.45, () => -0.55, c2, { line: 0, n: 2, m: 6 });
-        sphereRegion(ctx, H, R + 0.3, 0, Math.PI - 0.07, Math.PI + 0.07, () => -1.45, () => 0.2, c2, { line: 0, n: 2, m: 6 });
+        // debruns dos olhos em chama
+        for (const sd of [-1, 1]) {
+          const c = sd * 0.37;
+          sphereRegion(ctx, H, R + 0.3, 0, c - 0.3, c + 0.3,
+            (l) => -0.36 + sq((l - c) / 0.3) * 0.16 - (sd * (l - c) > 0 ? sd * (l - c) * 0.35 : 0),
+            (l) => 0.18 - sq((l - c) / 0.3) * 0.15, c2, { line: 1.5, n: 10, m: 3 });
+        }
+        // boca: debrum + abertura
+        sphereRegion(ctx, H, R + 0.3, 0, -0.36, 0.36, (l) => 0.38 + Math.abs(l) * 0.2, (l) => 0.78 - Math.abs(l) * 0.3, c2, { line: 1.5, n: 10, m: 3 });
+        sphereRegion(ctx, H, R + 0.4, 0, -0.3, 0.3, (l) => 0.44 + Math.abs(l) * 0.2, (l) => 0.72 - Math.abs(l) * 0.3, L.skin, { line: 1.5, n: 8, m: 3 });
+        // risca central (frente e nuca)
+        sphereRegion(ctx, H, R + 0.3, 0, -0.07, 0.07, () => -1.45, () => -0.8, c2, { line: 0, n: 2, m: 6 });
+        sphereRegion(ctx, H, R + 0.3, 0, Math.PI - 0.07, Math.PI + 0.07, () => -1.45, () => -0.1, c2, { line: 0, n: 2, m: 6 });
+        // emblema em losango na testa
+        sphPoly(ctx, H, R + 0.5, [[0, -0.82], [0.14, -0.62], [0, -0.42], [-0.14, -0.62]], c2, 1.5);
+        if (!PS.F) {
+          const e = spherePt(H, R + 0.6, 0, 0, -0.62);
+          if (e[3] > 0.15) {
+            ctx.fillStyle = c1;
+            ctx.beginPath();
+            ctx.arc(e[0], e[1], 2, 0, TAU);
+            ctx.fill();
+          }
+          // pesponto ao lado da risca
+          ctx.setLineDash([1.8, 2.2]);
+          ctx.strokeStyle = shade(c1, -0.5);
+          ctx.lineWidth = 0.9;
+          ctx.beginPath();
+          for (const sd of [-1, 1]) {
+            const pts: [number, number][] = [];
+            for (let i = 0; i <= 8; i++) pts.push([sd * 0.11, -1.45 + i * 0.08]);
+            sphLine(ctx, H, R + 0.4, pts);
+            const back: [number, number][] = [];
+            for (let i = 0; i <= 10; i++) back.push([Math.PI + sd * 0.11, -1.45 + i * 0.13]);
+            sphLine(ctx, H, R + 0.4, back);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // atacadores na nuca
+          ctx.strokeStyle = c2;
+          ctx.lineWidth = 1.3;
+          ctx.beginPath();
+          for (let i = 0; i < 3; i++) {
+            const a = -0.05 + i * 0.22;
+            for (const [l0, l1] of [[-0.12, 0.12], [0.12, -0.12]]) {
+              const p = spherePt(H, R + 0.5, 0, Math.PI + l0, a);
+              const q = spherePt(H, R + 0.5, 0, Math.PI + l1, a + 0.18);
+              if (p[3] < 0.1 || q[3] < 0.1) continue;
+              ctx.moveTo(p[0], p[1]);
+              ctx.lineTo(q[0], q[1]);
+            }
+          }
+          ctx.stroke();
+        }
+      } else if (!PS.F) {
+        // brilho de vinil envernizado
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        sphLine(ctx, H, R + 0.6, [[-0.9, -0.95], [-0.6, -1.0], [-0.3, -1.02], [0, -1.0], [0.25, -0.95]], 0.25);
+        ctx.stroke();
+        const d = spherePt(H, R + 0.6, 0, 0.35, -0.85);
+        if (d[3] > 0.2) {
+          ctx.globalAlpha = 0.85;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.ellipse(d[0], d[1], 2.6, 1.3, -0.5, 0, TAU);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
       }
       break;
     case 'caveira':
       if (phase === 'front') {
-        sphereRegion(ctx, H, R + 0.4, 0, -1.0, 1.0, () => -0.5, () => 0.8, c1, { line: 0, n: 16, m: 5, alpha: 0.92 });
-        for (const sd of [-1, 1]) sphereRegion(ctx, H, R + 0.6, 0, sd * 0.37 - 0.2, sd * 0.37 + 0.2, () => -0.24, () => 0.14, c2, { line: 0, n: 6, m: 3 });
-        sphereRegion(ctx, H, R + 0.6, 0, -0.08, 0.08, () => 0.18, () => 0.32, c2, { line: 0, n: 3, m: 2 });
-        if (!PS.F) {
-          ctx.strokeStyle = c2;
-          ctx.lineWidth = 1.5;
+        sphereRegion(ctx, H, R + 0.4, 0, -1.0, 1.0, () => -0.5, () => 0.8, c1, { line: 0, n: 16, m: 5, alpha: PS.F ? undefined : 0.94 });
+        if (PS.F) break;
+        // sombra do osso nas faces
+        sphereRegion(ctx, H, R + 0.5, 0, -1.0, 1.0, () => 0.25, () => 0.8, '#7a8090', { line: 0, n: 12, m: 3, alpha: 0.25 });
+        // órbitas fundas: contorno do olho + fundo negro
+        for (const sd of [-1, 1]) {
+          const c = sd * 0.37;
+          sphereRegion(ctx, H, R + 0.6, 0, c - 0.24, c + 0.24, (l) => -0.3 + sq((l - c) / 0.24) * 0.12, (l) => 0.18 - sq((l - c) / 0.24) * 0.1, c2, { line: 0, n: 8, m: 3 });
+          sphereRegion(ctx, H, R + 0.7, 0, c - 0.13, c + 0.13, (l) => -0.18 + sq((l - c) / 0.13) * 0.08, (l) => 0.08 - sq((l - c) / 0.13) * 0.06, '#000000', { line: 0, n: 6, m: 2 });
+        }
+        // nariz em coração invertido
+        sphPoly(ctx, H, R + 0.7, [[0, 0.17], [0.09, 0.24], [0.05, 0.33], [0, 0.29], [-0.05, 0.33], [-0.09, 0.24]], c2, 0);
+        // dentes + fendas
+        ctx.strokeStyle = c2;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        sphLine(ctx, H, R + 0.8, [[-0.3, 0.56], [-0.15, 0.58], [0, 0.585], [0.15, 0.58], [0.3, 0.56]], 0.1);
+        for (let i = 0; i <= 5; i++) {
+          const a = spherePt(H, R, 0, -0.25 + i * 0.1, 0.48, 0.8);
+          const b = spherePt(H, R, 0, -0.25 + i * 0.1, 0.66, 0.8);
+          if (a[3] < 0.1) continue;
+          ctx.moveTo(a[0], a[1]);
+          ctx.lineTo(b[0], b[1]);
+        }
+        ctx.stroke();
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        sphLine(ctx, H, R + 0.8, [[-0.1, -0.52], [-0.06, -0.38], [-0.12, -0.3]]);
+        sphLine(ctx, H, R + 0.8, [[-0.06, -0.38], [0.04, -0.36]]);
+        ctx.stroke();
+        // brilho do osso
+        const hl = spherePt(H, R + 0.8, 0, 0.2, -0.42);
+        if (hl[3] > 0.2) {
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          for (let i = 0; i <= 5; i++) {
-            const a = spherePt(H, R, 0, -0.25 + i * 0.1, 0.48, 0.8);
-            const b = spherePt(H, R, 0, -0.25 + i * 0.1, 0.64, 0.8);
-            if (a[3] < 0.1) continue;
-            ctx.moveTo(a[0], a[1]);
-            ctx.lineTo(b[0], b[1]);
-          }
-          ctx.stroke();
+          ctx.ellipse(hl[0], hl[1], 5, 1.8, -0.3, 0, TAU);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        addGlow(ctx, () => {
+          const p = 0.75 + Math.sin(t * 4) * 0.25;
           for (const sd of [-1, 1]) {
             const e = spherePt(H, R, 0, sd * 0.37, -0.04, 1);
             if (e[3] < 0.1) continue;
-            ctx.fillStyle = '#ff3030';
+            ctx.globalAlpha = p;
+            ctx.drawImage(glowSprite('#ff3030'), e[0] - 7, e[1] - 7, 14, 14);
+            ctx.fillStyle = '#ffd0c0';
             ctx.beginPath();
-            ctx.arc(e[0], e[1], 1.8, 0, TAU);
+            ctx.arc(e[0], e[1], 1.5, 0, TAU);
             ctx.fill();
           }
-        }
+        });
       }
       break;
     case 'demonio':
       if (phase === 'front') {
-        sphereRegion(ctx, H, R + 0.6, 0, -1.15, 1.15, (l) => -0.36 - Math.abs(l) * 0.05, (l) => 0.12 - Math.abs(l) * 0.05, c1, { line: 2.5, n: 16, m: 2 });
-        for (const sd of [-1, 1]) {
-          const base = [8, -22, sd * 12];
-          if (H.p(base[0], base[1], base[2])[2] > H.p(0, 0, 0)[2] - 8) tube(ctx, H, [base, [10, -40, sd * 16], [18, -50, sd * 22]], [5, 3, 0.6], '#f2e6d0', '#b8a888', 3);
-        }
+        // meia-máscara oni lacada (com sobrancelhas esculpidas)
+        sphereRegion(ctx, H, R + 0.6, 0, -1.15, 1.15, (l) => -0.36 - Math.abs(l) * 0.05 - Math.abs(Math.sin(l * 2.7)) * 0.08, (l) => 0.12 - Math.abs(l) * 0.05 + (Math.abs(l) < 0.15 ? 0.08 : 0), c1, { line: 2.5, n: 18, m: 2 });
         if (!PS.F) {
-          const prev = ctx.globalCompositeOperation;
-          ctx.globalCompositeOperation = 'lighter';
+          sphereRegion(ctx, H, R + 0.8, 0, -1.1, 1.1, () => 0.0, (l) => 0.1 - Math.abs(l) * 0.05, shade(c1, -0.45), { line: 0, n: 12, m: 2, alpha: 0.5 });
+          // laca: brilho por cima
+          ctx.strokeStyle = '#ffffff';
+          ctx.globalAlpha = 0.5;
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          sphLine(ctx, H, R + 0.9, [[-0.6, -0.36], [-0.4, -0.42], [-0.2, -0.4]], 0.2);
+          sphLine(ctx, H, R + 0.9, [[0.15, -0.4], [0.35, -0.43], [0.6, -0.36]], 0.2);
+          ctx.stroke();
+          // filigrana dourada
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = c2;
+          ctx.lineWidth = 1.1;
+          ctx.beginPath();
+          sphLine(ctx, H, R + 0.9, [[0, -0.4], [0, -0.2], [0, 0.0], [0, 0.15]]);
+          for (const sd of [-1, 1]) sphLine(ctx, H, R + 0.9, [[sd * 0.85, 0.06], [sd * 0.75, -0.08], [sd * 0.65, 0.04]]);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+        // chifres estriados
+        for (const sd of [-1, 1]) {
+          const pts = [[8, -22, sd * 12], [10, -40, sd * 16], [18, -50, sd * 22]];
+          if (H.p(pts[0][0], pts[0][1], pts[0][2])[2] <= H.p(0, 0, 0)[2] - 8) continue;
+          tube(ctx, H, pts, [5, 3, 0.6], '#f2e6d0', '#b8a888', 3);
+          if (!PS.F) {
+            ctx.strokeStyle = '#8a7a60';
+            ctx.lineWidth = 1.1;
+            ctx.beginPath();
+            for (let i = 1; i <= 4; i++) {
+              const k = i / 5;
+              const seg2 = k < 0.5 ? 0 : 1;
+              const u = k < 0.5 ? k * 2 : (k - 0.5) * 2;
+              const a = pts[seg2];
+              const b = pts[seg2 + 1];
+              const x = a[0] + (b[0] - a[0]) * u;
+              const y = a[1] + (b[1] - a[1]) * u;
+              const z = a[2] + (b[2] - a[2]) * u;
+              const w = 4.5 * (1 - k * 0.8);
+              const p = H.p(x - w, y, z);
+              const q = H.p(x + w, y - 1.5, z);
+              ctx.moveTo(p[0], p[1]);
+              ctx.lineTo(q[0], q[1]);
+            }
+            ctx.stroke();
+          }
+        }
+        // olhos em brasa
+        for (const sd of [-1, 1]) {
+          const c = sd * 0.37;
+          sphereRegion(ctx, H, R + 1, 0, c - 0.17, c + 0.17, (l) => -0.12 + sq((l - c) / 0.17) * 0.07 - sd * (l - c) * 0.15, (l) => -0.02 - sq((l - c) / 0.17) * 0.04, c2, { line: 0, n: 6, m: 2 });
+        }
+        addGlow(ctx, () => {
+          const fl = 0.8 + Math.sin(t * 6) * 0.15 + Math.sin(t * 17) * 0.05;
           for (const sd of [-1, 1]) {
             const e = spherePt(H, R, 0, sd * 0.37, -0.06, 1);
             if (e[3] < 0.1) continue;
-            ctx.globalAlpha = 0.8 + Math.sin(t * 6) * 0.2;
-            ctx.drawImage(glowSprite(c2), e[0] - 11, e[1] - 11, 22, 22);
+            ctx.globalAlpha = 0.6 * fl;
+            ctx.drawImage(glowSprite(c2), e[0] - 8, e[1] - 8, 16, 16);
+            for (let i = 0; i < 2; i++) {
+              const ph = (t * 0.9 + i * 0.5 + (sd > 0 ? 0.25 : 0)) % 1;
+              const s = 7 - ph * 4;
+              ctx.globalAlpha = 0.45 * fl * (1 - ph);
+              ctx.drawImage(glowSprite(c2), e[0] + Math.sin(t * 3 + i) * 2 - s / 2, e[1] - 5 - ph * 20 - s / 2, s, s);
+            }
           }
-          ctx.globalAlpha = 1;
-          ctx.globalCompositeOperation = prev;
-        }
+        });
       }
       break;
     case 'cyber':
       if (phase === 'front') {
-        sphereRegion(ctx, H, R + 1.2, 0, -1.05, 1.05, () => -0.26, () => 0.1, c1, { line: 2.5, n: 16, m: 2 });
-        if (!PS.F) {
-          const prev = ctx.globalCompositeOperation;
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.fillStyle = c2;
-          for (let i = 0; i <= 10; i++) {
-            const q = spherePt(H, R + 1.5, 0, -0.95 + i * 0.19, -0.08);
-            if (q[3] < 0.05) continue;
-            ctx.globalAlpha = 0.85;
-            ctx.fillRect(q[0] - 2, q[1] - 1.5, 4, 3);
+        // armação + vidro escuro com linhas de varrimento, feixe e reflexo
+        sphereRegion(ctx, H, R + 1.2, 0, -1.1, 1.1, () => -0.3, () => 0.14, c1, { line: 2.5, n: 16, m: 2 });
+        sphereRegion(ctx, H, R + 1.5, 0, -0.95, 0.95, () => -0.2, () => 0.06, PS.F ? c2 : shade(c2, -0.62), { line: 1.2, n: 14, m: 2 });
+        // módulos laterais com LED
+        for (const sd of [-1, 1]) {
+          const p = spherePt(H, R + 2, 0, sd * 1.2, -0.08);
+          if (p[3] < -0.2) continue;
+          ell(ctx, H, Math.cos(sd * 1.2) * (R + 2), -2, Math.sin(sd * 1.2) * (R + 2), 4, 7, 4, shade(c1, 0.25), { line: 2 });
+          if (!PS.F && p[3] > 0.05) {
+            ctx.fillStyle = Math.floor(t * 3) % 3 ? c2 : '#ff4a3d';
+            ctx.beginPath();
+            ctx.arc(p[0], p[1] - 2, 1.4, 0, TAU);
+            ctx.fill();
           }
-          const k = Math.sin(t * 2.6) * 0.8;
-          const p = spherePt(H, R + 1.5, 0, k, -0.08);
-          if (p[3] > 0) ctx.drawImage(glowSprite(c2), p[0] - 10, p[1] - 10, 20, 20);
-          ctx.globalAlpha = 1;
-          ctx.globalCompositeOperation = prev;
         }
+        if (!PS.F) {
+          // linhas de varrimento
+          ctx.strokeStyle = c2;
+          ctx.lineWidth = 0.7;
+          ctx.globalAlpha = 0.3;
+          ctx.beginPath();
+          for (let k = 0; k < 4; k++) {
+            const lat = -0.17 + k * 0.06;
+            const pts: [number, number][] = [];
+            for (let i = 0; i <= 8; i++) pts.push([-0.9 + i * 0.225, lat]);
+            sphLine(ctx, H, R + 1.6, pts);
+          }
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          // reflexo diagonal
+          sphereRegion(ctx, H, R + 1.7, 0, 0.3, 0.42, () => -0.19, () => 0.05, '#ffffff', { line: 0, n: 2, m: 2, alpha: 0.35 });
+          // friso de luz na armação
+          ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          const top: [number, number][] = [];
+          for (let i = 0; i <= 10; i++) top.push([-1.0 + i * 0.2, -0.27]);
+          sphLine(ctx, H, R + 1.4, top);
+          ctx.stroke();
+        }
+        addGlow(ctx, () => {
+          // olhos-alvo e feixe que percorre o visor
+          ctx.fillStyle = c2;
+          for (const sd of [-1, 1]) {
+            const e = spherePt(H, R + 1.7, 0, sd * 0.37, -0.07);
+            if (e[3] < 0.05) continue;
+            ctx.globalAlpha = 0.8 + Math.sin(t * 8) * 0.2;
+            ctx.fillRect(e[0] - 3 * e[3], e[1] - 1, 6 * e[3], 2);
+          }
+          const k = Math.sin(t * 2.6) * 0.85;
+          const p = spherePt(H, R + 1.7, 0, k, -0.07);
+          if (p[3] > 0) {
+            ctx.globalAlpha = 0.95;
+            ctx.drawImage(glowSprite(c2), p[0] - 10, p[1] - 10, 20, 20);
+            const a = spherePt(H, R + 1.7, 0, k, -0.19);
+            const b = spherePt(H, R + 1.7, 0, k, 0.05);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(a[0], a[1]);
+            ctx.lineTo(b[0], b[1]);
+            ctx.stroke();
+          }
+        });
       }
       break;
   }

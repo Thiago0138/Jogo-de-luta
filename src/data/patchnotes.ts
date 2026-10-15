@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.13.0',
+    date: '2026-10-15',
+    title: 'The big graphics upgrade',
+    items: [
+      'Fighters rebuilt: real muscle shapes (biceps, forearms, thighs, calves, chest, abs, obliques, traps), three-tone cel shading with reflected light, sweat sheen and the front arm casting a shadow on the torso.',
+      'New faces: almond eyes with iris, catchlights and lids that change with every expression, tapered brows, shaded noses, lips and teeth, real ears, chin and cheekbone highlights, detailed beards.',
+      'Every hairstyle redrawn with strands, shading and highlights; trunks with satin shine, folds and a stitched waistband with drawstring; padded knee pads on both legs.',
+      'All 9 auras rebuilt and now clearly visible in fights: Spotlights, Retro Neon, Sparks, Sakura Petals, Flame Aura, Storm (lightning strikes!), Northern Lights, Abyssal Shadow and Cosmos, each with its own effects.',
+      'Gloves redesigned: laced cuffs, stitching, logo patches and glossy leather, plus fully animated rare gloves (magma fists, ice shards, Tesla coils, dragon heads breathing fire, mecha with LEDs, cosmic starfields, the Sun).',
+      'Outfit materials and pieces upgraded: flowing lava, faceted ice, chrome reflections, drifting starfields, scales and feathers; capes and wings with real cloth shading and motion.',
+      'Masks redesigned (luchador, skull, demon, cyber visor), in fights and in the menu previews.',
+      'A brand-new arena: detailed fans with faces, shirts, hats, signs, foam fingers and light sticks that rise group by group with the hype; hazy upper tiers; an entrance stage and tunnel, a commentators table, a padded barricade, light shafts and a premium padded ring skirt with gold crowns.',
+    ],
+  },
+  {
     version: '1.12.1',
     date: '2026-10-14',
     title: 'No more laser sounds',
