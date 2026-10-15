@@ -876,6 +876,10 @@ span.rar-celestial,
   padding: 1px 6px;
   font-size: 11px;
   font-weight: 800;
+  white-space: nowrap;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
 }
 .ic-sale {
   position: absolute;
@@ -1032,7 +1036,9 @@ span.rar-celestial,
 .ch-top {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  min-width: 0;
 }
 .ch-top b {
   font-family: var(--display);
@@ -1059,7 +1065,7 @@ span.rar-celestial,
 }
 .rar-legend {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
   gap: 6px;
 }
 .rl {
@@ -1095,8 +1101,22 @@ span.rar-celestial,
 .rar-note b {
   color: var(--rc);
 }
+.rl {
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
 .rl-name {
   color: var(--rc);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rl-n {
+  flex: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .rl.rar-celestial .rl-name {
   background: linear-gradient(90deg, #ff8af0, #7af7ff, #fff6a0);
@@ -3453,7 +3473,7 @@ span.rar-celestial,
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   }
   .rar-legend {
-    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 132px), 1fr));
   }
   .m-list {
     display: grid;

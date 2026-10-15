@@ -36,7 +36,7 @@ export function itemCard(id: string, o: CardOpts = {}): HTMLElement {
     foot.innerHTML = `<span class="rar-dot" style="--rc:${RARITIES[d.rarity].color}"></span>${RARITIES[d.rarity].name}`;
   }
   c.appendChild(foot);
-  if (n > 1) c.appendChild(el('div', 'ic-count', `×${n}`));
+  if (n > 1) c.appendChild(el('div', 'ic-count', `×${n > 99 ? '99+' : n}`));
   if (o.discount) c.appendChild(el('div', 'ic-sale', `-${Math.round(o.discount * 100)}%`));
   if (have && isEquipped(id)) c.appendChild(el('div', 'ic-eq', 'EQUIPPED'));
   return c;

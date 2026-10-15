@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.14.1',
+    date: '2026-10-16',
+    title: 'Collection layout fix',
+    items: [
+      'Fixed: the rarity counters in the Collection (e.g. "Uncommon 15/15", "Legendary 21/21") could overflow and touch the names on some screen sizes. The boxes now keep enough room and the numbers never spill out.',
+      'Duplicate counters on item cards are capped at "×99+" so they always fit.',
+    ],
+  },
+  {
     version: '1.14.0',
     date: '2026-10-16',
     title: 'Realistic special moves',
