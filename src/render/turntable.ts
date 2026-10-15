@@ -1188,6 +1188,7 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
   };
 
   // partes de trás (cortina, rabo, tranças, afro, etc.)
+  const backParts = () => {
   if (style === 'longo' || style === 'mullet') {
     const len = style === 'longo' ? 50 : 32;
     for (const half of [0, 1]) {
@@ -1201,9 +1202,13 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
           const k = i / 3;
           for (let j = 0; j <= 5; j++) {
             const a = a0 + ((a1 - a0) * j) / 5;
-            const rr = R + 2 + k * 4;
+            // a cortina nasce no alto da cabeça (colada à calota) e cai até aos ombros: sem degrau entre as duas
+            const y0 = -R * 0.62;
+            const y = y0 + k * (len - 2 - y0);
+            const base = y < 0 ? Math.sqrt(Math.max(0, (R + 3) * (R + 3) - y * y)) : R + 3;
+            const rr = base + k * 4;
             const sw = Math.sin(t * 3 + j) * 2 * k;
-            row.push([Math.cos(a) * rr - k * 4 + sw, -2 + k * len, Math.sin(a) * rr]);
+            row.push([Math.cos(a) * rr - k * 4 + sw, y, Math.sin(a) * rr]);
           }
           grid.push(row);
         }
@@ -1266,7 +1271,16 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
       ctx.globalCompositeOperation = prev;
     });
   }
-  if (phase === 'back' || masked) return;
+  };
+  // de costas, a cortina/rabo ficam à frente da calota: desenham-se DEPOIS dela (senão a borda da calota
+  // aparece por cima, como uma peça solta)
+  if (phase === 'back' || masked) {
+    backParts();
+    return;
+  }
+  const early = style === 'careca' || style === 'moicano' || style === 'afro';
+  if (early) backParts();
+
 
   // frente: calota e volumes
   switch (style) {
@@ -1394,4 +1408,5 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
     ctx.strokeStyle = PS.F ? '#fff' : '#ffe27a';
     ctx.stroke();
   }
+  if (!early) backParts();
 }

@@ -8,6 +8,14 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.13.2',
+    date: '2026-10-15',
+    title: '360° hair fix',
+    items: [
+      'Fixed: in the 360° appearance view, long styles (mullet, long hair, braids, ponytail) showed a separate "cap" of hair on top when seen from the side or the back. The hair now flows in one piece from the crown down to the shoulders.',
+    ],
+  },
+  {
     version: '1.13.1',
     date: '2026-10-15',
     title: 'Hair and beard fixes',
