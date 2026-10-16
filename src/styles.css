@@ -4509,7 +4509,7 @@ button.pr-row {
   bottom: 0;
   left: 50%;
   height: 100%;
-  aspect-ratio: 0.64;
+  aspect-ratio: 0.8;
   z-index: 1;
   --dx: -90px;
   transform: translateX(-50%);
@@ -4517,6 +4517,11 @@ button.pr-row {
 }
 .vs-side.r .vs-art {
   --dx: 90px;
+}
+/* as auras desenhadas no canvas desvanecem nas margens em vez de cortarem a direito */
+.vs-art canvas {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 82%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 18%, #000 82%, transparent 100%);
 }
 @keyframes vsArt {
   from {
@@ -4797,11 +4802,15 @@ button.pr-row {
 }
 .vs-rec {
   margin-top: 4px;
-  line-height: 1.25;
+  white-space: nowrap;
   font-weight: 800;
   font-size: 10px;
   letter-spacing: 0.06em;
   opacity: 0.85;
+}
+.vs-rec i {
+  display: inline-block;
+  width: 8px;
 }
 .vs-rec b {
   font-size: 12px;

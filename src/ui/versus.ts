@@ -122,7 +122,7 @@ export function versus(mode: Mode, teams: [FighterSpec[], FighterSpec[]], start:
       body = `
         <div class="vs-pow"><em>TEAM POWER</em><b>${ico('bolt')}<span class="vs-num">0</span></b></div>
         ${rows}
-        <div class="vs-rec">${ico('medal')}<b>${fmt(rec.wins)}</b> TAG WINS · ${ico('fire')}<b>${rec.streak}</b> STREAK</div>`;
+        <div class="vs-rec">${ico('medal')}<b>${fmt(rec.wins)}</b> TAG WINS<i></i>${ico('fire')}<b>${rec.streak}</b></div>`;
     }
     const card = el('div', 'vs-card', `${rank}${body}`);
     s.appendChild(card);

@@ -415,3 +415,39 @@ export function ringVignette(ctx: CanvasRenderingContext2D, w: number, camX: num
   if (vcx - rx > 0) ctx.fillRect(0, Math.max(0, vcy - ry), vcx - rx, ry * 2);
   if (vcx + rx < w) ctx.fillRect(vcx + rx, Math.max(0, vcy - ry), w - vcx - rx, ry * 2);
 }
+
+/** Chama cartoon animada (tochas, braseiros). `s` = escala, base em (x, y). */
+export function flame(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, t: number, seed: number, low = false): void {
+  const f1 = Math.sin(t * 11 + seed * 7.1) * 0.5 + Math.sin(t * 17 + seed * 3.3) * 0.5;
+  const f2 = Math.sin(t * 9 + seed * 5.7);
+  const layers: [string, number, number][] = [
+    ['#ff4d1a', 1, 1],
+    ['#ff9a1f', 0.72, 0.8],
+    ['#ffe27a', 0.42, 0.55],
+  ];
+  if (!low) {
+    const op = ctx.globalCompositeOperation;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5 + 0.12 * f2;
+    ctx.drawImage(glowSprite('#ff8a2a'), x - 60 * s, y - 80 * s, 120 * s, 110 * s);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = op;
+  }
+  for (const [c, k, hk] of layers) {
+    const w = 13 * s * k;
+    const h = (40 + f1 * 6) * s * hk;
+    const lean = (f2 * 5 + Math.sin(t * 5 + seed) * 3) * s * k;
+    ctx.beginPath();
+    ctx.moveTo(x - w, y);
+    ctx.bezierCurveTo(x - w * 1.25, y - h * 0.45, x - w * 0.2 + lean * 0.4, y - h * 0.7, x + lean, y - h);
+    ctx.bezierCurveTo(x + w * 0.3 + lean * 0.4, y - h * 0.6, x + w * 1.25, y - h * 0.45, x + w, y);
+    ctx.quadraticCurveTo(x, y + w * 0.6, x - w, y);
+    ctx.fillStyle = c;
+    ctx.fill();
+    if (k === 1) {
+      ctx.lineWidth = 1.6 * s;
+      ctx.strokeStyle = 'rgba(90,20,10,0.8)';
+      ctx.stroke();
+    }
+  }
+}
