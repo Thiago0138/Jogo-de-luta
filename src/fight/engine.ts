@@ -202,6 +202,9 @@ export class Fight {
   onEvent: ((ev: string, a?: Fighter, b?: Fighter, extra?: string) => void) | null = null;
   /** Dano total que o super em curso ainda pode causar (-1 = sem super). */
   superBudget = -1;
+  /** Quem está a fazer um Super agora (só um de cada vez; os outros esperam em guarda). */
+  superBy: Fighter | null = null;
+  private superAt = 0;
   laserHue = 0;
   projs: Proj[] = [];
   cutin: CutIn | null = null;
@@ -1402,6 +1405,18 @@ export class Fight {
   // ───────────────────────── IA ─────────────────────────
 
   private think(f: Fighter, dt: number): void {
+    // um Super em curso: ninguém mais começa ataques (nem outro Super) até ele acabar
+    if (this.superBy && this.superBy !== f) {
+      const sb = this.superBy;
+      const stale = this.t - this.superAt > 7 || !sb.script || sb.state === 'ko' || sb.state === 'out';
+      if (!stale) {
+        f.wantX = null;
+        f.vx = 0;
+        f.play('guard', 1, false);
+        return;
+      }
+      this.superBy = null;
+    }
     const o = this.opp(f);
     if (!o || o.state === 'ko' || o.state === 'out' || o.state === 'apron') {
       f.vx = 0;
@@ -1433,7 +1448,7 @@ export class Fight {
       return;
     }
 
-    if (f.meter >= 100 && o.state !== 'down' && o.state !== 'thrown' && o.z < 10 && Math.random() < 0.8) {
+    if (f.meter >= 100 && !(o.script && o.sigT > 0) && !o.holding && o.state !== 'down' && o.state !== 'thrown' && o.z < 10 && Math.random() < 0.8) {
       const sup = f.spec.supers[Math.floor(Math.random() * f.spec.supers.length)] ?? 's_supersoco';
       f.run(this.superMove(f, o, sup), true);
       return;
@@ -3925,6 +3940,8 @@ export class Fight {
     const power = d?.power ?? 1;
     const color = SUPER_COLORS[type] ?? '#ffd23d';
     f.meter = 0;
+    this.superBy = f;
+    this.superAt = this.t;
     if (f.spec.isPlayer) this.tally.supers++;
     this.superBudget = o.maxHp * (0.14 + (power - 1) * 0.14);
     // cut-in cinematográfico
@@ -3975,6 +3992,7 @@ export class Fight {
           yield* this.sSoco(f, o, power, color);
       }
     } finally {
+      if (this.superBy === f) this.superBy = null;
       this.darkenTarget = 0;
       this.superBudget = -1;
       f.glow = null;

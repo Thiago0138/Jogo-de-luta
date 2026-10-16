@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.17.1',
+    date: '2026-10-16',
+    title: 'One Super at a time',
+    items: [
+      'Fixed: both fighters could fire their Supers at the same time and the moves got tangled. While a Super is playing, the other fighter now waits in guard and can only use theirs after it ends.',
+      'A Super also no longer starts in the middle of the opponent\'s signature move or grapple.',
+    ],
+  },
+  {
     version: '1.17.0',
     date: '2026-10-16',
     title: 'New arenas & epic VS screen',
