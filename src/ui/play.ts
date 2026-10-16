@@ -3,7 +3,7 @@ import { makeOpponent, makePartner, playerSpec } from '../core/opponents';
 import { CHESTS, type ChestId } from '../data/chests';
 import { ITEMS } from '../data/items';
 import { leagueOf } from '../data/leagues';
-import { powerRating, xpToNext } from '../data/stats';
+import { xpToNext } from '../data/stats';
 import { sfx, unlockAudio } from '../audio/sfx';
 import { FightScene } from '../fight/scene';
 import type { FightReport, Mode } from '../fight/engine';
@@ -12,6 +12,7 @@ import { go, render } from './app';
 import { openChest } from './chest';
 import { countUp, el, esc, fmt, modal } from './dom';
 import { Preview } from './preview';
+import { versus } from './versus';
 import { chestSvg } from './screens/home';
 import { ico, leagueBadge } from './icons';
 
@@ -28,47 +29,6 @@ export function startMatch(mode: Mode): void {
       ? [[me, makePartner()], [makeOpponent(), makeOpponent({ levelDelta: -1 })]]
       : [[me], [makeOpponent({ champion: mode === 'champion' })]];
   versus(mode, teams, () => fight(mode, teams));
-}
-
-function versus(mode: Mode, teams: [FighterSpec[], FighterSpec[]], go: () => void): void {
-  const root = el('div', 'versus');
-  const title = mode === 'tag' ? 'TAG TEAM' : mode === 'champion' ? 'CHAMPION CHALLENGE' : 'FIGHT';
-  root.innerHTML = `<div class="vs-title">${title}</div><div class="vs-side l"></div><div class="vs-mid"><span>VS</span></div><div class="vs-side r"></div><div class="vs-tap">tap to start</div>`;
-  const side = (specs: FighterSpec[], cls: string, flip: boolean) => {
-    const s = root.querySelector(`.vs-side.${cls}`) as HTMLElement;
-    specs.forEach((sp, i) => {
-      const box = el('div', `vs-fighter ${i ? 'second' : ''}`);
-      const p = new Preview(sp.look);
-      p.facing = flip ? -1 : 1;
-
-      const art = el('div', 'vs-art');
-      art.appendChild(p.canvas);
-      box.appendChild(art);
-      const info = el(
-        'div',
-        'vs-info',
-        `<b>${esc(sp.name)}</b><span>Lv ${sp.level}${sp.title ? ` · ${esc(sp.title)}` : ''}</span><span class="vs-pow">${ico('bolt')} ${fmt(powerRating(sp.level, sp.stats))}</span>`,
-      );
-      box.appendChild(info);
-      s.appendChild(box);
-    });
-  };
-  side(teams[0], 'l', false);
-  side(teams[1], 'r', true);
-  document.body.appendChild(root);
-  sfx.cheer(0.6);
-  let done = false;
-  const finish = () => {
-    if (done) return;
-    done = true;
-    root.classList.add('out');
-    setTimeout(() => {
-      root.remove();
-      go();
-    }, 260);
-  };
-  root.onclick = finish;
-  setTimeout(finish, 3200);
 }
 
 function fight(mode: Mode, teams: [FighterSpec[], FighterSpec[]]): void {

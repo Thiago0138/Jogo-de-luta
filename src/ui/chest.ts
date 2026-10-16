@@ -3,7 +3,7 @@ import { KIND_NAMES, item } from '../data/items';
 import { RARITIES } from '../data/rarity';
 import { sfx, unlockAudio } from '../audio/sfx';
 import { applyDrops, rollChest, type ChestDrop } from '../core/state';
-import { BACK_Y, drawBackdrop, drawFloor, drawRingBack, drawRingFront, ensureArena, newRopes } from '../fight/arena';
+import { BACK_Y, setArena, drawBackdrop, drawFloor, drawRingBack, drawRingFront, ensureArena, newRopes } from '../fight/arena';
 import { PK, Particles } from '../fight/fx';
 import { glowSprite } from '../render/fighter';
 import { el, esc, fmt, rarityTag } from './dom';
@@ -28,7 +28,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
   root.appendChild(ui);
   document.body.appendChild(root);
   const ctx = canvas.getContext('2d', { alpha: false })!;
-  ensureArena();
+  ensureArena('ar_kings');
   const ropes = newRopes();
   const parts = new Particles();
 
@@ -200,6 +200,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
     const sx = shake > 0 ? (Math.random() - 0.5) * 14 : 0;
     const sy = shake > 0 ? (Math.random() - 0.5) * 14 : 0;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    setArena('ar_kings');
     drawBackdrop(ctx, W, H, 0, z, floorY + BACK_Y * z, t, 0.6, false);
     ctx.fillStyle = 'rgba(5,2,12,0.55)';
     ctx.fillRect(0, 0, W, H);

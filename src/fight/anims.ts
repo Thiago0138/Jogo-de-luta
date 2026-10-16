@@ -73,7 +73,8 @@ const DROPKICK = P({ rot: -1.35, lean: 0, fl1: 0.42, fl2: 0.02, bl1: 0.3, bl2: 0
 const TUCK = P({ lean: 0.6, fl1: 1.8, fl2: -2.2, bl1: 1.6, bl2: -2.1, fa1: 1.3, fa2: 1.4, ba1: 1.2, ba2: 1.5, head: 0.3 });
 const SPLASH = P({ rot: 1.45, lean: 0, fa1: 2.8, fa2: 0.2, ba1: 2.7, ba2: 0.3, fl1: 0.1, bl1: -0.1, head: -0.5 });
 const ELBOW = P({ rot: 1.3, fa1: 1.6, fa2: 2.6, ba1: 1.2, ba2: 1.5, fl1: 0.4, bl1: -0.3, head: -0.2 });
-const PERCH = P({ dy: 34, lean: 0.35, fl1: 1.4, fl2: -1.9, bl1: 1.0, bl2: -1.7, fa1: 0.4, fa2: 1.1, ba1: 1.9, ba2: 0.5 });
+// agachado em cima da corda: as DUAS pernas iguais, para os dois pés assentarem na corda (nenhum a flutuar)
+const PERCH = P({ dy: 30, lean: 0.38, fl1: 1.15, fl2: -1.75, bl1: 1.05, bl2: -1.65, fa1: 0.4, fa2: 1.1, ba1: 1.9, ba2: 0.5 });
 // joelho bem alto, braço de trás a equilibrar; depois o tacão desce com o peso do corpo todo
 const STOMP_UP = P({ lean: -0.15, fl1: 1.75, fl2: -2.0, fa1: 1.2, fa2: 1.9, ba1: -0.35, ba2: 1.2 });
 const STOMP = P({ dy: 6, lean: 0.32, fl1: 0.85, fl2: -0.05, fa1: 0.2, fa2: 1.6, ba1: 0.9, ba2: 1.0 });

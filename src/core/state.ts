@@ -22,6 +22,8 @@ export interface Loadout {
   styles: string[];
   /** Provocações ao público equipadas (máx. 2). */
   taunts: string[];
+  /** Arena onde lutas. */
+  arena: string;
 }
 
 export interface MissionSet {
@@ -104,6 +106,7 @@ function fresh(): Save {
       moves: [],
       styles: [],
       taunts: ['t_classic', 't_point'],
+      arena: 'ar_kings',
     },
     level: 1,
     xp: 0,
@@ -177,6 +180,9 @@ if (!S.loadout.styles) S.loadout.styles = [];
 if (!Array.isArray(S.loadout.taunts)) S.loadout.taunts = ['t_classic', 't_point'];
 S.loadout.taunts = S.loadout.taunts.filter((id) => ITEMS[id]?.kind === 'taunt').slice(0, 2);
 if (!S.loadout.taunts.length) S.loadout.taunts = ['t_classic'];
+// arenas: a Kings Arena é de todos (também nos saves antigos)
+if (!S.owned.ar_kings) S.owned.ar_kings = 1;
+if (ITEMS[S.loadout.arena]?.kind !== 'arena') S.loadout.arena = 'ar_kings';
 
 /** Espaços de golpes de assinatura: 2, e um 3.º a partir do nível 8. */
 export function superSlots(): number {
@@ -263,6 +269,7 @@ function unequipIfMissing(id: string): void {
   if (L.gloves === id) L.gloves = 'g_vermelhas';
   if (L.mask === id) L.mask = null;
   if (L.aura === id) L.aura = null;
+  if (L.arena === id) L.arena = 'ar_kings';
   L.supers = L.supers.filter((x) => x !== id);
   if (!L.supers.length) L.supers = ['s_supersoco'];
   L.passives = L.passives.filter((x) => x !== id);
@@ -467,7 +474,7 @@ export function claimFreeChest(): boolean {
 }
 
 export function poolFor(r: Rarity): ItemDef[] {
-  return ITEM_LIST.filter((d) => d.rarity === r && d.source !== 'start' && d.source !== 'mission' && d.source !== 'level');
+  return ITEM_LIST.filter((d) => d.rarity === r && d.kind !== 'arena' && d.source !== 'start' && d.source !== 'mission' && d.source !== 'level');
 }
 
 export function rollChest(id: ChestId): ChestDrop[] {

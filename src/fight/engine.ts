@@ -29,6 +29,8 @@ export interface FightSetup {
    * o lutador da equipa 0 repete-o em ciclo no adversário, sem K.O. nem relógio.
    */
   demo?: string;
+  /** Arena onde se luta (id do item; por defeito a arena equipada pelo jogador). */
+  arena?: string;
 }
 
 export interface FightReport {
@@ -266,7 +268,7 @@ export class Fight {
       this.phase = 'fight';
       const [a, b] = this.active;
       const d = ITEMS[this.demo];
-      this.demoAI = d?.kind === 'passive';
+      this.demoAI = d?.kind === 'passive' || d?.kind === 'arena';
       a.run(this.demoLoop(a, b, this.demo));
     } else if (this.showcase) {
       this.phase = 'entrance';
@@ -869,6 +871,11 @@ export class Fight {
   hipY(f: Fighter): number {
     if (f.override) return f.override.y;
     return -f.z - f.skel.minY * this.scale(f);
+  }
+
+  /** Distância (em x de mundo) da anca ao ponto médio entre os dois pés. */
+  footOff(f: Fighter): number {
+    return f.facing * ((f.skel.x[J_FF] + f.skel.x[J_BF]) / 2) * this.scale(f);
   }
 
   hipX(f: Fighter): number {
@@ -1703,7 +1710,7 @@ export class Fight {
         yield* this.taunt(a, d.vis?.type ?? 'classic');
         yield 0.6;
         continue;
-      } else if (d.kind === 'passive') {
+      } else if (d.kind === 'passive' || d.kind === 'arena') {
         // combate livre: a passiva faz efeito naturalmente
         if (id === 'p_folego' || id === 'p_fenix' || id === 'p_furia') a.hp = Math.round(a.maxHp * 0.24);
         if (id === 'p_showman') a.meter = 0;
@@ -2324,7 +2331,8 @@ export class Fight {
         t += this.dt;
         const u = Math.min(1, t / 0.17);
         const e = u * u * (3 - 2 * u);
-        f.x = x0 + (footX - x0) * Math.min(1, (j + e) / 2);
+        // os pés (não a anca) vão para cima da corda
+        f.x = x0 + (footX - this.footOff(f) - x0) * Math.min(1, (j + e) / 2);
         f.z = z0 + (ropeHeightAt(this.ropes, sd, j) - z0) * e;
         f.vz = 0;
         if (j > 0) ropeHold(this.ropes, sd, j - 1, 2, 9 * (1 - e));
@@ -2360,6 +2368,8 @@ export class Fight {
         ropeHold(this.ropes, sd, 1, 1, 4);
         f.z = ropeHeightAt(this.ropes, sd, 2);
         f.vz = 0;
+        // mantém os dois pés em cima da corda, mesmo quando se vira para o ringue
+        f.x = (sd ? 1 : -1) * (ROPE_LINE_X - 10) - this.footOff(f);
         continue;
       }
       if (f.hidden || f.exiting || f.z > 30) continue;

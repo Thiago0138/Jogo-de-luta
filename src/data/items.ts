@@ -12,7 +12,8 @@ export type ItemKind =
   | 'entrance'
   | 'move'
   | 'moveStyle'
-  | 'taunt';
+  | 'taunt'
+  | 'arena';
 
 export type ItemSource = 'start' | 'shop' | 'chest' | 'mission' | 'level';
 
@@ -71,6 +72,7 @@ export const KIND_NAMES: Record<ItemKind, string> = {
   move: 'Signature move',
   moveStyle: 'Move style',
   taunt: 'Crowd taunt',
+  arena: 'Arena',
 };
 
 const I: ItemDef[] = [
@@ -232,6 +234,12 @@ const I: ItemDef[] = [
   { id: 'e_rei', kind: 'entrance', name: 'Royal Entrance', rarity: 'mitico', desc: 'A shower of golden confetti and spark fountains fit for a king.', icon: '👑', source: 'shop', gems: 900, vis: { type: 'rei', style: 'victory' } },
   { id: 'e_dragao', kind: 'entrance', name: 'Dragon Flight', rarity: 'mitico', desc: 'A fire dragon soars over the arena before you enter.', icon: '🐲', source: 'chest', vis: { type: 'dragao', style: 'point' } },
   { id: 'e_cosmica', kind: 'entrance', name: 'Cosmic Portal', rarity: 'celestial', desc: 'The arena turns into outer space and meteors rain down.', icon: '🌠', source: 'mission', vis: { type: 'cosmica', style: 'flex' } },
+
+  // ───────────── Arenas (onde lutas; compram-se na loja) ─────────────
+  { id: 'ar_kings', kind: 'arena', name: 'Kings Arena', rarity: 'comum', desc: 'The home of fight night: packed stands, a giant screen, LED-lit ring and a roaring crowd.', icon: '🏟️', source: 'start' },
+  { id: 'ar_desert', kind: 'arena', name: 'Pharaoh\'s Sands', rarity: 'epico', desc: 'A ring in the middle of the desert at sunset: pyramids, ancient ruins, blazing torches and blowing sand.', icon: '🏜️', source: 'shop', gems: 300 },
+  { id: 'ar_neon', kind: 'arena', name: 'Neon Rooftop', rarity: 'lendario', desc: 'Fight on a skyscraper rooftop in a neon megacity: rain, flying cars, giant billboards and a police chopper spotlight.', icon: '🌃', source: 'shop', gems: 450 },
+  { id: 'ar_temple', kind: 'arena', name: 'Sakura Temple', rarity: 'mitico', desc: 'A moonlit mountain temple: glowing lanterns, a red pagoda, cherry blossoms and petals drifting through the ring.', icon: '🌸', source: 'shop', gems: 600 },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(I.map((i) => [i.id, i]));

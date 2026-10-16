@@ -112,6 +112,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     moves: movesFor(lvl, r),
     styles: [],
     taunts: tauntsFor(r),
+    arena: 'ar_kings',
   };
   const app = randomAppearance(r);
   if (o.champion) {

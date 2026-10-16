@@ -449,64 +449,52 @@ function genBlock(sr: number): Float32Array {
  * Queda no tapete: lona sobre tábuas de contraplacado sobre molas. Estrondo grave e oco das
  * tábuas (modos de placa), chapada da pele na lona, aba da lona, e o chocalhar metálico das molas.
  */
+/**
+ * Queda no ringue (como numa transmissão de wrestling): um "PÁ!" seco e forte da lona esticada a
+ * bater nas tábuas de contraplacado, um baque curto e grave do corpo, um estremecer rápido das tábuas
+ * e um ronco curto debaixo do ringue. Seco e curto — nada de ressonâncias longas (soavam a tambor).
+ */
 function genSlam(sr: number): Float32Array {
-  const L = 1.5;
+  const L = 0.9;
   const out = mk(sr, L);
-  // contacto do corpo: impulso macio (massa grande)
-  const hit = mk(sr, L);
-  addPulse(hit, sr, 0, rnd(0.006, 0.01), 1);
-  // (uma só batida: uma segunda, ~25 ms depois, soava a duas quedas)
-  const boards = mk(sr, L);
-  const modes: [number, number, number][] = [
-    [rnd(46, 55), 0.5, 1],
-    [rnd(70, 84), 0.42, 0.85],
-    [rnd(104, 122), 0.3, 0.65],
-    [rnd(148, 170), 0.24, 0.55],
-    [rnd(200, 236), 0.17, 0.45],
-    [rnd(285, 330), 0.12, 0.3],
-    [rnd(395, 450), 0.085, 0.2],
-    [rnd(560, 630), 0.06, 0.12],
-  ];
-  for (const [f, t60, g] of modes) resonate(hit, boards, sr, f, t60, g);
-  mix(out, boards, 1);
-  // "bum" do ar debaixo do ringue (caixa oca), com queda de tom
-  const boom = mk(sr, L);
-  addSweep(boom, sr, 0, rnd(72, 86), 37, 0.07, 0.15, 1, 0.003);
-  mix(out, boom, 0.75);
-  // chapada da pele/costas na lona
-  const sk = mk(sr, L);
-  addBurst(sk, sr, 0.001, rnd(0.004, 0.007), 1);
-  const skr = mk(sr, L);
-  resonate(sk, skr, sr, rnd(1500, 2000), 0.03, 1);
-  resonate(sk, skr, sr, rnd(2600, 3300), 0.02, 0.6);
-  mix(skr, highpass(sk, sr, 900), 0.8);
-  mix(out, skr, 0.42);
-  // aba da lona / pó: ruído grave curto
-  const fl = mk(sr, L);
-  addBurst(fl, sr, 0.002, rnd(0.05, 0.075), 1, 0.004);
-  mix(out, lowpass(lowpass(fl, sr, 650), sr, 650), 0.4);
-  // molas e esticadores: estalidos irregulares em ressoadores metálicos
-  const cl = mk(sr, L);
-  addBurst(cl, sr, 0.003, 0.0015, 1);
-  let t = rnd(0.014, 0.022);
-  let a = rnd(0.6, 0.85);
-  const clicks = 8 + Math.floor(Math.random() * 7);
-  for (let k = 0; k < clicks && t < L - 0.1; k++) {
-    addBurst(cl, sr, t, 0.0005, a * rnd(0.5, 1));
-    t += rnd(0.01, 0.038) * (1 + k * 0.08);
-    a *= rnd(0.72, 0.88);
+  // 1) estalo da lona/contraplacado: ruído largo, muito curto e forte
+  const cr = mk(sr, L);
+  addBurst(cr, sr, 0, rnd(0.006, 0.009), 1, 0.0006);
+  const crack = lowpass(highpass(cr, sr, 260), sr, 5200);
+  mix(out, crack, 0.95);
+  // corpo do estalo: contraplacado seco (modos amortecidos depressa)
+  const ply = mk(sr, L);
+  for (const [f, t60, g] of [
+    [rnd(118, 135), 0.11, 1], [rnd(190, 215), 0.08, 0.8], [rnd(300, 340), 0.06, 0.6],
+    [rnd(470, 530), 0.045, 0.45], [rnd(720, 820), 0.035, 0.3],
+  ] as [number, number, number][]) resonate(cr, ply, sr, f, t60, g);
+  mix(out, ply, 0.7);
+  // 2) baque do corpo: grave curto com ligeira queda de tom (massa a assentar)
+  const th = mk(sr, L);
+  addSweep(th, sr, 0.002, rnd(105, 120), rnd(52, 60), 0.025, rnd(0.07, 0.09), 1, 0.0015);
+  mix(out, th, 1);
+  // 3) as tábuas estremecem: 3-4 batidas rápidas, cada vez mais fracas
+  const rt = mk(sr, L);
+  let t = rnd(0.018, 0.026);
+  let a = 0.55;
+  for (let k = 0; k < 4; k++) {
+    addBurst(rt, sr, t, 0.004, a);
+    t += rnd(0.016, 0.028);
+    a *= 0.55;
   }
+  mix(out, lowpass(highpass(rt, sr, 150), sr, 1400), 0.35);
+  // 4) "whump" do ar debaixo do ringue: ronco grave curto
+  const rb = mk(sr, L);
+  addBurst(rb, sr, 0.004, rnd(0.09, 0.12), 1, 0.006);
+  mix(out, lowpass(lowpass(rb, sr, 170), sr, 170), 0.55);
+  // 5) molas e esticadores, muito discretos
+  const cl = mk(sr, L);
+  addBurst(cl, sr, 0.01, 0.0006, 1);
+  addBurst(cl, sr, rnd(0.04, 0.06), 0.0005, 0.5);
   const sp = mk(sr, L);
-  const springs: [number, number, number][] = [
-    [rnd(510, 590), rnd(0.22, 0.32), 0.9],
-    [rnd(830, 930), rnd(0.2, 0.3), 1],
-    [rnd(1240, 1400), rnd(0.16, 0.26), 0.8],
-    [rnd(1880, 2120), rnd(0.12, 0.2), 0.6],
-    [rnd(2850, 3250), rnd(0.08, 0.14), 0.4],
-  ];
-  for (const [f, t60, g] of springs) resonate(cl, sp, sr, f, t60, g);
-  mix(out, sp, 0.13);
-  saturate(out, 1.35);
+  for (const [f, t60, g] of [[rnd(880, 960), 0.12, 1], [rnd(1600, 1800), 0.09, 0.7]] as [number, number, number][]) resonate(cl, sp, sr, f, t60, g);
+  mix(out, sp, 0.05);
+  saturate(out, 1.6);
   return out;
 }
 

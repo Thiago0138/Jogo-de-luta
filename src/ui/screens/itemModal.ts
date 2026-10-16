@@ -43,6 +43,8 @@ export function isEquipped(id: string): boolean {
       return L.styles.includes(id);
     case 'taunt':
       return L.taunts.includes(id);
+    case 'arena':
+      return L.arena === id;
   }
 }
 
@@ -112,6 +114,9 @@ export function toggleEquip(id: string): void {
     case 'taunt':
       slotList(L.taunts, 2);
       break;
+    case 'arena':
+      L.arena = id;
+      break;
   }
   if (d.kind === 'hair' || d.kind === 'hairColor') clearThumbs();
   commit();
@@ -165,7 +170,7 @@ export function itemArt(id: string): HTMLElement {
     art.appendChild(new EntrancePreview(id).el);
     art.appendChild(el('div', 'id-badge', ico('entrance')));
   } else {
-    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'passive' || d.kind === 'taunt') {
+    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'passive' || d.kind === 'taunt' || d.kind === 'arena') {
       // demonstração ao vivo, tal como acontece no ringue
       art.classList.add('id-ent');
       art.appendChild(new ItemDemo(id).el);

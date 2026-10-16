@@ -3,7 +3,7 @@ import { drawFighter, glowSprite } from '../render/fighter';
 import { HEAD_R, J_BH, J_FF, J_FH, J_HEAD } from '../render/pose';
 import { setVolume, sfx, startCrowd, stopCrowd } from '../audio/sfx';
 import { S, commit } from '../core/state';
-import { APRON_X, BACK_Y, FRONT_X, TEAM_COLORS, drawBackdrop, drawFloor, drawForeground, drawRingBack, drawRingFront, ensureArena } from './arena';
+import { APRON_X, BACK_Y, FRONT_X, TEAM_COLORS, arenaTone, drawAtmosphere, drawBackdrop, drawFloor, drawForeground, drawRingBack, drawRingFront, ensureArena, isArena, setArena } from './arena';
 import { Fight, type FightReport, type FightSetup } from './engine';
 import type { Fighter } from './fighter';
 import { drawBolt, hash } from './fx';
@@ -81,6 +81,8 @@ export class FightScene {
   private showcase: boolean;
   private setup: FightSetup;
   private showcaseT = 0;
+  /** Arena desenhada nesta cena. */
+  private arena: string;
   private seen = false;
   private onResize = () => this.resize();
   private onVis = () => {
@@ -93,7 +95,8 @@ export class FightScene {
     this.low = opts.quality === 'baixa';
     this.setup = setup;
     this.showcase = !!setup.showcase;
-    ensureArena();
+    this.arena = setup.arena ?? (isArena(S.loadout.arena) ? S.loadout.arena : 'ar_kings');
+    ensureArena(this.arena);
     this.announcer = new Announcer(this.showcase ? false : S.settings.announcer, S.settings.announcerVol, (text, prio) => this.caption(text, prio));
     this.fight = this.newFight();
     this.root = document.createElement('div');
@@ -550,10 +553,12 @@ export class FightScene {
       shy = (Math.random() - 0.5) * F.shakeAmp * 2 * z * 1.5;
     }
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    setArena(this.arena);
+    const tone = arenaTone();
     drawBackdrop(ctx, W, H, this.camX, z, floorY + BACK_Y * z + shy, F.t, F.hype, this.low);
 
     // profundidade: o público fica ligeiramente mais escuro que a ação
-    ctx.fillStyle = 'rgba(8,4,18,0.28)';
+    ctx.fillStyle = tone.tint;
     ctx.fillRect(0, 0, W, H);
     if (F.cosmic > 0.01) this.drawCosmic(ctx, F.cosmic, F.t);
     if (F.darken > 0.01) {
@@ -566,8 +571,8 @@ export class FightScene {
 
     // espaço do mundo
     ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, this.dpr * (W / 2 - this.camX * z + shx), this.dpr * (floorY + shy));
-    drawFloor(ctx);
-    drawRingBack(ctx, F.ropes);
+    drawFloor(ctx, F.t);
+    drawRingBack(ctx, F.ropes, F.t, F.hype, this.low);
 
     if (F.stage) this.drawStageBack(ctx, F.stage, F.t);
 
@@ -577,7 +582,7 @@ export class FightScene {
     for (const f of F.active) {
       if (f.hidden) continue;
       const hx = F.hipX(f);
-      ctx.drawImage(glowSprite('#fff1cf'), hx - 170, -60, 340, 110);
+      ctx.drawImage(glowSprite(tone.pool), hx - 170, -60, 340, 110);
     }
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -626,8 +631,8 @@ export class FightScene {
     if (F.stage && F.stage.scan != null) this.drawScan(ctx, F.stage.scan, F.t);
     for (const b of F.bursts) this.drawBurst(ctx, b.x, b.y, b.text, b.color, b.life / b.max, b.rot, z);
 
-    drawRingFront(ctx, F.ropes, F.t, F.hype);
-    drawForeground(ctx, this.camX, F.t, F.hype);
+    drawRingFront(ctx, F.ropes, F.t, F.hype, this.low);
+    drawForeground(ctx, this.camX, F.t, F.hype, this.low);
 
     // textos flutuantes
     ctx.textAlign = 'center';
@@ -649,6 +654,7 @@ export class FightScene {
 
     // espaço de ecrã
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    drawAtmosphere(ctx, W, H, this.camX, z, F.t, F.hype, this.low);
     if (F.flash > 0) {
       ctx.globalAlpha = Math.min(1, F.flash) * 0.8;
       ctx.fillStyle = F.flashColor;
@@ -680,7 +686,7 @@ export class FightScene {
   private drawHaze(ctx: CanvasRenderingContext2D, W: number, H: number, t: number): void {
     if (this.low) return;
     ctx.globalCompositeOperation = 'lighter';
-    const g = glowSprite('#8f7ad6');
+    const g = glowSprite(arenaTone().haze);
     for (let i = 0; i < 4; i++) {
       const x = ((t * (8 + i * 5) + i * W * 0.37) % (W * 1.6)) - W * 0.3;
       const y = H * (0.25 + i * 0.12);

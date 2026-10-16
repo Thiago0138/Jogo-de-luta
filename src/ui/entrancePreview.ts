@@ -60,7 +60,7 @@ export class ItemDemo {
     const opp: FighterSpec = { ...makeOpponent({ seed: 7, levelDelta: 0 }), hpMul: 1 };
     requestAnimationFrame(() => {
       if (!this.el.isConnected) return;
-      this.scene = new FightScene(this.el, { mode: 'solo', teams: [[me], [opp]], showcase: true, demo: id, entrances: false }, {
+      this.scene = new FightScene(this.el, { mode: 'solo', teams: [[me], [opp]], showcase: true, demo: id, entrances: false, arena: d.kind === 'arena' ? id : undefined }, {
         speed: 1,
         quality: S.settings.quality,
         onEnd: () => {},
