@@ -44,7 +44,6 @@ export class Preview {
   private skel = new Skel();
   private ctx: CanvasRenderingContext2D;
   private obs: IntersectionObserver;
-  private idleT = 0;
 
   constructor(look: Look, opts: { stage?: boolean; focusHead?: boolean; zoom?: number; turn?: boolean; spin?: boolean; key?: string } = {}) {
     this.look = look;
@@ -142,12 +141,6 @@ export class Preview {
     const end = a.keys[a.keys.length - 1].t;
     if (!a.loop && this.at > end + 0.6) {
       this.play('guard');
-    }
-    // provocação ocasional
-    this.idleT += dt;
-    if (this.anim === 'guard' && this.idleT > 6) {
-      this.idleT = 0;
-      this.play('taunt', 'happy');
     }
     sample(a, this.at, this.pose);
     if (this.anim === 'guard') {

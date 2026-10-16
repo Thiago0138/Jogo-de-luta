@@ -111,6 +111,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     entrance: gear('entrance', Math.min(6, maxTier + 1), r) ?? 'e_classica',
     moves: movesFor(lvl, r),
     styles: [],
+    taunts: tauntsFor(r),
   };
   const app = randomAppearance(r);
   if (o.champion) {
@@ -129,12 +130,22 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
     passives: loadout.passives,
     entrance: loadout.entrance,
     moves: loadout.moves,
+    taunts: loadout.taunts,
     isPlayer: false,
     hpMul: o.champion ? 1 : S.life.fights < 6 ? 0.72 : li === 0 ? 0.9 : 1,
   };
 }
 
 /** Parceiro de tag team do jogador: um lutador fixo (semente própria) que acompanha o nível do jogador. */
+/** 2 provocações ao acaso para um adversário. */
+function tauntsFor(r: () => number): string[] {
+  const all = ITEM_LIST.filter((d) => d.kind === 'taunt').map((d) => d.id);
+  const a = all[Math.floor(r() * all.length)];
+  let b = all[Math.floor(r() * all.length)];
+  if (b === a) b = all[(all.indexOf(a) + 1) % all.length];
+  return [a, b];
+}
+
 export function makePartner(): FighterSpec {
   const r = seeded(S.partnerSeed);
   const arch = pick(ARCHETYPES, r);
@@ -151,6 +162,7 @@ export function makePartner(): FighterSpec {
     supers: ['s_supersoco'],
     passives: ['p_ferro'],
     moves: movesFor(lvl, seeded(S.partnerSeed + 11)),
+    taunts: tauntsFor(seeded(S.partnerSeed + 13)),
     isPlayer: false,
   };
 }
@@ -166,6 +178,7 @@ export function playerSpec(): FighterSpec {
     entrance: S.loadout.entrance,
     moves: S.loadout.moves.filter((id) => owns(id)).slice(0, moveSlots()),
     styles: S.loadout.styles.filter((id) => owns(id)),
+    taunts: S.loadout.taunts.filter((id) => owns(id)),
     isPlayer: true,
   };
 }

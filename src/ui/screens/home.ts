@@ -54,7 +54,7 @@ export function renderHome(page: HTMLElement): void {
   page.querySelector('.hero-stage')!.appendChild(prev.canvas);
   prev.canvas.onclick = () => {
     sfx.click();
-    prev.play(Math.random() < 0.5 ? 'taunt' : 'victory', 'happy');
+    prev.play('guard');
   };
 
   (page.querySelector('.news-btn') as HTMLElement).onclick = () => {

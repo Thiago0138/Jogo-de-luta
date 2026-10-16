@@ -89,6 +89,9 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
       body.appendChild(grid(ITEM_LIST.filter((d) => d.kind === 'move').map((d) => ({ id: d.id, discount: 0 }))));
       body.appendChild(el('h3', 'sec', 'Move styles'));
       body.appendChild(grid(shopItems(['moveStyle']).map((d) => ({ id: d.id, discount: 0 }))));
+      body.appendChild(el('h3', 'sec', 'Crowd taunts'));
+      body.appendChild(el('p', 'muted small', 'Play to the crowd to charge your Super. Equip 2 and your fighter picks one each time.'));
+      body.appendChild(grid(shopItems(['taunt']).map((d) => ({ id: d.id, discount: 0 }))));
       break;
     }
     case 'entrances':

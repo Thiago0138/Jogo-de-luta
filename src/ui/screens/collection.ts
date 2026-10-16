@@ -18,6 +18,7 @@ const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
   { id: 'super', name: 'Supers', kinds: ['super'] },
   { id: 'passive', name: 'Passives', kinds: ['passive'] },
   { id: 'move', name: 'Moves', kinds: ['move', 'moveStyle'] },
+  { id: 'taunt', name: 'Taunts', kinds: ['taunt'] },
   { id: 'entrance', name: 'Entrances', kinds: ['entrance'] },
 ];
 

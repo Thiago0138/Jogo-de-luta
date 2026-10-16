@@ -1571,12 +1571,34 @@ span.rar-celestial,
   font-size: 22px;
   text-shadow: 0 2px 0 var(--ink);
 }
+.modal-head {
+  gap: 10px;
+}
+.modal-head h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .modal-head .x {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
   font-size: 16px;
+  position: relative;
+  z-index: 3;
+  touch-action: manipulation;
+}
+/* área de toque maior do que o botão */
+.modal-head .x::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.modal-head .x svg {
+  pointer-events: none;
 }
 .modal-body {
   padding: 4px 16px 12px;
@@ -2268,8 +2290,8 @@ span.rar-celestial,
   transform-origin: right;
 }
 .hud-bar .trail {
-  background: #fff;
-  opacity: 0.85;
+  background: linear-gradient(180deg, #ff6b6b, #e3122e 60%, #a10a1f);
+  opacity: 1;
 }
 .hud-bar .hp {
   background: linear-gradient(180deg, #9dff7a, #2fcf3a 60%, #1f9a2a);

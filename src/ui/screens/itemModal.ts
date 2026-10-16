@@ -41,6 +41,8 @@ export function isEquipped(id: string): boolean {
       return L.moves.includes(id);
     case 'moveStyle':
       return L.styles.includes(id);
+    case 'taunt':
+      return L.taunts.includes(id);
   }
 }
 
@@ -107,6 +109,9 @@ export function toggleEquip(id: string): void {
         L.styles.push(id);
       }
       break;
+    case 'taunt':
+      slotList(L.taunts, 2);
+      break;
   }
   if (d.kind === 'hair' || d.kind === 'hairColor') clearThumbs();
   commit();
@@ -153,7 +158,6 @@ export function itemArt(id: string): HTMLElement {
     // para ver o cabelo, a cor ou a máscara, tira um traje que tape a cabeça
     if ((d.kind === 'hair' || d.kind === 'hairColor' || d.kind === 'mask') && coversHead(lo.outfit)) lo.outfit = 'o_classico';
     const p = new Preview(resolveLook(app, lo), { turn: true, spin: true });
-    p.play('taunt', 'happy');
     art.appendChild(p.canvas);
   } else if (d.kind === 'entrance') {
     // a entrada completa, em ciclo, com o teu lutador (pára sozinha ao fechar o modal)
@@ -161,7 +165,7 @@ export function itemArt(id: string): HTMLElement {
     art.appendChild(new EntrancePreview(id).el);
     art.appendChild(el('div', 'id-badge', ico('entrance')));
   } else {
-    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'passive') {
+    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'passive' || d.kind === 'taunt') {
       // demonstração ao vivo, tal como acontece no ringue
       art.classList.add('id-ent');
       art.appendChild(new ItemDemo(id).el);
@@ -255,7 +259,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, e
     }
   } else if (owns(id)) {
     const eq = isEquipped(id);
-    const removable = ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(d.kind);
+    const removable = ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle', 'taunt'].includes(d.kind);
     if (!eq || removable) {
       actions.push({
         label: eq ? 'Unequip' : 'Equip',

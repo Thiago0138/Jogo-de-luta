@@ -74,10 +74,17 @@ export function modal(
   back.onclick = (e) => {
     if (e.target === back) close();
   };
-  (box.querySelector('.x') as HTMLElement).onclick = () => {
+  // fecha logo ao tocar (pointerup), sem depender do "click" (no iPhone podia perder-se com a pré-visualização ao vivo)
+  const xb = box.querySelector('.x') as HTMLElement;
+  const shut = (e: Event) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (closed) return;
     sfx.click();
     close();
   };
+  xb.addEventListener('pointerup', shut);
+  xb.onclick = shut;
   document.body.appendChild(back);
   return close;
 }

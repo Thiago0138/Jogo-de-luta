@@ -61,6 +61,8 @@ export class FightScene {
   private slowFrames = 0;
   private destroyed = false;
   private opts: SceneOpts;
+  private trailHold: number[] = [];
+  private trailHp: number[] = [];
   private trails = [1, 1];
   private announcer!: Announcer;
   private skipping = false;
@@ -262,8 +264,14 @@ export class FightScene {
         h.hpText.textContent = String(Math.ceil(Math.max(0, f.hp)));
       }
       // barra de dano atrasada
+      // a vida perdida fica a vermelho uns instantes e depois esvazia
       const tr = this.trails[ti];
-      this.trails[ti] = tr > hp ? Math.max(hp, tr - 0.008) : hp;
+      if (hp < L.hp - 1e-6 || hp < tr - 0.002) {
+        if (hp < (this.trailHp[ti] ?? 1) - 1e-6) this.trailHold[ti] = 0.55;
+      }
+      this.trailHp[ti] = hp;
+      this.trailHold[ti] = Math.max(0, (this.trailHold[ti] ?? 0) - 1 / 60);
+      this.trails[ti] = tr > hp ? (this.trailHold[ti] > 0 ? tr : Math.max(hp, tr - 0.012)) : hp;
       const trR = Math.round(this.trails[ti] * 500) / 500;
       if (trR !== L.trail) {
         L.trail = trR;

@@ -142,8 +142,10 @@ function gear(body: HTMLElement): void {
   const moves: Slot[] = [];
   for (let i = 0; i < MOVE_SLOTS; i++) moves.push({ label: `Move ${i + 1}`, kind: 'move', id: L.moves[i] ?? null, locked: i >= moveSlots() ? MOVE_SLOT3_LEVEL : undefined });
   const styles: Slot[] = [{ label: 'Move style', kind: 'moveStyle', id: L.styles[0] ?? null }];
+  const taunts: Slot[] = [0, 1].map((i) => ({ label: `Taunt ${i + 1}`, kind: 'taunt' as ItemKind, id: L.taunts[i] ?? null }));
   section('Signature moves', moves, 'The special moves your fighter uses in the ring. They unlock as you level up; you can train them with coins up to 3 levels early.');
   section('Move styles', styles, 'Visual effects for your moves (cosmetic only, same damage).');
+  section('Crowd taunts', taunts, 'Your fighter plays to the crowd to charge the Super, picking one of these 2 each time.');
   section('Look', slots);
   section('Abilities', abil, 'Supers fire when your Super bar is full. Passives are always active.');
 }
@@ -176,7 +178,7 @@ function picker(s: Slot): void {
     .sort((a, b) => (s.kind === 'move' ? (a.unlockLevel ?? 0) - (b.unlockLevel ?? 0) : RARITIES[b.rarity].tier - RARITIES[a.rarity].tier));
   const box = el('div', 'picker');
   let close: () => void = () => {};
-  if (s.id && ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle'].includes(s.kind)) {
+  if (s.id && ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle', 'taunt'].includes(s.kind)) {
     const rm = el('button', 'pick-row none', `${ico('close')} Remove from this slot`);
     rm.onclick = () => {
       toggleEquip(s.id!);
@@ -197,8 +199,8 @@ function picker(s: Slot): void {
       r.appendChild(el('div', 'pr-lock', `${ico('lock')} Lv ${d.unlockLevel}`));
     }
     const equip = () => {
-      if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'move') {
-        const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : S.loadout.moves;
+      if (s.kind === 'super' || s.kind === 'passive' || s.kind === 'move' || s.kind === 'taunt') {
+        const arr = s.kind === 'super' ? S.loadout.supers : s.kind === 'passive' ? S.loadout.passives : s.kind === 'taunt' ? S.loadout.taunts : S.loadout.moves;
         if (!arr.includes(d.id)) {
           const idx = s.id ? arr.indexOf(s.id) : -1;
           if (idx >= 0) arr[idx] = d.id;

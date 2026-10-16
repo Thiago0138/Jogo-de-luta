@@ -148,7 +148,7 @@ export function openCreator(first: boolean, onDone?: () => void): void {
     if (!owns(r.hair)) r.hair = app.hair;
     if (!owns(r.hairColor)) r.hairColor = app.hairColor;
     Object.assign(app, r);
-    prev.play('taunt', 'happy');
+    prev.play('guard');
     showTab();
     refresh();
   };

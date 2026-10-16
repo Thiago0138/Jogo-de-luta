@@ -8,6 +8,21 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.16.0',
+    date: '2026-10-16',
+    title: 'Taunts you choose, faster fights',
+    items: [
+      'Crowd taunts are now items: equip 2 in Fighter → Gear (Crowd taunts) and your fighter picks one of them each time. Every taunt has a live preview in the menus.',
+      'Taunts: Hype the Crowd and Call Out (starter), Gun Show, Can\'t Hear You, Champ Pose, Six Seven and Aura Farming (Shop → Moves). Opponents use their own pair.',
+      'Every hit now shows the damage dealt; the big "CRACK!/BOOM!" bursts are gone so they never cover the action.',
+      'The health bar now shows the life just lost in red for a moment before it drains, so you can see exactly how much damage landed.',
+      'Faster fights: every hit deals about 40% more damage, Supers hit harder and the clock is shorter (75 s, Tag Team 130 s).',
+      'Removed the plain flying jumps (crossbodies and springboards). Top-rope dives always flip now: the Moonsault backflips and the Splash front-flips.',
+      'Menu fighters now just stand in their fighting stance (no more random arms-up taunts).',
+      'Fixed: the X button sometimes did not close item windows on phones.',
+    ],
+  },
+  {
     version: '1.15.0',
     date: '2026-10-16',
     title: 'Aura farming',

@@ -20,6 +20,8 @@ export interface Loadout {
   moves: string[];
   /** Estilos visuais de golpe ativos. */
   styles: string[];
+  /** Provocações ao público equipadas (máx. 2). */
+  taunts: string[];
 }
 
 export interface MissionSet {
@@ -101,6 +103,7 @@ function fresh(): Save {
       entrance: 'e_classica',
       moves: [],
       styles: [],
+      taunts: ['t_classic', 't_point'],
     },
     level: 1,
     xp: 0,
@@ -171,6 +174,9 @@ S.loadout.moves = S.loadout.moves.slice(0, moveSlots());
 S.loadout.supers = S.loadout.supers.slice(0, superSlots());
 S.loadout.passives = S.loadout.passives.slice(0, passiveSlots());
 if (!S.loadout.styles) S.loadout.styles = [];
+if (!Array.isArray(S.loadout.taunts)) S.loadout.taunts = ['t_classic', 't_point'];
+S.loadout.taunts = S.loadout.taunts.filter((id) => ITEMS[id]?.kind === 'taunt').slice(0, 2);
+if (!S.loadout.taunts.length) S.loadout.taunts = ['t_classic'];
 
 /** Espaços de golpes de assinatura: 2, e um 3.º a partir do nível 8. */
 export function superSlots(): number {

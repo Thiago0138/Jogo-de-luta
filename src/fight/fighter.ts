@@ -23,6 +23,8 @@ export interface FighterSpec {
   moves?: string[];
   /** Estilos visuais de golpe. */
   styles?: string[];
+  /** Provocações ao público equipadas (ids de item 'taunt'). */
+  taunts?: string[];
 }
 
 export type FState =

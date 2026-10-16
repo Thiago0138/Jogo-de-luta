@@ -40,7 +40,7 @@ function versus(mode: Mode, teams: [FighterSpec[], FighterSpec[]], go: () => voi
       const box = el('div', `vs-fighter ${i ? 'second' : ''}`);
       const p = new Preview(sp.look);
       p.facing = flip ? -1 : 1;
-      if (!i) p.play('taunt', 'happy');
+
       const art = el('div', 'vs-art');
       art.appendChild(p.canvas);
       box.appendChild(art);

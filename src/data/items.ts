@@ -11,7 +11,8 @@ export type ItemKind =
   | 'passive'
   | 'entrance'
   | 'move'
-  | 'moveStyle';
+  | 'moveStyle'
+  | 'taunt';
 
 export type ItemSource = 'start' | 'shop' | 'chest' | 'mission' | 'level';
 
@@ -69,9 +70,19 @@ export const KIND_NAMES: Record<ItemKind, string> = {
   entrance: 'Entrance',
   move: 'Signature move',
   moveStyle: 'Move style',
+  taunt: 'Crowd taunt',
 };
 
 const I: ItemDef[] = [
+  // ───────────── Provocações ao público (carregam o Super; equipam-se 2) ─────────────
+  { id: 't_classic', kind: 'taunt', name: 'Hype the Crowd', rarity: 'comum', desc: 'Arms up, pumping the crowd. Charges your Super.', icon: '🙌', source: 'start', vis: { type: 'classic' } },
+  { id: 't_point', kind: 'taunt', name: 'Call Out', rarity: 'comum', desc: 'Points at the crowd: "This is my ring!" Charges your Super.', icon: '👉', source: 'start', vis: { type: 'point' } },
+  { id: 't_flex', kind: 'taunt', name: 'Gun Show', rarity: 'incomum', desc: 'Flexes both biceps for the cameras. Charges your Super.', icon: '💪', source: 'shop', coins: 900, vis: { type: 'flex' } },
+  { id: 't_ear', kind: 'taunt', name: "Can't Hear You", rarity: 'incomum', desc: 'Hand cupped to the ear until the crowd roars louder. Charges your Super and the hype.', icon: '👂', source: 'shop', coins: 1200, vis: { type: 'ear' } },
+  { id: 't_belt', kind: 'taunt', name: 'Champ Pose', rarity: 'raro', desc: 'Hands on the waist like holding the title belt. Charges your Super.', icon: '🏆', source: 'shop', coins: 2500, vis: { type: 'belt' } },
+  { id: 't_sixseven', kind: 'taunt', name: 'Six Seven', rarity: 'epico', desc: 'Palms up, hands bouncing like a scale: SIX SEVEN! Charges your Super.', icon: '🤲', source: 'shop', gems: 150, vis: { type: 'sixseven' } },
+  { id: 't_aura', kind: 'taunt', name: 'Aura Farming', rarity: 'lendario', desc: 'Chin up, hand sliding along the jawline, +1000 aura. Charges more Super than any other taunt.', icon: '🗿', source: 'shop', gems: 320, vis: { type: 'aura' } },
+
   // ───────────── Penteados ─────────────
   { id: 'h_careca', kind: 'hair', name: 'Bald', rarity: 'comum', desc: 'Shines under the spotlights.', icon: '🥚', source: 'start', vis: { style: 'careca' } },
   { id: 'h_curto', kind: 'hair', name: 'Short', rarity: 'comum', desc: 'Classic and practical.', icon: '💇', source: 'start', vis: { style: 'curto' } },
@@ -244,6 +255,8 @@ export function isTradeable(d: ItemDef): boolean {
 /** Máximo de golpes de assinatura equipados (o 3.º espaço abre no nível MOVE_SLOT3_LEVEL). */
 export const MOVE_SLOTS = 3;
 export const MOVE_SLOT3_LEVEL = 8;
+/** Provocações equipadas ao mesmo tempo. */
+export const TAUNT_SLOTS = 2;
 /** Níveis em que abrem o 2.º super e a 2.ª passiva. */
 export const SUPER2_LEVEL = 8;
 export const PASSIVE2_LEVEL = 6;
