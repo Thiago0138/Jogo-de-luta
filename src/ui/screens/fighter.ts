@@ -147,6 +147,7 @@ function gear(body: HTMLElement): void {
   section('Move styles', styles, 'Visual effects for your moves (cosmetic only, same damage).');
   section('Crowd taunts', taunts, 'Your fighter plays to the crowd to charge the Super, picking one of these 2 each time.');
   section('Look', slots);
+  section('Arena', [{ label: 'Arena', kind: 'arena', id: L.arena }], 'Where your fights take place. Buy new arenas in the Shop.');
   section('Abilities', abil, 'Supers fire when your Super bar is full. Passives are always active.');
 }
 

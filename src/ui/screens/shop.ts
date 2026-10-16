@@ -18,6 +18,7 @@ const TABS: { id: string; name: string }[] = [
   { id: 'skins', name: `${ico('shirt')} Skins` },
   { id: 'moves', name: `${ico('moves')} Moves` },
   { id: 'entrances', name: `${ico('entrance')} Entrances` },
+  { id: 'arenas', name: `${ico('ring')} Arenas` },
   { id: 'abilities', name: `${ico('abilities')} Abilities` },
   { id: 'chests', name: `${ico('chest')} Chests` },
   { id: 'gems', name: `${ico('gem')} Gems` },
@@ -97,6 +98,10 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
     case 'entrances':
       body.appendChild(el('p', 'muted small', 'Make a grand entrance: dance moves, smoke, lasers, pyro and fireworks before every fight.'));
       body.appendChild(grid(shopItems(['entrance']).map((d) => ({ id: d.id, discount: 0 }))));
+      break;
+    case 'arenas':
+      body.appendChild(el('p', 'muted small', 'Take your fights somewhere new. Your equipped arena is where all your fights happen — tap one to watch a live fight in it.'));
+      body.appendChild(grid(shopItems(['arena']).map((d) => ({ id: d.id, discount: 0 }))));
       break;
     case 'abilities':
       body.appendChild(el('h3', 'sec', 'Super moves'));

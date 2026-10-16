@@ -162,5 +162,5 @@ export const STAT_ICONS: Record<string, string> = {
 /** Ícone genérico de cada tipo de item. */
 export const KIND_ICON: Record<string, string> = {
   hair: 'hair', hairColor: 'palette', outfit: 'shirt', gloves: 'glove', mask: 'fighter', aura: 'sparkle',
-  super: 'bolt', passive: 'abilities', entrance: 'entrance', move: 'moves', moveStyle: 'sparkle', taunt: 'crowd',
+  super: 'bolt', passive: 'abilities', entrance: 'entrance', move: 'moves', moveStyle: 'sparkle', taunt: 'crowd', arena: 'ring',
 };

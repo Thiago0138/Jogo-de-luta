@@ -8,6 +8,19 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.17.0',
+    date: '2026-10-16',
+    title: 'New arenas & epic VS screen',
+    items: [
+      'Brand-new VS screen: both fighters slam in on red and blue panels, a giant VS punches in with shockwaves, and each side shows league, level, TOTAL POWER, HP, wins and win rate, streak and the equipped Super, plus a power bar showing the favourite.',
+      '3 new paid arenas (Shop → Arenas): Pharaoh\'s Sands (desert at sunset with pyramids, sphinx, braziers and blowing sand), Neon Rooftop (a megacity rooftop at night with neon, rain and a police helicopter spotlight) and Sakura Temple (moonlit pagoda, torii gate, lanterns, fireflies and falling cherry blossoms).',
+      'Arenas are items: equip them in Fighter → Gear and every fight of yours happens there. Each one has a live preview in the menus.',
+      'Kings Arena upgraded: crown medallion mat, sweeping coloured spotlights, glowing corners, LED barricade and camera flashes.',
+      'Realistic ring bumps: a sharp canvas-and-plywood crack, a short body thud and the boards rattling, instead of a long drum-like boom.',
+      'Fixed: a fighter\'s leg could float in the air on the top rope. Both feet now stand on the rope.',
+    ],
+  },
+  {
     version: '1.16.0',
     date: '2026-10-16',
     title: 'Taunts you choose, faster fights',

@@ -432,3 +432,43 @@ export function drawForeground(ctx: CanvasRenderingContext2D, camX: number, t: n
 export function drawFloor(ctx: CanvasRenderingContext2D, t = 0): void {
   cur.floor(ctx, t);
 }
+
+// ───────────────────────── Pré-visualização estática ─────────────────────────
+
+const previews = new Map<string, HTMLCanvasElement>();
+
+/**
+ * Imagem estática de uma arena (ringue vazio com o fundo, luzes e ambiente), para miniaturas
+ * e cartões da loja. Fica em cache por tamanho.
+ */
+export function arenaPreview(id: string, W: number, H: number): HTMLCanvasElement {
+  const key = `${id}|${W}|${H}`;
+  const hit = previews.get(key);
+  if (hit) return hit;
+  const prevId = curId;
+  setArena(id);
+  cur.prepare();
+  const [c, ctx] = mk(W, H);
+  // miniaturas quadradas: aproxima e baixa o ringue para se ver mais do cenário
+  const square = W / H < 1.3;
+  const z = square ? H / 470 : Math.max(W / 1250, H / 560);
+  const floorY = H * (square ? 0.86 : 0.74);
+  const t = 2.3;
+  const hype = 0.55;
+  const horizon = floorY + BACK_Y * z;
+  const camB = (((cur.previewX ?? 1300) - 1300) * 0.95) / 0.45;
+  cur.backdrop(ctx, W, H, camB, z, horizon, t, hype, false);
+  ctx.fillStyle = cur.tint;
+  ctx.fillRect(0, 0, W, H);
+  ctx.save();
+  ctx.setTransform(z, 0, 0, z, W / 2, floorY);
+  const ropes = newRopes();
+  drawFloor(ctx, t);
+  drawRingBack(ctx, ropes, t, hype, false);
+  drawRingFront(ctx, ropes, t, hype, false);
+  ctx.restore();
+  cur.overlay?.(ctx, W, H, 0, z, t, hype, false);
+  setArena(prevId);
+  previews.set(key, c);
+  return c;
+}

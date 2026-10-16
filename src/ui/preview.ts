@@ -9,6 +9,7 @@ import { item } from '../data/items';
 import { RARITIES } from '../data/rarity';
 import { resolveLook } from '../render/look';
 import { specialThumb } from './thumbs';
+import { arenaPreview } from '../fight/arena';
 import { KIND_ICON, hasIcon, ico } from './icons';
 
 /**
@@ -218,6 +219,14 @@ const TS = 192;
 /** Miniatura de um item de aparência/equipamento, desenhada sobre o lutador do jogador. */
 export function itemThumb(id: string): HTMLElement {
   const d = item(id);
+  if (d.kind === 'arena') {
+    const c = document.createElement('canvas');
+    c.width = TS;
+    c.height = TS;
+    c.className = 'thumb thumb-arena';
+    c.getContext('2d')!.drawImage(arenaPreview(id, TS, TS), 0, 0);
+    return c;
+  }
   const visual = ['hair', 'hairColor', 'outfit', 'gloves', 'mask', 'aura'].includes(d.kind);
   if (!visual) {
     const art = specialThumb(id, TS);

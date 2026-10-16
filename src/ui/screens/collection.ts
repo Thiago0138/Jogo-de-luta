@@ -20,6 +20,7 @@ const FILTERS: { id: string; name: string; kinds: ItemKind[] }[] = [
   { id: 'move', name: 'Moves', kinds: ['move', 'moveStyle'] },
   { id: 'taunt', name: 'Taunts', kinds: ['taunt'] },
   { id: 'entrance', name: 'Entrances', kinds: ['entrance'] },
+  { id: 'arena', name: 'Arenas', kinds: ['arena'] },
 ];
 
 let onlyOwned = false;

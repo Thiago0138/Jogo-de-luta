@@ -366,6 +366,8 @@ export interface ArenaTheme {
   haze: string;
   pool: string;
   tint: string;
+  /** Centro (em x do fundo) a mostrar nas miniaturas. */
+  previewX?: number;
   /** Contraluz dos lutadores [equipa 0, equipa 1] (opcional). */
   rim?: [string, string];
 }
