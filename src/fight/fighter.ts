@@ -229,6 +229,8 @@ export class Fighter {
     this.noClamp = false;
     this.armor = false;
     this.glow = null;
+    // um script interrompido não pode deixar a mão "colada" (ex.: provocação a meio)
+    this.poseHook = null;
     this.override = null;
     this.ghost = false;
     this.wings = false;

@@ -3049,14 +3049,90 @@ export class Fight {
   private *taunt(f: Fighter): Script {
     f.tauntCd = 6;
     this.emit('taunt', f);
-    f.play('taunt');
-    f.setExpr('happy', 1.2);
     sfx.cheer(0.7);
-    this.pop(['THE CROWD GOES WILD!', 'COME ON!', 'LET\'S GO!', 'I\'M THE GREATEST!'][Math.floor(Math.random() * 4)], f.x, -260, '#ff7ae0', 22);
-    yield 0.5;
-    this.gainMeter(f, 16 * (1 + f.s.car * 0.025));
+    const pick = Math.floor(Math.random() * 7);
+    const say = (t: string, c = '#ff7ae0', size = 22) => this.pop(t, f.x, -260, c, size);
+    let meter = 16 * (1 + f.s.car * 0.025);
+    try {
+      switch (pick) {
+        case 0: {
+          // "six seven": as mãos sobem e descem alternadas
+          f.play('sixSeven');
+          f.setExpr('happy', 1.8);
+          say('SIX SEVEN!', '#ffd23d', 26);
+          yield 0.66;
+          this.pop('6', f.x - 40, -230, '#ffffff', 30);
+          yield 0.25;
+          this.pop('7', f.x + 40, -230, '#ffffff', 30);
+          yield 0.6;
+          break;
+        }
+        case 1: {
+          // a farmar aura: passa a mão pelo maxilar, queixo levantado, aura a crescer
+          f.play('auraFarm');
+          f.setExpr('power', 2.2);
+          const t0 = this.t;
+          f.glow = '#7ad7ff';
+          f.poseHook = (p) => {
+            const k = Math.min(1, Math.max(0, (this.t - t0 - 0.3) / 1.4));
+            if (k <= 0 || this.t - t0 > 1.95) return;
+            const [hx, hy] = headLocal(p);
+            // do queixo até ao ângulo do maxilar, duas vezes
+            const u = (k * 2) % 1;
+            const s2 = u * u * (3 - 2 * u);
+            const tx = hx + 16 - s2 * 20;
+            const ty = hy + 25 - s2 * 13;
+            armIK(p, true, tx, ty, Math.min(1, k * 6));
+          };
+          say('+1000 AURA', '#7ad7ff', 26);
+          for (let i = 0; i < 8; i++) {
+            this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 80, -60 - Math.random() * 160, 0, -60, 0.7, 10, '#bfefff', 0);
+            yield 0.2;
+          }
+          meter *= 1.15;
+          break;
+        }
+        case 2: {
+          f.play('earCup');
+          f.setExpr('happy', 1.4);
+          say("I CAN'T HEAR YOU!", '#ff7ae0', 22);
+          yield 0.7;
+          sfx.cheer(1.1);
+          this.addHype(0.08);
+          yield 0.6;
+          break;
+        }
+        case 3:
+          f.play('flex');
+          f.setExpr('power', 1.4);
+          say('LOOK AT THESE GUNS!', '#ff9a3d', 22);
+          yield 1.3;
+          break;
+        case 4:
+          f.play('belt');
+          f.setExpr('happy', 1.3);
+          say('I AM THE CHAMP!', '#ffd23d', 24);
+          yield 1.25;
+          break;
+        case 5:
+          f.play('point');
+          f.setExpr('happy', 1.3);
+          say(['THIS IS MY RING!', 'YOU ARE NEXT!', 'WATCH THIS!'][Math.floor(Math.random() * 3)], '#7af7ff', 22);
+          yield 1.2;
+          break;
+        default:
+          f.play('taunt');
+          f.setExpr('happy', 1.2);
+          say(['THE CROWD GOES WILD!', 'COME ON!', "LET'S GO!", "I'M THE GREATEST!"][Math.floor(Math.random() * 4)]);
+          yield 0.9;
+      }
+    } finally {
+      f.poseHook = null;
+      if (f.glow === '#7ad7ff') f.glow = null;
+    }
+    this.gainMeter(f, meter);
     this.addHype(0.12);
-    yield 0.4;
+    f.play('guard');
   }
 
   private *getUp(f: Fighter): Script {

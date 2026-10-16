@@ -51,6 +51,15 @@ const SLAM_DOWN = P({ lean: 0.7, head: 0.3, fa1: 1.3, fa2: 0.2, ba1: 1.2, ba2: 0
 
 const TAUNT1 = P({ lean: -0.12, head: -0.25, fa1: 2.4, fa2: 2.0, ba1: 2.3, ba2: 2.0 });
 const TAUNT2 = P({ lean: -0.18, head: -0.35, fa1: 2.6, fa2: 1.6, ba1: 2.5, ba2: 1.7, dy: -3 });
+// "six seven": mãos com as palmas para cima à altura da cintura, a subir e descer alternadas (como uma balança)
+const SIX_A = P({ lean: -0.04, head: -0.12, fa1: 0.62, fa2: 1.72, ba1: 0.22, ba2: 0.95, fl1: 0.28, bl1: -0.28, dy: 1 });
+const SIX_B = P({ lean: -0.04, head: 0.05, fa1: 0.22, fa2: 0.95, ba1: 0.62, ba2: 1.72, fl1: 0.28, bl1: -0.28, dy: 3 });
+// a farmar aura: queixo levantado, olhar de lado, postura relaxada (a mão no maxilar vai por poseHook)
+const AURA = P({ lean: -0.12, head: -0.32, fa1: 0.8, fa2: 2.4, ba1: 0.25, ba2: 0.35, fl1: 0.3, bl1: -0.3 });
+// mão em concha na orelha: "não vos oiço!"
+const EAR = P({ lean: -0.18, head: 0.2, fa1: 1.0, fa2: 2.6, ba1: 0.3, ba2: 0.5, fl1: 0.3, bl1: -0.3, dy: 2 });
+// tapar o cinto imaginário / apontar para a cintura: campeão
+const BELT = P({ lean: -0.1, head: -0.4, fa1: 0.55, fa2: 0.9, ba1: 0.5, ba2: 0.9, fl1: 0.4, bl1: -0.4, dy: -2 });
 const VICTORY = P({ lean: -0.1, head: -0.3, fa1: 2.95, fa2: 0.15, ba1: 2.8, ba2: 0.2, fl1: 0.2, bl1: -0.2 });
 const VICTORY2 = P({ lean: -0.15, head: -0.35, fa1: 2.75, fa2: 0.5, ba1: 3.0, ba2: 0.1, fl1: 0.25, bl1: -0.2, dy: -4 });
 
@@ -185,6 +194,10 @@ export const ANIMS = {
   slam: A([[0, LIFT], [0.18, SLAM_DOWN, easeIn2()], [0.6, SLAM_DOWN], [0.9, GUARD]]),
   archUp: A([[0, ARCH], [0.4, KNEEL], [0.7, GUARD]]),
   taunt: A([[0, GUARD], [0.2, TAUNT1], [0.45, TAUNT2], [0.7, TAUNT1], [0.95, TAUNT2], [1.25, GUARD]]),
+  sixSeven: A([[0, GUARD], [0.18, SIX_A], [0.42, SIX_B], [0.66, SIX_A], [0.9, SIX_B], [1.14, SIX_A], [1.38, SIX_B], [1.62, GUARD]]),
+  auraFarm: A([[0, GUARD], [0.3, AURA, easeOut], [1.9, AURA], [2.2, GUARD]]),
+  earCup: A([[0, GUARD], [0.25, EAR, easeOut], [0.7, P({ ...EAR, lean: -0.25, head: 0.28 })], [1.1, EAR], [1.4, GUARD]]),
+  belt: A([[0, GUARD], [0.25, BELT, easeOut], [0.6, P({ ...BELT, dy: -5, head: -0.5 })], [1.0, BELT], [1.3, GUARD]]),
   victory: A([[0, VICTORY], [0.5, VICTORY2], [1.0, VICTORY]], true),
   charge: A([[0, GUARD], [0.2, CHARGE, snap], [10, CHARGE]]),
   haymakerW: A([[0, CHARGE], [0.12, HAYMAKER_W], [10, HAYMAKER_W]]),

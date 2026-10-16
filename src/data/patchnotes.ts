@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.15.0',
+    date: '2026-10-16',
+    title: 'Aura farming',
+    items: [
+      'Crowd taunts are no longer always the same: fighters now pick from 7 different ones to charge their Super.',
+      'New: "SIX SEVEN!" — palms up, hands bouncing up and down like a scale.',
+      'New: aura farming — chin up, hand sliding along the jawline, a blue aura rising and "+1000 AURA" (charges a bit more Super).',
+      'Also new: "I can\'t hear you!" with a hand cupped to the ear, the champion belt pose, flexing the guns and pointing at the crowd.',
+    ],
+  },
+  {
     version: '1.14.1',
     date: '2026-10-16',
     title: 'Collection layout fix',
