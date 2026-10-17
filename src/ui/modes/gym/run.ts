@@ -1,7 +1,7 @@
 import { sfx } from '../../../audio/sfx';
 import { STATS } from '../../../data/stats';
 import { S } from '../../../core/state';
-import { EXTRA_GEMS, STATION, energy, finishSession, spendSession, type SessionResult, type StationId } from '../../../core/gymStore';
+import { EXTRA_GEMS, STATION, energy, finishSession, refundSession, spendSession, type SessionResult, type StationId } from '../../../core/gymStore';
 import { el, fmt } from '../../dom';
 import { ico } from '../../icons';
 import { makeGame, type MiniGame } from './games';
@@ -15,11 +15,11 @@ const COUNT = 2.6;
  * Corre um mini-jogo num ecrã inteiro por cima da app.
  * A sessão já deve ter sido paga (energia/gemas) antes de chamar.
  */
-export function runStation(id: StationId, onClose: () => void): void {
+export function runStation(id: StationId, paidGems: boolean, onClose: () => void): void {
   const def = STATION[id];
   const ov = el('div', 'gym-play');
   const cv = el('canvas', 'gp-canvas');
-  const quit = el('button', 'gp-quit', `${ico('check')}<span>Finish</span>`);
+  const quit = el('button', 'gp-quit', `${ico('close')}<span>End</span>`);
   quit.setAttribute('aria-label', 'Finish now');
   ov.append(cv, quit);
   document.body.appendChild(ov);
@@ -69,10 +69,10 @@ export function runStation(id: StationId, onClose: () => void): void {
   quit.onclick = () => {
     sfx.click();
     if (phase === 'count') {
-      // ainda não começou: acaba já sem pontos
-      game.t = game.dur;
-      phase = 'end';
-      pt = 0.6;
+      // ainda não começou: devolve a sessão e sai
+      phase = 'done';
+      refundSession(paidGems);
+      close();
     } else if (phase === 'play') {
       phase = 'end';
       pt = 0;
@@ -202,7 +202,7 @@ export function runStation(id: StationId, onClose: () => void): void {
     if (!spendSession(!free)) return;
     ov.remove();
     ro.disconnect();
-    runStation(id, onClose);
+    runStation(id, !free, onClose);
   }
 }
 

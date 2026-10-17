@@ -18,7 +18,7 @@ export interface StationDef {
 export const STATIONS: StationDef[] = [
   { id: 'bag', name: 'Heavy Bag', stat: 'for', icon: 'fist', how: 'Tap when the marker hits the gold zone.', grades: [2600, 1800, 1000] },
   { id: 'speed', name: 'Speed Bag', stat: 'vel', icon: 'speed', how: 'Tap when the ring closes on the bag. Keep the rhythm!', grades: [5200, 3600, 2000] },
-  { id: 'press', name: 'Power Press', stat: 'res', icon: 'stamina', how: 'Hold to power up, release in the green zone.', grades: [2600, 1800, 1000] },
+  { id: 'press', name: 'Power Press', stat: 'res', icon: 'stamina', how: 'Hold to power up, release in the green zone.', grades: [2300, 1600, 900] },
   { id: 'reflex', name: 'Reflex Pads', stat: 'esq', icon: 'dodge', how: 'Tap the side a pad comes from when it reaches the ring.', grades: [5600, 3800, 2100] },
 ];
 
@@ -34,6 +34,8 @@ export const GRADE_XP: Record<Grade, number> = { S: 45, A: 32, B: 22, C: 12 };
 export const GRADE_COINS: Record<Grade, number> = { S: 120, A: 80, B: 50, C: 25 };
 /** A cada N sessões completas ganha-se 1 ponto de atributo. */
 export const POINT_EVERY = 8;
+/** Abaixo disto a sessão não dá recompensas (desistiu logo). */
+export const MIN_SCORE = 200;
 
 export interface GymData {
   v: 1;
@@ -144,6 +146,18 @@ export function liveStreak(): number {
   return 0;
 }
 
+/** Devolve uma sessão paga que não chegou a começar. */
+export function refundSession(gems: boolean): void {
+  if (gems) {
+    S.gems += EXTRA_GEMS;
+    commit();
+  } else {
+    tickEnergy();
+    G.energy = Math.min(ENERGY_MAX, G.energy + 1);
+    saveGym();
+  }
+}
+
 export function trainedToday(): boolean {
   return G.lastDay === dayKey();
 }
@@ -186,11 +200,13 @@ export function finishSession(st: StationId, score: number): SessionResult {
   const pg = G.bestGrade[st];
   if (!pg || order.indexOf(grade) > order.indexOf(pg)) G.bestGrade[st] = grade;
   G.plays[st] = (G.plays[st] ?? 0) + 1;
+  // sessão "vazia" (desistiu logo): não conta para nada
+  const real = score >= MIN_SCORE;
 
   // sequência diária
   const t = dayKey();
   let streakUp = false;
-  if (G.lastDay !== t) {
+  if (real && G.lastDay !== t) {
     G.streak = G.lastDay === yesterday() ? G.streak + 1 : 1;
     G.lastDay = t;
     streakUp = true;
@@ -200,16 +216,18 @@ export function finishSession(st: StationId, score: number): SessionResult {
     G.today = t;
     G.todayCount = 0;
   }
-  G.todayCount++;
-  G.sessions++;
+  if (real) {
+    G.todayCount++;
+    G.sessions++;
+  }
 
   const streakBonus = Math.min(0.5, Math.max(0, G.streak - 1) * 0.1);
-  let coins = Math.round(GRADE_COINS[grade] * (1 + streakBonus)) + (newBest && prevBest > 0 ? 50 : 0);
-  let gems = streakUp && G.streak > 0 && G.streak % 7 === 0 ? 10 : 0;
+  let coins = real ? Math.round(GRADE_COINS[grade] * (1 + streakBonus)) + (newBest && prevBest > 0 ? 50 : 0) : 0;
+  const gems = streakUp && G.streak > 0 && G.streak % 7 === 0 ? 10 : 0;
 
   // XP de treino → atributo
   const stat = def.stat;
-  const xpGain = GRADE_XP[grade];
+  const xpGain = real ? GRADE_XP[grade] : 0;
   const xpFrom = G.txp[stat] ?? 0;
   let x = xpFrom + xpGain;
   let statUps = 0;
@@ -224,7 +242,7 @@ export function finishSession(st: StationId, score: number): SessionResult {
   }
   G.txp[stat] = x;
 
-  const statPoint = G.sessions % POINT_EVERY === 0;
+  const statPoint = real && G.sessions % POINT_EVERY === 0;
   if (statPoint) S.statPoints++;
 
   S.coins += coins;

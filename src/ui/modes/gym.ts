@@ -118,7 +118,7 @@ export function renderGym(page: HTMLElement, sub?: string): void {
     if (!spendSession(!free)) return;
     sfx.click();
     fillEnergy();
-    runStation(selected, () => render());
+    runStation(selected, !free, () => render());
   }
 
   fillDetail();
