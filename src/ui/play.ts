@@ -220,3 +220,67 @@ function showLevelUp(lu: LevelUp): void {
     },
   ], 'levelup');
 }
+
+// ───────────────────────── Combates personalizados (modos: Carreira, …) ─────────────────────────
+
+export interface CustomMatch {
+  /** Modo do motor (por defeito 'solo'; 'champion' para chefes). */
+  mode?: Mode;
+  teams: [FighterSpec[], FighterSpec[]];
+  /** Título do ecrã VS (HTML). Por defeito o do modo. */
+  title?: string;
+  /** Distintivo (HTML) a mostrar no cartão do adversário no ecrã VS, em vez da liga. */
+  badge?: string;
+  /** Arena forçada (id do item). */
+  arena?: string;
+  /** Conta para as estatísticas/missões e avisa os outros modos (por defeito sim). */
+  track?: boolean;
+  onResult: (won: boolean, report: FightReport) => void;
+}
+
+/**
+ * Combate com regras próprias: usa o mesmo ecrã VS e a mesma cena de luta, mas em vez do
+ * ecrã de resultados normal (troféus, série…) entrega o relatório a `onResult`.
+ */
+export function startCustomMatch(m: CustomMatch): void {
+  if (busy) return;
+  busy = true;
+  unlockAudio();
+  sfx.click();
+  const mode = m.mode ?? 'solo';
+  versus(mode, m.teams, () => {
+    const holder = el('div', 'fight-layer');
+    document.body.appendChild(holder);
+    const scene = new FightScene(holder, { mode, teams: m.teams, arena: m.arena }, {
+      speed: S.settings.speed,
+      quality: S.settings.quality,
+      onSpeed: (s) => {
+        S.settings.speed = s;
+        commit();
+      },
+      onEnd: (r) => {
+        scene.destroy();
+        holder.remove();
+        busy = false;
+        if (m.track !== false) {
+          applyTally(r.tally);
+          commit();
+          emitFightEnd({ mode, won: r.won, report: r });
+        }
+        m.onResult(r.won, r);
+      },
+    });
+  });
+  const vs = document.querySelectorAll('.versus');
+  const root = vs[vs.length - 1] as HTMLElement | undefined;
+  if (root && m.title) (root.querySelector('.vs-title') as HTMLElement).innerHTML = m.title;
+  if (root && m.badge) {
+    const rank = root.querySelector('.vs-side.r .vs-rank') as HTMLElement | null;
+    if (rank) rank.outerHTML = m.badge;
+  }
+}
+
+/** Modal de subida de nível (reutilizável pelos modos). */
+export function showLevelUpModal(lu: LevelUp): void {
+  showLevelUp(lu);
+}
