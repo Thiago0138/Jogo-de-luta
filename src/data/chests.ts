@@ -26,13 +26,13 @@ export const CHESTS: Record<ChestId, ChestDef> = {
     id: 'bronze', name: 'Bronze Chest', body: '#8a4e22', trim: '#cd8a4a', glow: '#ffb070',
     rolls: 2, coins: [60, 140], gems: [0, 0],
     weights: { comum: 75, incomum: 21, raro: 3.5, epico: 0.5 },
-    coinPrice: 400, desc: '2 rewards · coins',
+    coinPrice: 1500, desc: '2 rewards · coins',
   },
   prata: {
     id: 'prata', name: 'Silver Chest', body: '#5a6576', trim: '#d9e2ee', glow: '#cfe6ff',
     rolls: 3, coins: [150, 300], gems: [0, 3],
     weights: { comum: 52, incomum: 34, raro: 11, epico: 2.6, lendario: 0.4 },
-    guaranteed: 'incomum', coinPrice: 1200, desc: '3 rewards · Uncommon guaranteed',
+    guaranteed: 'incomum', coinPrice: 4500, desc: '3 rewards · Uncommon guaranteed',
   },
   ouro: {
     id: 'ouro', name: 'Gold Chest', body: '#b07a00', trim: '#ffe27a', glow: '#ffd23d',
