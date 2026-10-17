@@ -1268,7 +1268,6 @@ function panelScratch(body: HTMLElement, refresh: () => void): void {
       const y = Math.floor(ci / 3) * ch;
       fctx.save();
       fctx.globalCompositeOperation = 'destination-out';
-      fctx.globalAlpha = 0.85;
       fctx.beginPath();
       fctx.roundRect(x + 3, y + 3, cw - 6, ch - 6, 8);
       fctx.fill();

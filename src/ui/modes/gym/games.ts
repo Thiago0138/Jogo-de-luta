@@ -169,11 +169,11 @@ export class HeavyBagGame extends MiniGame {
       at: lead,
       fn: () => {
         const p = v === 'perfect';
-        this.angV += p ? 2.6 : 1.4;
+        this.angV += p ? 1.25 : 0.7;
         this.squash = 1;
         this.hitGlow = p ? 1 : 0.5;
         sfx.punch(p ? 1 : 0.6, true);
-        const bx = this.bagX - 26 * this.sc + this.ang * 160 * this.sc;
+        const bx = this.bagX - 26 * this.sc + this.ang * 120 * this.sc;
         this.fx.kick(p ? 9 : 4, p ? 0.6 : 0, '#fff');
         this.fx.burst(bx, hy, p ? 14 : 7, p ? '#ffd23d' : '#ffffff', p ? 320 : 200, 'spark', 0, 3);
         this.fx.spray(bx, hy, p ? 8 : 4, Math.PI + 0.4, 'rgba(180,220,255,0.9)', 240);
@@ -255,7 +255,7 @@ export class SpeedBagGame extends MiniGame {
   protected layout(): void {
     this.fx0 = this.W * 0.4;
     this.br = 15 * this.sc;
-    this.bx = this.fx0 + 78 * this.sc;
+    this.bx = this.fx0 + 86 * this.sc;
     this.by = this.floorY - 175 * this.sc - this.br * 0.3;
   }
 
@@ -274,7 +274,7 @@ export class SpeedBagGame extends MiniGame {
       for (const b of this.beats) {
         if (!b.done && this.t - b.at > 0.16) {
           b.done = true;
-          this.judge('miss', 0, this.bx, this.by - 50);
+          this.judge('miss', 0, this.bx + 90 * this.sc, this.by + 10);
         }
       }
       this.beats = this.beats.filter((b) => !b.done || this.t - b.at < 0.3);
@@ -294,7 +294,7 @@ export class SpeedBagGame extends MiniGame {
     const d = best ? Math.abs(best.at - this.t) : 9;
     if (!best || d > 0.24) {
       this.rig.play('jab', 0.1);
-      this.judge('miss', 0, this.bx, this.by - 50, 'EARLY');
+      this.judge('miss', 0, this.bx + 90 * this.sc, this.by + 10, 'EARLY');
       return;
     }
     best.done = true;
@@ -313,7 +313,7 @@ export class SpeedBagGame extends MiniGame {
         this.fx.kick(3);
       }
     }
-    this.judge(v, v === 'perfect' ? 100 : v === 'good' ? 50 : 0, this.bx, this.by - 50);
+    this.judge(v, v === 'perfect' ? 100 : v === 'good' ? 50 : 0, this.bx + 90 * this.sc, this.by + 10);
   }
 
   draw(ctx: CanvasRenderingContext2D, now: number): void {

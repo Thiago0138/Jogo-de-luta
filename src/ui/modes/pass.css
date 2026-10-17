@@ -778,6 +778,20 @@
   }
 }
 @media (max-width: 720px) {
+  .fp-seg button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+  .fp-seg button > .ic {
+    display: none;
+  }
+  .fp-acts {
+    gap: 5px;
+  }
+  .fp-acts .btn {
+    padding: 0 8px;
+    font-size: 13px;
+  }
   .fp-season {
     font-size: 10.5px;
   }
@@ -786,5 +800,49 @@
   }
   .fp-lvl {
     min-width: 150px;
+  }
+}
+
+.fp-reveal.many .fp-rv-hero .fp-art {
+  width: 96px;
+  height: 96px;
+}
+.fp-reveal.many .fp-rv-hero .fp-art .thumb {
+  max-height: 96px;
+}
+.fp-reveal.many .fp-rv-name b {
+  font-size: 20px;
+}
+.fp-reveal.many .fp-rv-tap {
+  display: none;
+}
+.fp-reveal.many .fp-card.mini {
+  --colw: 62px;
+  height: 62px;
+}
+.fp-reveal.many .fp-card.mini .fp-lbl {
+  font-size: 9.5px;
+}
+.fp-reveal.many .fp-rv-title {
+  font-size: 22px;
+}
+.fp-reveal.many .fp-rv-box {
+  gap: 5px;
+}
+.fp-rv-ok {
+  position: sticky;
+  bottom: 0;
+  flex: none;
+}
+
+@media (max-height: 400px) {
+  .fp-card {
+    height: 78px;
+  }
+  .fp-bonus-h {
+    height: 78px;
+  }
+  .fp-head {
+    margin-bottom: 6px;
   }
 }

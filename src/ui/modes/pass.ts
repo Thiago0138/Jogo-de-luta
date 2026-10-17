@@ -45,7 +45,7 @@ function rewardName(r: PassReward): string {
     case 'stat':
       return `${r.n} Stat point${r.n > 1 ? 's' : ''}`;
     case 'chest':
-      return CHESTS[r.id].name;
+      return `${r.n > 1 ? `${r.n}× ` : ''}${CHESTS[r.id].name}`;
     case 'item':
       return ITEMS[r.id]?.name ?? 'Item';
   }
@@ -60,7 +60,7 @@ function shortLabel(r: PassReward): string {
     case 'stat':
       return `+${r.n} Stat`;
     case 'chest':
-      return CHESTS[r.id].name.replace(' Chest', '');
+      return `${r.n > 1 ? `${r.n}× ` : ''}${CHESTS[r.id].name.replace(' Chest', '')}`;
     case 'item':
       return ITEMS[r.id]?.name ?? '';
   }
@@ -195,7 +195,7 @@ function renderTrack(page: HTMLElement, tier: number): void {
   const bn = bonusAvailable();
   const bcard = el('button', `fp-card r-incomum bonus ${bn ? 'claim' : tier >= TIERS ? '' : 'future'}`);
   bcard.appendChild(rewardArt(BONUS_REWARD));
-  bcard.appendChild(el('div', 'fp-lbl', bn ? `×${bn} ready` : 'Every 1,000 XP'));
+  bcard.appendChild(el('div', 'fp-lbl', bn ? `×${bn} ready` : 'Repeatable'));
   bcard.onclick = () => {
     if (bonusAvailable()) {
       const c = claimBonus();
@@ -370,7 +370,7 @@ function reveal(list: Claimed[]): void {
   const rar = hero ? rewardRarity(hero.reward) : rewardRarity(best.reward);
   const col = rar === 'celestial' ? '#7af7ff' : RARITIES[rar].color;
 
-  const root = el('div', `fp-reveal r-${rar}`);
+  const root = el('div', `fp-reveal r-${rar} ${list.length > 7 ? 'many' : ''}`);
   root.style.setProperty('--rc', col);
   root.innerHTML = `<div class="fp-rays"></div><div class="fp-rv-box"></div>`;
   const box = root.querySelector('.fp-rv-box') as HTMLElement;
@@ -389,7 +389,7 @@ function reveal(list: Claimed[]): void {
     }
     box.appendChild(h);
   }
-  const rest = list.filter((c) => c !== hero);
+  const rest = merge(list.filter((c) => c !== hero));
   if (rest.length) {
     const strip = el('div', 'fp-rv-strip');
     rest.forEach((c, i) => {
@@ -423,6 +423,26 @@ function reveal(list: Claimed[]): void {
   root.onclick = (e) => {
     if (e.target === root) close();
   };
+}
+
+/** Junta recompensas iguais (moedas, gemas, XP, pontos, baús do mesmo tipo) para o resumo. */
+function merge(list: Claimed[]): Claimed[] {
+  if (list.length <= 7) return list;
+  const out: Claimed[] = [];
+  const acc = new Map<string, Claimed>();
+  for (const c of list) {
+    const r = c.reward;
+    if (r.kind === 'item') {
+      out.push(c);
+      continue;
+    }
+    const key = r.kind === 'chest' ? `chest:${r.id}` : r.kind;
+    const prev = acc.get(key);
+    if (prev) (prev.reward as { n: number }).n += r.n;
+    else acc.set(key, { ...c, reward: { ...r } as PassReward });
+  }
+  const order = ['chest:mitico', 'chest:lendario', 'chest:ouro', 'chest:prata', 'chest:bronze', 'gems', 'coins', 'stat', 'xp'];
+  return [...out, ...[...acc.entries()].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0])).map((e) => e[1])];
 }
 
 /** Número para o "badge" de notificação deste modo (0 = nada por fazer). */

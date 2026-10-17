@@ -9,7 +9,7 @@ import { S } from '../../core/state';
 import { CHESTS, type ChestId } from '../../data/chests';
 import { ITEMS } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
-import { powerRating } from '../../data/stats';
+import { maxHp, powerRating } from '../../data/stats';
 import { playerSpec } from '../../core/opponents';
 import { sfx } from '../../audio/sfx';
 import { go, render, rememberSub } from '../app';
@@ -22,13 +22,19 @@ import { chestSvg } from '../screens/home';
 
 /** Posições (em %) dos 8 nós no mapa de um capítulo: uma estrada em onda. */
 const NODE_POS: [number, number][] = [
-  [7, 70], [19, 32], [31, 68], [43, 30], [55, 66], [67, 30], [78.5, 64], [90.5, 38],
+  [7, 74], [19, 40], [31, 74], [43, 40], [55, 72], [67, 40], [78.5, 70], [90.5, 46],
 ];
 
 const STAR = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.8l3.1 6.5 7.1.9-5.2 4.9 1.3 7.1L12 17.8 5.7 21.2 7 14.1 1.8 9.2l7.1-.9z"/></svg>`;
 
+function bits(m: number): number {
+  return (m & 1) + ((m >> 1) & 1) + ((m >> 2) & 1);
+}
+
+/** Estrelas acesas por contagem (as condições cumpridas aparecem na ficha). */
 function starRow(mask: number, cls = ''): string {
-  return `<span class="ca-stars ${cls}">${[0, 1, 2].map((k) => `<i class="${mask & (1 << k) ? 'on' : ''}">${STAR}</i>`).join('')}</span>`;
+  const n = bits(mask);
+  return `<span class="ca-stars ${cls}">${[0, 1, 2].map((k) => `<i class="${k < n ? 'on' : ''}">${STAR}</i>`).join('')}</span>`;
 }
 
 function chestArt(id: ChestId): string {
@@ -270,14 +276,14 @@ function openStage(st: StageDef): void {
     <div class="ca-st-right">
       ${st.boss ? `<p class="ca-quote">“${esc(ch.boss.quote)}”</p>` : ''}
       <div class="ca-pow">
-        <span class="me">${ico('bolt')}${fmt(myPow)}<small>You</small></span>
+        <span class="me"><b>${ico('bolt')}${fmt(myPow)}</b><small>You</small></span>
         <span class="ca-pow-bar" style="--share:${ratio}"><i></i><em class="d-${diff[0]}">${diff[1]}</em></span>
-        <span class="op">${ico('bolt')}${fmt(opPow)}<small>Rival</small></span>
+        <span class="op"><b>${ico('bolt')}${fmt(opPow)}</b><small>Rival</small></span>
       </div>
       <div class="ca-gear">
         ${sup ? `<span style="--rc:${RARITIES[sup.rarity].color}">${ico('bolt')}${esc(sup.name)}</span>` : ''}
         ${pas ? `<span style="--rc:${RARITIES[pas.rarity].color}">${ico('abilities')}${esc(pas.name)}</span>` : ''}
-        <span>${ico('heart')}HP ×${(opp.hpMul ?? 1).toFixed(2)}</span>
+        <span>${ico('heart')}${fmt(maxHp(opp.level, opp.stats.vit) * (opp.hpMul ?? 1))} HP</span>
       </div>
       <ul class="ca-goals">
         ${st.stars.map((c, k) => `<li class="${mask & (1 << k) ? 'done' : ''}"><i>${STAR}</i><span>${esc(c.text)}</span>${mask & (1 << k) ? ico('check') : ''}</li>`).join('')}
@@ -285,7 +291,7 @@ function openStage(st: StageDef): void {
       <div class="ca-rw">
         <span class="ca-rw-lab">${first ? 'First win' : 'Replay'}</span>
         <span>${ico('coin')}<b>${fmt(coins)}</b></span>
-        <span>${ico('xp')}<b>${fmt(xp)}</b></span>
+        <span>${ico('xp')}<b>${fmt(xp)}</b><small>XP</small></span>
         <span>${ico('gem')}<b>${fc.gemsPerStar}</b><small>/new ${'★'}</small></span>
         ${st.boss && first ? `<span class="ca-rw-chest">${chestArt(ch.reward.chest)}<b>+${ch.reward.items.length} item${ch.reward.items.length > 1 ? 's' : ''}</b></span>` : ''}
       </div>
@@ -341,11 +347,11 @@ function showResult(res: StageResult): void {
   box.innerHTML = `
     <div class="ca-res-burst"></div>
     <div class="ca-res-head"><small>${st.boss ? esc(ch.boss.name) : `Stage ${ch.n}-${st.i + 1}`} · ${esc(ch.name)}</small><h1>${head}</h1></div>
-    <div class="ca-res-stars">${[0, 1, 2].map((k) => `<i class="s${k} ${res.before & (1 << k) ? 'had' : ''}">${STAR}</i>`).join('')}</div>
+    <div class="ca-res-stars">${[0, 1, 2].map((k) => `<i class="s${k} ${k < bits(res.before) ? 'had' : ''}">${STAR}</i>`).join('')}</div>
     <ul class="ca-goals mini">${st.stars.map((c, k) => `<li class="${res.got & (1 << k) ? 'done' : res.before & (1 << k) ? 'had' : ''}"><i>${STAR}</i><span>${esc(c.text)}</span></li>`).join('')}</ul>
     <div class="ca-res-rw">
       <span>${ico('coin')}<b class="rc">0</b></span>
-      <span>${ico('xp')}<b>+${fmt(res.xp)}</b></span>
+      <span>${ico('xp')}<b>+${fmt(res.xp)}</b><small>XP</small></span>
       ${res.gems ? `<span>${ico('gem')}<b>+${fmt(res.gems)}</b></span>` : ''}
       ${res.newStars ? `<span class="ns">${STAR}<b>+${res.newStars}</b></span>` : ''}
     </div>
@@ -382,10 +388,11 @@ function showResult(res: StageResult): void {
   // animação das estrelas
   const starEls = [...box.querySelectorAll<HTMLElement>('.ca-res-stars i')];
   let delay = 450;
+  const nb = bits(res.before);
+  const na = bits(res.after);
   starEls.forEach((s, k) => {
-    const earned = res.after & (1 << k);
-    if (!earned) return;
-    const isNew = !(res.before & (1 << k));
+    if (k >= na) return;
+    const isNew = k >= nb;
     setTimeout(() => {
       s.classList.add('on');
       if (isNew) s.classList.add('new');
