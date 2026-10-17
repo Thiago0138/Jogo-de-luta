@@ -378,7 +378,7 @@ export class SpeedBagGame extends MiniGame {
 // ───────────────────────── 3. Prensa (levantamento) ─────────────────────────
 
 const cam = new Cam();
-const YAW = 1.3;
+const YAW = 1.12;
 
 export class PressGame extends MiniGame {
   readonly id = 'press' as const;
@@ -427,7 +427,7 @@ export class PressGame extends MiniGame {
   }
 
   private rate(): number {
-    return 0.45 + Math.min(this.reps, 18) * 0.035 + this.prog * 0.2;
+    return 0.62 + Math.min(this.reps, 18) * 0.035 + this.prog * 0.2;
   }
 
   update(dt: number, now: number): void {

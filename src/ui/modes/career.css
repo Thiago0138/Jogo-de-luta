@@ -698,32 +698,6 @@
 .ca-nav.locked {
   opacity: 0.35;
 }
-.ca-lockveil {
-  position: absolute;
-  inset: 54px 0 48px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  background: rgba(10, 5, 20, 0.55);
-  backdrop-filter: blur(2px);
-  text-align: center;
-}
-.ca-lockveil .ic {
-  font-size: 34px;
-}
-.ca-lockveil b {
-  font-family: var(--display);
-  font-weight: 400;
-  font-size: 22px;
-}
-.ca-lockveil span {
-  font-size: 12px;
-  color: var(--muted);
-}
-
 /* ───────────── popups ───────────── */
 .ca-pop {
   position: fixed;

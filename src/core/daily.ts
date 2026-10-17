@@ -436,7 +436,7 @@ export function claimBonus(): PrizeResult | null {
 
 export const HOT_MILESTONES: { at: number; prize: Prize; label: string }[] = [
   { at: 2, prize: { spins: 1 }, label: '+1 Spin' },
-  { at: 4, prize: { scratches: 1, gems: 5 }, label: 'Card + 5 Gems' },
+  { at: 4, prize: { scratches: 1, gems: 5 }, label: 'Card + Gems' },
   { at: 6, prize: { chest: 'prata' }, label: 'Silver Chest' },
   { at: 10, prize: { chest: 'ouro', gems: 10 }, label: 'Gold Chest' },
 ];
@@ -535,5 +535,7 @@ onFightEnd((e) => {
   }
   saveDaily();
   commit();
-  if (earnCb) for (const m of msgs) earnCb(m);
+  if (!earnCb || !msgs.length) return;
+  if (msgs.length <= 2) for (const m of msgs) earnCb(m);
+  else earnCb(`DAILY: ${msgs.length} new rewards ready — open the Daily hub!`);
 });

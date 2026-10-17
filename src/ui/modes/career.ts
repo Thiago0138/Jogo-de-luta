@@ -213,10 +213,6 @@ function drawMap(wrap: HTMLElement, ci: number): void {
     const th = e.querySelector('.ca-thumb') as HTMLElement;
     th.appendChild(itemThumb(e.dataset.id!));
   });
-  if (!chapterUnlocked(ci)) {
-    const lock = el('div', 'ca-lockveil', `${ico('lock')}<b>Chapter locked</b><span>Beat ${esc(CHAPTERS[ci - 1]?.boss.name ?? '')} to unlock</span>`);
-    wrap.querySelector('.ca-map')!.appendChild(lock);
-  }
 }
 
 // ───────────────────────── Ficha da etapa ─────────────────────────

@@ -320,7 +320,7 @@ export function renderDaily(page: HTMLElement, sub?: string): void {
   page.innerHTML = '';
   page.classList.add('dl-page');
   const top = el('div', 'dl-top');
-  top.innerHTML = `<h1 class="dl-title">${ico('gift')} Daily</h1><div class="seg dl-seg"></div><span class="dl-reset">${ico('clock')} <b data-cd="mid"></b></span>`;
+  top.innerHTML = `<h1 class="dl-title">${ico('gift')} Daily</h1><div class="seg dl-seg"></div><span class="dl-reset">${ico('clock')} New day in <b data-cd="mid"></b></span>`;
   page.appendChild(top);
   const seg = top.querySelector('.seg') as HTMLElement;
   const body = el('div', 'dl-body');
@@ -344,7 +344,7 @@ export function renderDaily(page: HTMLElement, sub?: string): void {
   };
   const drawBody = () => {
     body.innerHTML = '';
-    body.className = `dl-body dl-${cur}`;
+    body.className = `dl-body dl-p-${cur}`;
     const refresh = () => {
       if (!page.isConnected) return;
       drawTabs();
@@ -373,12 +373,16 @@ export function renderDaily(page: HTMLElement, sub?: string): void {
   drawBody();
 
   // one timer for all countdowns on the page
+  let lastMid = msToMidnight();
   const timer = setInterval(() => {
     if (!page.isConnected) {
       clearInterval(timer);
       return;
     }
-    if (tickTimers(page) && !spinning && !page.querySelector('.dl-scratching')) {
+    const m = msToMidnight();
+    const newDay = m > lastMid + 1000;
+    lastMid = m;
+    if ((tickTimers(page) || newDay) && !spinning && !page.querySelector('.dl-scratching')) {
       drawTabs();
       drawBody();
     }
@@ -395,7 +399,7 @@ function tickTimers(page: HTMLElement): boolean {
       expired = true;
       e.dataset.live = '0';
     }
-    e.textContent = k === 'mid' ? `New day in ${dur(ms)}` : dur(ms);
+    e.textContent = dur(ms);
   });
   return expired;
 }
@@ -1032,6 +1036,7 @@ function panelWheel(body: HTMLElement, refresh: () => void, drawTabs: () => void
     side.innerHTML = `
       <h2 class="dl-h2">Lucky Wheel</h2>
       <p class="dl-status">${free ? `<b class="ok">Free spin ready!</b>` : `Free spin in <b data-cd="mid"></b>`}${D.wheel.bank ? ` · <b>${D.wheel.bank}</b> bonus spin${D.wheel.bank > 1 ? 's' : ''}` : ''}</p>
+      <div class="dl-tops"><span class="dl-jack">${ico('crown')} JACKPOT: Legendary item + 50 Gems</span>${chips(WHEEL.find((w) => w.id === 'prata')!.prize)}${chips({ coins: 600 })}${chips({ gems: 15 })}</div>
       <div class="dl-actions"></div>
       <div class="dl-charge"><span>${ico('glove')} Win ${SPIN_CHARGE} fights → +1 spin</span>${pips(D.spinCharge, SPIN_CHARGE)}</div>`;
     const act = side.querySelector('.dl-actions') as HTMLElement;
@@ -1045,7 +1050,7 @@ function panelWheel(body: HTMLElement, refresh: () => void, drawTabs: () => void
       b.onclick = () => go(true);
       act.appendChild(b);
     }
-    const odds = el('button', 'btn btn-ghost sm', `${ico('info')} Odds`);
+    const odds = el('button', 'btn btn-ghost sm', `${ico('info')}<span class="dl-hn-txt"> Odds</span>`);
     odds.onclick = () => {
       sfx.click();
       oddsModal(
@@ -1147,7 +1152,7 @@ function panelScratch(body: HTMLElement, refresh: () => void): void {
     <div class="dl-actions"></div>
     <div class="dl-charge"><span>${ico('glove')} Win ${SCRATCH_CHARGE} fights → +1 card</span>${pips(D.scratchCharge, SCRATCH_CHARGE)}</div>`;
   const act = side.querySelector('.dl-actions') as HTMLElement;
-  const odds = el('button', 'btn btn-ghost sm', `${ico('info')} Odds`);
+  const odds = el('button', 'btn btn-ghost sm', `${ico('info')}<span class="dl-hn-txt"> Odds</span>`);
   odds.onclick = () => {
     sfx.click();
     oddsModal(
@@ -1444,7 +1449,9 @@ function panelTasks(body: HTMLElement, refresh: () => void): void {
   hot.innerHTML = `<div class="dl-hhead"><span class="dl-hflame">${ico('fire')}</span><div><b>Hot Streak</b><small>Consecutive wins · a loss resets it</small></div><span class="dl-hnum">×${D.hot.cur}</span></div>
     <div class="dl-htrack"><div class="dl-hfill" style="width:${(Math.min(maxAt, D.hot.cur) / maxAt) * 100}%"></div></div>
     <div class="dl-hnodes"></div>
-    <div class="dl-hfoot">Best: <b>${D.hot.best}</b> wins in a row</div>`;
+    <div class="dl-hfoot">Best: <b>${D.hot.best}</b> wins in a row</div>
+    <div class="dl-charge"><span>${ico('glove')} Win ${SPIN_CHARGE} fights → +1 spin</span>${pips(D.spinCharge, SPIN_CHARGE)}</div>
+    <div class="dl-charge"><span>${ico('glove')} Win ${SCRATCH_CHARGE} fights → +1 card</span>${pips(D.scratchCharge, SCRATCH_CHARGE)}</div>`;
   const nodes = hot.querySelector('.dl-hnodes') as HTMLElement;
   for (const m of HOT_MILESTONES) {
     const ready = D.hot.ready.includes(m.at);

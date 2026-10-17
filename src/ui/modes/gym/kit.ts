@@ -209,7 +209,7 @@ export class FX {
     for (const p of this.pops) {
       const age = 0.9 - p.life;
       const sc = age < 0.12 ? 0.6 + (age / 0.12) * 0.6 : 1.2 - Math.min(0.2, (age - 0.12) * 1.2);
-      ctx.globalAlpha = Math.min(1, p.life * 3);
+      ctx.globalAlpha = Math.min(1, p.life * 6);
       outlined(ctx, p.text, p.x, p.y, p.size * sc, p.color);
     }
     ctx.globalAlpha = 1;

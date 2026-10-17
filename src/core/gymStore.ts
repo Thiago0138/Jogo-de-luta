@@ -18,8 +18,8 @@ export interface StationDef {
 export const STATIONS: StationDef[] = [
   { id: 'bag', name: 'Heavy Bag', stat: 'for', icon: 'fist', how: 'Tap when the marker hits the gold zone.', grades: [2600, 1800, 1000] },
   { id: 'speed', name: 'Speed Bag', stat: 'vel', icon: 'speed', how: 'Tap when the ring closes on the bag. Keep the rhythm!', grades: [5200, 3600, 2000] },
-  { id: 'press', name: 'Power Press', stat: 'res', icon: 'stamina', how: 'Hold to power up, release in the green zone.', grades: [2600, 1700, 900] },
-  { id: 'reflex', name: 'Reflex Pads', stat: 'esq', icon: 'dodge', how: 'Tap the side a pad comes from when it reaches the ring.', grades: [3800, 2500, 1300] },
+  { id: 'press', name: 'Power Press', stat: 'res', icon: 'stamina', how: 'Hold to power up, release in the green zone.', grades: [2600, 1800, 1000] },
+  { id: 'reflex', name: 'Reflex Pads', stat: 'esq', icon: 'dodge', how: 'Tap the side a pad comes from when it reaches the ring.', grades: [5600, 3800, 2100] },
 ];
 
 export const STATION: Record<StationId, StationDef> = Object.fromEntries(STATIONS.map((s) => [s.id, s])) as Record<StationId, StationDef>;
