@@ -47,7 +47,7 @@ export class HubScene {
   /** Onde o lutador fica em cada estação. */
   private spot(i: number): number {
     const sc = this.sc;
-    return this.sx(i) - (i === 2 ? 0 : 52 * sc);
+    return this.sx(i) - (i === 2 ? 0 : i === 3 ? 40 * sc : 52 * sc);
   }
 
   private tick = (now: number): void => {
@@ -186,7 +186,7 @@ export class HubScene {
         ctx.fillStyle = '#3a3050';
         ctx.strokeStyle = '#140a1c';
         ctx.lineWidth = 2.5;
-        const px = x + 28 * sc;
+        const px = x + 44 * sc;
         rr(ctx, px - 5 * sc, floorY - 170 * sc, 10 * sc, 170 * sc, 3);
         ctx.fill();
         ctx.stroke();

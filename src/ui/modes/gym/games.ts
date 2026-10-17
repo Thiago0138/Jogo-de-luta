@@ -410,8 +410,8 @@ export class PressGame extends MiniGame {
     const l = this.lift;
     const shake = this.trem * Math.sin(t * 70) * 0.05;
     // braços: do peito (rack) até cima da cabeça
-    p.fa1 = 0.5 + l * 2.35 + shake;
-    p.fa2 = 1.9 - l * 1.75;
+    p.fa1 = 0.5 + l * 2.75 + shake;
+    p.fa2 = 1.9 - l * 1.85;
     p.ba1 = p.fa1;
     p.ba2 = p.fa2;
     p.lean = 0.02 - l * 0.08;
@@ -463,7 +463,7 @@ export class PressGame extends MiniGame {
     sfx.slam(0.5);
     this.fx.kick(7, 0.4, '#ff3d6e');
     this.rig.face('hurt', 0.6);
-    this.judge('miss', 0, this.fx0, this.floorY - 260 * this.sc, msg);
+    this.judge('miss', 0, this.fx0 - 150 * this.sc, this.floorY - 120 * this.sc, msg);
   }
 
   down(): void {
@@ -492,10 +492,11 @@ export class PressGame extends MiniGame {
     sfx.whoosh();
     setTimeout(() => sfx.stamp(), 120);
     const y = this.floorY - 250 * this.sc;
+    const py = this.floorY - 120 * this.sc;
     this.fx.kick(v === 'perfect' ? 6 : 3);
     this.fx.burst(this.fx0, y, v === 'perfect' ? 16 : 8, v === 'perfect' ? '#ffd23d' : '#5ef0c0', 260, 'star', 400, 4);
     this.fx.spray(this.fx0, this.floorY - 200 * this.sc, 6, -Math.PI / 2, 'rgba(180,220,255,0.9)', 220);
-    this.judge(v, v === 'perfect' ? 180 : 100, this.fx0, y - 20, v === 'perfect' ? 'PERFECT REP!' : 'GOOD REP');
+    this.judge(v, v === 'perfect' ? 180 : 100, this.fx0 - 150 * this.sc, py, v === 'perfect' ? 'PERFECT REP!' : 'GOOD REP');
     // próxima zona: mais alta e estreita
     const k = Math.min(1, this.reps / 14);
     this.zw = 0.11 - k * 0.045;

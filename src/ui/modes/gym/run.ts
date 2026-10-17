@@ -213,7 +213,7 @@ function resultCard(r: SessionResult, g: MiniGame, onDone: () => void, onAgain: 
   const free = energy();
   const canAgain = free > 0 || S.gems >= EXTRA_GEMS;
   const againLbl = free > 0 ? `Again <small>${ico('bolt')}1</small>` : `Again <small>${ico('gem')}${EXTRA_GEMS}</small>`;
-  const rew: string[] = [`<span class="gr-chip coin">${ico('coin')}+${fmt(r.coins)}</span>`];
+  const rew: string[] = r.coins || r.xpGain ? [`<span class="gr-chip coin">${ico('coin')}+${fmt(r.coins)}</span>`] : ['<span class="gr-none">Too short to count — no rewards this time.</span>'];
   if (r.gems) rew.push(`<span class="gr-chip gem">${ico('gem')}+${r.gems}</span>`);
   if (r.statPoint) rew.push(`<span class="gr-chip pt">${ico('star')}+1 Stat Point</span>`);
   if (r.streakBonus > 0) rew.push(`<span class="gr-chip streak">${ico('fire')}Streak +${Math.round(r.streakBonus * 100)}%</span>`);

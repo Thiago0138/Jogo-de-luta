@@ -528,6 +528,11 @@
   color: #ffb36b;
   font-size: 13px;
 }
+.gr-none {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
 .gr-btns {
   display: flex;
   gap: 10px;
