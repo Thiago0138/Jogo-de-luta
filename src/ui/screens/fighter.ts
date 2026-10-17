@@ -179,8 +179,10 @@ function picker(s: Slot): void {
     .sort((a, b) => (s.kind === 'move' ? (a.unlockLevel ?? 0) - (b.unlockLevel ?? 0) : RARITIES[b.rarity].tier - RARITIES[a.rarity].tier));
   const box = el('div', 'picker');
   let close: () => void = () => {};
-  if (s.id && ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle', 'taunt'].includes(s.kind)) {
-    const rm = el('button', 'pick-row none', `${ico('close')} Remove from this slot`);
+  const visualKinds = ['outfit', 'gloves', 'mask', 'aura', 'hair'];
+  if (s.id && !(s.kind === 'hair' && s.id === 'h_careca') && ['outfit', 'gloves', 'mask', 'aura', 'hair', 'super', 'passive', 'move', 'moveStyle', 'taunt'].includes(s.kind)) {
+    const label = visualKinds.includes(s.kind) ? `${ico('close')} ${s.kind === 'hair' ? 'No hair (bald)' : s.kind === 'outfit' ? 'No outfit (plain trunks)' : `No ${s.label.toLowerCase()}`}` : `${ico('close')} Remove from this slot`;
+    const rm = el('button', 'pick-row none', label);
     rm.onclick = () => {
       toggleEquip(s.id!);
       close();

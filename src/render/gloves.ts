@@ -277,6 +277,42 @@ export function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: n
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   switch (g.style) {
+    case 'bare': {
+      // sem luvas: punho nu (dedos dobrados, nós dos dedos e polegar)
+      const sk = back ? sh(skin, -0.12) : skin;
+      ctx.beginPath();
+      ctx.roundRect(-9, -10, 19, 20, 7);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = OC();
+      ctx.stroke();
+      ctx.fillStyle = C(sk);
+      ctx.fill();
+      if (!PS.F) {
+        ctx.strokeStyle = sh(sk, -0.3);
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        for (const yy of [-4.5, 0.5, 5]) {
+          ctx.moveTo(4, yy);
+          ctx.lineTo(9, yy);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.ellipse(4, -6, 3.5, 2, 0, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+      // polegar
+      ctx.beginPath();
+      ctx.ellipse(-2, 7, 6, 3.6, -0.3, 0, TAU);
+      ctx.lineWidth = 2.5;
+      ctx.strokeStyle = OC();
+      ctx.stroke();
+      ctx.fillStyle = C(sk);
+      ctx.fill();
+      break;
+    }
     case 'fita': {
       // ligaduras de rua: pulso enrolado, punho nu com voltas nos nós dos dedos e ponta solta
       if (!PS.F) {

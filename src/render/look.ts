@@ -24,12 +24,14 @@ export interface Look {
 }
 
 const EMPTY: Vis = {};
+/** Sem traje equipado: calções simples pretos. */
+const PLAIN: Vis = { style: 'trunks', c1: '#24242c', c2: '#4a4a56' };
 
 /** Materiais que também mudam a cor da cabeça (golems e corpo cósmico). */
 const HEAD_MAT: Record<string, string> = { lava: '#4a2c22', ice: '#a8e2ff', cosmic: '#2a1a6a' };
 
 export function resolveLook(a: Appearance, l: Pick<Loadout, 'outfit' | 'gloves' | 'mask' | 'aura'>): Look {
-  const o = ITEMS[l.outfit]?.vis ?? EMPTY;
+  const o = ITEMS[l.outfit]?.vis ?? PLAIN;
   const hm = o.mat ? HEAD_MAT[o.mat] : undefined;
   const skin = hm ?? SKIN_TONES[a.skin] ?? SKIN_TONES[2];
   const skinShade = hm ? shade(hm, -0.25) : SKIN_SHADES[a.skin] ?? SKIN_SHADES[2];
@@ -47,8 +49,8 @@ export function resolveLook(a: Appearance, l: Pick<Loadout, 'outfit' | 'gloves' 
     height: a.height,
     hair: ITEMS[a.hair]?.vis ?? EMPTY,
     hairColor: ITEMS[a.hairColor]?.vis ?? EMPTY,
-    outfit: ITEMS[l.outfit]?.vis ?? EMPTY,
-    gloves: ITEMS[l.gloves]?.vis ?? EMPTY,
+    outfit: ITEMS[l.outfit]?.vis ?? PLAIN,
+    gloves: ITEMS[l.gloves]?.vis ?? { style: 'bare' },
     mask: l.mask ? ITEMS[l.mask]?.vis ?? null : null,
     aura: l.aura ? ITEMS[l.aura]?.vis ?? null : null,
   };

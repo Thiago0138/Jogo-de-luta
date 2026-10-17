@@ -67,16 +67,16 @@ export function toggleEquip(id: string): void {
   };
   switch (d.kind) {
     case 'hair':
-      S.appearance.hair = id;
+      S.appearance.hair = on ? 'h_careca' : id;
       break;
     case 'hairColor':
       S.appearance.hairColor = id;
       break;
     case 'outfit':
-      L.outfit = id;
+      L.outfit = on ? '' : id;
       break;
     case 'gloves':
-      L.gloves = id;
+      L.gloves = on ? '' : id;
       break;
     case 'mask':
       L.mask = on ? null : id;
@@ -264,7 +264,7 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, e
     }
   } else if (owns(id)) {
     const eq = isEquipped(id);
-    const removable = ['mask', 'aura', 'super', 'passive', 'move', 'moveStyle', 'taunt'].includes(d.kind);
+    const removable = ['outfit', 'gloves', 'mask', 'aura', 'super', 'passive', 'move', 'moveStyle', 'taunt'].includes(d.kind) || (d.kind === 'hair' && id !== 'h_careca');
     if (!eq || removable) {
       actions.push({
         label: eq ? 'Unequip' : 'Equip',

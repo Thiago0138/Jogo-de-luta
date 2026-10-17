@@ -8,6 +8,14 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '1.17.2',
+    date: '2026-10-17',
+    title: 'Take it all off',
+    items: [
+      'Every visual slot can now be emptied: no outfit (plain black trunks), no gloves (bare fists), no hair (bald), no mask and no aura. Use the remove option at the top of each Gear slot, or Unequip in the item window.',
+    ],
+  },
+  {
     version: '1.17.1',
     date: '2026-10-16',
     title: 'One Super at a time',
