@@ -5080,3 +5080,44 @@ button.pr-row {
     padding: 3px 4px;
   }
 }
+
+/* ───── Modos (Career / Gym / Daily / Fight Pass) no Ring ───── */
+.modes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+.mode-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px;
+  border-radius: 16px;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  min-width: 0;
+}
+.mode-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+.m-career { background: linear-gradient(135deg, #ff7a2f, #c4122c); }
+.m-gym { background: linear-gradient(135deg, #3aa0ff, #4a2bd6); }
+.m-daily { background: linear-gradient(135deg, #ffcf3d, #ff7a00); color: #2a1300; }
+.m-pass { background: linear-gradient(135deg, #c77dff, #7a1fd6); }
+.mb-ico { width: 34px; height: 34px; flex: none; display: grid; place-items: center; }
+.mb-ico svg { width: 100%; height: 100%; }
+.mb-txt { display: flex; flex-direction: column; min-width: 0; }
+.mb-txt b { font-family: var(--display); font-weight: 400; font-size: 17px; line-height: 1; letter-spacing: 0.5px; white-space: nowrap; }
+.mb-txt small { font-size: 10.5px; font-weight: 700; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mb-badge { position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: #ff3b4e;
+  color: #fff; font-style: normal; font-weight: 900; font-size: 12px; display: none; place-items: center; border: 2px solid #1a0c2e; }
+.mb-badge.on { display: grid; }
+@media (max-width: 700px) {
+  .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

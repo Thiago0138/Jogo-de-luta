@@ -1,3 +1,4 @@
+import { emitFightEnd } from '../core/events';
 import { S, addXp, applyTally, changeTrophies, commit, type LevelUp } from '../core/state';
 import { makeOpponent, makePartner, playerSpec } from '../core/opponents';
 import { CHESTS, type ChestId } from '../data/chests';
@@ -44,6 +45,7 @@ function fight(mode: Mode, teams: [FighterSpec[], FighterSpec[]]): void {
     onEnd: (r) => {
       scene.destroy();
       holder.remove();
+      emitFightEnd({ mode, won: r.won, report: r });
       results(mode, teams, r);
     },
   });

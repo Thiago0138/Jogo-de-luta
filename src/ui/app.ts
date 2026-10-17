@@ -10,10 +10,14 @@ import { renderShop } from './screens/shop';
 import { renderCollection } from './screens/collection';
 import { renderMissions } from './screens/missions';
 import { renderFighter } from './screens/fighter';
+import { careerBadge, renderCareer } from './modes/career';
+import { gymBadge, renderGym } from './modes/gym';
+import { dailyBadge, renderDaily } from './modes/daily';
+import { passBadge, renderPass } from './modes/pass';
 import { openSettings } from './screens/settings';
 import { ico, leagueBadge } from './icons';
 
-export type Tab = 'home' | 'shop' | 'collection' | 'missions' | 'fighter';
+export type Tab = 'home' | 'shop' | 'collection' | 'missions' | 'fighter' | 'career' | 'gym' | 'daily' | 'pass';
 
 const TABS: { id: Tab; icon: string; name: string }[] = [
   { id: 'home', icon: 'ring', name: 'Ring' },
@@ -111,8 +115,8 @@ export function refreshChrome(): void {
     lastGems = S.gems;
   }
   if (avatar) avatar.look = resolveLook(S.appearance, S.loadout);
-  const badges: Record<Tab, number> = {
-    home: Object.values(S.chests).reduce((a, b) => a + b, 0),
+  const badges: Partial<Record<Tab, number>> = {
+    home: Object.values(S.chests).reduce((a, b) => a + b, 0) + careerBadge() + gymBadge() + dailyBadge() + passBadge(),
     shop: 0,
     collection: 0,
     missions: claimableCount(),
@@ -120,8 +124,8 @@ export function refreshChrome(): void {
   };
   tabbar.querySelectorAll('button').forEach((b) => {
     const id = b.dataset.tab as Tab;
-    b.classList.toggle('on', id === current);
-    const n = badges[id];
+    b.classList.toggle('on', id === current || (id === 'home' && ['career', 'gym', 'daily', 'pass'].includes(current)));
+    const n = badges[id] ?? 0;
     const i = b.querySelector('.badge') as HTMLElement;
     i.textContent = n > 0 ? (n > 9 ? '9+' : String(n)) : '';
     i.style.display = n > 0 ? '' : 'none';
@@ -177,6 +181,18 @@ export function render(): void {
       break;
     case 'fighter':
       renderFighter(page, sub);
+      break;
+    case 'career':
+      renderCareer(page, sub);
+      break;
+    case 'gym':
+      renderGym(page, sub);
+      break;
+    case 'daily':
+      renderDaily(page, sub);
+      break;
+    case 'pass':
+      renderPass(page, sub);
       break;
   }
   rendered = `${current}|${sub ?? ''}`;

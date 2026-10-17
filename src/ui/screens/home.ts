@@ -1,3 +1,7 @@
+import { careerBadge } from '../modes/career';
+import { gymBadge } from '../modes/gym';
+import { dailyBadge } from '../modes/daily';
+import { passBadge } from '../modes/pass';
 import { openLeagues } from '../progress';
 import { openDropRates } from '../dropRates';
 import { S, claimFreeChest, freeChestReady } from '../../core/state';
@@ -7,7 +11,7 @@ import { CURRENT_VERSION } from '../../data/patchnotes';
 import { powerRating } from '../../data/stats';
 import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
-import { render } from '../app';
+import { go, render } from '../app';
 import { openChest } from '../chest';
 import { el, esc, fmt, timeLeft, toast } from '../dom';
 import { Preview } from '../preview';
@@ -45,6 +49,12 @@ export function renderHome(page: HTMLElement): void {
       <button class="play-btn tag"><span class="pb-ico">${ico('tag')}</span><span class="pb-txt"><b>TAG TEAM</b><small>2 vs 2</small></span></button>
       <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CHAMPION</b><small>Tough challenge · bigger prizes</small></span></button>
     </section>
+    <section class="modes">
+      <button class="mode-btn m-career" data-go="career"><span class="mb-ico">${ico('road')}</span><span class="mb-txt"><b>CAREER</b><small>Road to the Title</small></span><i class="mb-badge"></i></button>
+      <button class="mode-btn m-gym" data-go="gym"><span class="mb-ico">${ico('glove')}</span><span class="mb-txt"><b>GYM</b><small>Train &amp; mini-games</small></span><i class="mb-badge"></i></button>
+      <button class="mode-btn m-daily" data-go="daily"><span class="mb-ico">${ico('gift')}</span><span class="mb-txt"><b>DAILY</b><small>Wheel · rewards · luck</small></span><i class="mb-badge"></i></button>
+      <button class="mode-btn m-pass" data-go="pass"><span class="mb-ico">${ico('star')}</span><span class="mb-txt"><b>FIGHT PASS</b><small>Season rewards</small></span><i class="mb-badge"></i></button>
+    </section>
     <section class="card chests-card">
       <div class="card-head"><h2>Chests</h2><button class="btn btn-ghost sm odds-btn">${ico('info')} Drop rates</button></div>
       <div class="chest-row"></div>
@@ -64,6 +74,18 @@ export function renderHome(page: HTMLElement): void {
   (page.querySelector('.play-btn.solo') as HTMLElement).onclick = () => startMatch('solo');
   (page.querySelector('.play-btn.tag') as HTMLElement).onclick = () => startMatch('tag');
   (page.querySelector('.play-btn.champ') as HTMLElement).onclick = () => startMatch('champion');
+  const badges: Record<string, number> = { career: careerBadge(), gym: gymBadge(), daily: dailyBadge(), pass: passBadge() };
+  page.querySelectorAll<HTMLElement>('.mode-btn').forEach((b) => {
+    const id = b.dataset.go as 'career' | 'gym' | 'daily' | 'pass';
+    const n = badges[id] ?? 0;
+    const bd = b.querySelector('.mb-badge') as HTMLElement;
+    bd.textContent = n > 9 ? '9+' : n ? String(n) : '';
+    bd.classList.toggle('on', n > 0);
+    b.onclick = () => {
+      sfx.click();
+      go(id);
+    };
+  });
 
   (page.querySelector('.hero-league') as HTMLElement).onclick = () => {
     sfx.click();
