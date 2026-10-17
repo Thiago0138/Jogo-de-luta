@@ -141,5 +141,6 @@ export function renderGym(page: HTMLElement, sub?: string): void {
 
 /** Notificação no botão GYM: sessões grátis disponíveis. */
 export function gymBadge(): number {
-  return energy();
+  // só avisa enquanto ainda não treinou hoje (e tem energia)
+  return !trainedToday() && energy() > 0 ? 1 : 0;
 }

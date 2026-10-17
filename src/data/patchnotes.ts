@@ -8,6 +8,18 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.0.0',
+    date: '2026-10-17',
+    title: 'Kings of the Ring 2.0',
+    items: [
+      'CAREER — Road to the Title: 5 chapters, 40 stages from Backyard Brawls to the World Title, each with its own arena, up to 3 stars per stage, named bosses, star chests and an exclusive Celestial reward for becoming World Champion.',
+      'GYM: an interactive gym with your own fighter and 4 mini-games (Heavy Bag, Speed Bag, Power Press, Reflex Pads). Score S/A/B/C to permanently train your stats, earn coins and keep a daily training streak.',
+      'DAILY: 7-day login calendar with growing rewards, a Lucky Wheel with a jackpot, scratch cards, 3 daily challenges, Hot Streak bonuses and a Mystery Gift every 4 hours. All odds are shown.',
+      'FIGHT PASS — Season 1: Rise of the Kings: 40 tiers with free and premium rewards, weekly challenges, Pass XP from every fight and a season-exclusive Celestial reward at tier 40.',
+      'New mode buttons on the Ring screen with notification badges, so you always know what is waiting for you.',
+    ],
+  },
+  {
     version: '1.17.2',
     date: '2026-10-17',
     title: 'Take it all off',
