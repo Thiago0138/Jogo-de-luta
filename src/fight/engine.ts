@@ -770,12 +770,13 @@ export class Fight {
     for (let i = 0; i < pts.length - 1; i++) {
       const [ax, ay] = pts[i];
       const [bx, by] = pts[i + 1];
-      for (let k = 0; k < 3; k++) {
-        const u = k / 3;
-        this.parts.spawn(PK.Star, x + (ax + (bx - ax) * u) * w, y + (ay + (by - ay) * u) * w, 0, 0, life, 11, colors[(i + k) % colors.length], 0);
+      for (let k = 0; k < 4; k++) {
+        const u = k / 4;
+        this.parts.spawn(PK.Star, x + (ax + (bx - ax) * u) * w, y + (ay + (by - ay) * u) * w, 0, 0, life, 15, colors[(i + k) % colors.length], 0);
       }
     }
-    for (let k = 0; k <= 6; k++) this.parts.spawn(PK.Star, x + (-1 + k / 3) * w, y + 0.45 * w, 0, 0, life, 11, colors[k % colors.length], 0);
+    for (let k = 0; k <= 8; k++) this.parts.spawn(PK.Star, x + (-1 + k / 4) * w, y + 0.45 * w, 0, 0, life, 15, colors[k % colors.length], 0);
+    for (const gx of [-0.5, 0, 0.5]) this.parts.spawn(PK.Star, x + gx * w, y + 0.2 * w, 0, 0, life, 20, '#b05cff', 0);
   }
 
   // Coroação (Fight Pass T1): confetes violeta e ouro, uma coroa de estrelas desce sobre a cabeça e rebenta em luz
@@ -800,7 +801,7 @@ export class Fight {
       t += this.dt;
       const k = Math.min(1, t / 1.3);
       const e = 1 - (1 - k) * (1 - k);
-      this.starCrown(f.x, -900 + (hy + 900) * e, 46, 0.06, ['#ffd23d', '#fff3b0', '#ffd23d', '#b05cff']);
+      this.starCrown(f.x, -900 + (hy + 900) * e, 60, 0.06, ['#ffd23d', '#ffb000', '#ffd23d', '#ffe680']);
       if (Math.random() < 0.4) this.parts.spawn(PK.Ember, f.x + (Math.random() - 0.5) * 80, -900 + (hy + 900) * e, 0, 120, 0.5, 14, '#ffd23d', 0);
       yield FRAME;
     }
@@ -812,7 +813,7 @@ export class Fight {
     this.sparks(f.x, hy, 40, '#ffd23d', 700, PK.Star);
     this.sparks(f.x, hy, 20, '#b05cff', 500, PK.Star);
     this.confetti(f.x, 40, ROY);
-    this.starCrown(f.x, hy, 46, 1.4, ['#ffd23d', '#fff3b0', '#b05cff']);
+    this.starCrown(f.x, hy, 60, 1.4, ['#ffd23d', '#ffb000', '#ffe680']);
     this.pop('ALL HAIL THE KING!', f.x, -320, '#ffd23d', 26);
     sfx.boom();
     sfx.cheer(1.2);
@@ -3102,7 +3103,7 @@ export class Fight {
           f.play('victory');
           f.setExpr('happy', 1.8);
           this.pop('ALL HAIL THE KING!', f.x, -300, '#ffd23d', 24);
-          const hy = this.jy(f, J_HEAD) - 75;
+          const hy = this.jy(f, J_HEAD) - 115;
           for (let i = 0; i < 3; i++) {
             this.starCrown(f.x, hy, 34, 0.5, ['#ffd23d', '#fff3b0', '#b05cff']);
             this.confetti(f.x, 6, ['#ffd23d', '#b05cff', '#fff3b0']);

@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.1.0',
+    date: '2026-10-18',
+    title: 'Royal Season',
+    items: [
+      'OPEN ALL: with 2 or more chests, tap "Open all" on the Ring screen to open every chest at once and see everything you got on one screen.',
+      'FIGHT PASS EXCLUSIVES: the pass now only gives brand-new items you cannot get anywhere else — Crown Prince, Royal Guard, King\'s Regalia, Scepter Fists, Royal Masquerade, Royal Spear, the Coronation entrance, the All Hail the King taunt, the Golden Lion aura and the Celestial Eternal Sovereign. Shop and chest items were removed from the pass.',
+      'Shop prices rebalanced: items bought with coins now cost much more, to match the extra coins from Career, Gym and Daily. Bronze and Silver chests cost more coins too.',
+      'Smoother fights: the menu no longer renders behind a fight, sound effects are prepared only when the device is idle, and graphics quality now lowers gradually instead of all at once on slower phones.',
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-10-17',
     title: 'Kings of the Ring 2.0',
