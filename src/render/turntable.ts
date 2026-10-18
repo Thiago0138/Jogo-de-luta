@@ -267,7 +267,7 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
   const c2 = o.c2 ?? '#fff';
   const c3 = o.c3 ?? c2;
   const bellyMat = o.mat === 'dino' || o.mat === 'shark' || o.mat === 'dragon' || o.mat === 'feather';
-  const beltMat = o.mat === 'astro' || o.mat === 'metal' || o.mat === 'cosmic' || o.mat === 'feather';
+  const beltMat = o.mat === 'astro' || o.mat === 'metal' || o.mat === 'cosmic' || o.mat === 'feather' || o.mat === 'gold';
   const mat = (u: number, phi: number): string => {
     const cf = Math.cos(phi);
     const sf = Math.abs(Math.sin(phi));
@@ -294,7 +294,7 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
         if (cf > 0.3 && u > 20 && u < 47) return cf > 0.42 && u > 22 && u < 45 ? c2 : c3;
         return c1;
       default:
-        if (beltMat && u > 8 && u < 13) return o.mat === 'astro' ? '#cfd6e2' : o.mat === 'metal' ? '#59627a' : '#ffd23d';
+        if (beltMat && u > 8 && u < 13) return o.mat === 'astro' ? '#cfd6e2' : o.mat === 'metal' ? '#59627a' : o.mat === 'gold' ? (o.cape ?? '#5b1fa8') : '#ffd23d';
         if (bellyMat && cf > 0.45 && u > -6 && u < 48) return c2;
         return L.body;
     }
@@ -420,7 +420,7 @@ function torso3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
     sline(arc(34, -0.6, 0.6, 10, 5), 1.6, '#fff8d0');
     if (nd(34, 0) > 0.1) {
       const p = P(34, 0, 1.02);
-      ctx.fillStyle = '#d6202f';
+      ctx.fillStyle = o.gem ?? '#d6202f';
       ctx.beginPath();
       ctx.arc(p[0], p[1], 4 * Math.max(0.4, nd(34, 0)), 0, TAU);
       ctx.fill();
@@ -561,7 +561,7 @@ function head3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, expr: Expr, t: 
     const e = H.p(-1, 5, sd * (R - 1));
     if (e[2] >= D0) ear(ctx, H, sd, L);
   }
-  if ((o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic') && !PS.F) {
+  if ((o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold') && !PS.F) {
     ctx.save();
     ctx.beginPath();
     ctx.arc(c[0], c[1], R, 0, TAU);
@@ -1079,6 +1079,56 @@ function mask3D(ctx: CanvasRenderingContext2D, H: Proj, m: Vis, phase: 'skin' | 
         });
       }
       break;
+    case 'mascarada': {
+      // meia-máscara de baile dourada: pintada por baixo dos olhos (que ficam por cima), pedras e penas de lado
+      const top = (l: number) => -0.44 - Math.abs(l) * 0.16 + 0.12 * Math.exp(-sq(l / 0.14));
+      const bot = (l: number) => 0.17 - Math.abs(l) * 0.03 - 0.15 * Math.exp(-sq(l / 0.17));
+      if (phase === 'skin') {
+        sphereRegion(ctx, H, R + 0.6, 0, -1.2, 1.2, top, bot, c1, { line: 2.2, n: 24, m: 4 });
+        if (!PS.F) {
+          sphereRegion(ctx, H, R + 0.7, 0, -1.1, 1.1, (l) => top(l) + 0.04, (l) => top(l) + 0.12, shade(c1, 0.45), { line: 0, n: 20, m: 2, alpha: 0.8 });
+          sphereRegion(ctx, H, R + 0.7, 0, -1.15, 1.15, (l) => bot(l) - 0.06, bot, shade(c1, -0.35), { line: 0, n: 20, m: 2, alpha: 0.7 });
+          // debrum violeta à volta dos olhos
+          for (const sd of [-1, 1]) {
+            const c = sd * 0.37;
+            sphereRegion(ctx, H, R + 0.8, 0, c - 0.27, c + 0.27, (l) => -0.2 + sq((l - c) / 0.27) * 0.14, (l) => 0.11 - sq((l - c) / 0.27) * 0.12, c2, { line: 1.2, n: 10, m: 3 });
+          }
+        }
+        break;
+      }
+      // pedra em losango sobre o nariz e lágrimas debaixo dos olhos
+      sphPoly(ctx, H, R + 1.2, [[0, -0.42], [0.08, -0.32], [0, -0.22], [-0.08, -0.32]], c2, 1.3);
+      for (const sd of [-1, 1]) {
+        const p = spherePt(H, R + 1, 0, sd * 0.4, 0.17);
+        if (p[3] < 0.15) continue;
+        ctx.fillStyle = C(c2);
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 1.7, 0, TAU);
+        ctx.fill();
+      }
+      // penas num dos lados (a subir para trás)
+      const sd = 1;
+      const lon = sd * 1.18;
+      const lat = -0.42;
+      const bx = Math.cos(lat) * Math.cos(lon) * (R + 1);
+      const by = Math.sin(lat) * (R + 1);
+      const bz = Math.cos(lat) * Math.sin(lon) * (R + 1);
+      for (let i = 0; i < 3; i++) {
+        const a = -2.0 - i * 0.32 + Math.sin(t * 2.2 + i) * 0.05;
+        const len = 30 - i * 4;
+        const cx = bx + Math.cos(a) * len * 0.5;
+        const cy = by + Math.sin(a) * len * 0.5;
+        ell(ctx, H, cx, cy, bz + 2, len * 0.5, 4.6, 2.5, i === 1 ? shade(c2, 0.25) : c2, { rot: a, line: 2 });
+      }
+      ell(ctx, H, bx, by, bz, 3.2, 3.2, 3.2, c1, { line: 1.8 });
+      addGlow(ctx, () => {
+        const p = spherePt(H, R + 1.5, 0, 0, -0.32);
+        if (p[3] < 0.2) return;
+        ctx.globalAlpha = 0.6 + Math.sin(t * 4) * 0.3;
+        ctx.drawImage(glowSprite(c2), p[0] - 7, p[1] - 7, 14, 14);
+      });
+      break;
+    }
     case 'cyber':
       if (phase === 'front') {
         // armação + vidro escuro com linhas de varrimento, feixe e reflexo

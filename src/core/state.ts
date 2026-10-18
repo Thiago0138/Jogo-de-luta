@@ -1,6 +1,6 @@
 import { DEFAULT_APPEARANCE, type Appearance } from '../data/appearance';
 import { CHESTS, type ChestId } from '../data/chests';
-import { ITEMS, ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, SUPER2_LEVEL, PASSIVE2_LEVEL, STARTER_ITEMS, item, type ItemDef } from '../data/items';
+import { ITEMS, ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, SUPER2_LEVEL, PASSIVE2_LEVEL, STARTER_ITEMS, isTradeable, item, type ItemDef } from '../data/items';
 import { DAILY_POOL, LEGENDARY, WEEKLY_POOL, emptyTally, type MissionDef, type Reward, type Tally } from '../data/missions';
 import { LEAGUES, leagueIndex } from '../data/leagues';
 import { RARITIES, RARITY_ORDER, type Rarity } from '../data/rarity';
@@ -474,7 +474,7 @@ export function claimFreeChest(): boolean {
 }
 
 export function poolFor(r: Rarity): ItemDef[] {
-  return ITEM_LIST.filter((d) => d.rarity === r && d.kind !== 'arena' && d.source !== 'start' && d.source !== 'mission' && d.source !== 'level');
+  return ITEM_LIST.filter((d) => d.rarity === r && d.kind !== 'arena' && d.source !== 'start' && d.source !== 'mission' && d.source !== 'level' && d.source !== 'pass');
 }
 
 export function rollChest(id: ChestId): ChestDrop[] {
@@ -547,7 +547,7 @@ function b64d(s: string): string {
 export function createTrade(items: [string, number][], from: string): string | null {
   for (const [id, n] of items) {
     const d = ITEMS[id];
-    if (!d || d.source === 'start' || count(id) < n) return null;
+    if (!d || !isTradeable(d) || count(id) < n) return null;
   }
   for (const [id, n] of items) removeItem(id, n);
   const payload = b64e(JSON.stringify({ i: items, f: from.slice(0, 20), n: Math.random().toString(36).slice(2, 10), t: Date.now() }));
@@ -569,7 +569,7 @@ export function redeemTrade(code: string): RedeemResult {
     return { ok: false, error: 'Invalid code.' };
   }
   if (S.redeemed.includes(data.n)) return { ok: false, error: 'This code has already been used.' };
-  const valid = data.i.filter(([id, n]) => ITEMS[id] && n > 0 && n < 100);
+  const valid = data.i.filter(([id, n]) => ITEMS[id] && isTradeable(ITEMS[id]) && n > 0 && n < 100);
   if (!valid.length) return { ok: false, error: 'This code contains no valid items.' };
   for (const [id, n] of valid) grant(id, n);
   S.redeemed.push(data.n);

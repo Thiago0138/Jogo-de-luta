@@ -58,7 +58,6 @@ export class FightScene {
   private hud: HudSide[] = [];
   private clockEl!: HTMLElement;
   private frames = 0;
-  private slowFrames = 0;
   private destroyed = false;
   private opts: SceneOpts;
   private trailHold: number[] = [];
@@ -146,11 +145,16 @@ export class FightScene {
     this.root.remove();
   }
 
+  private resScale = 1;
+  private frameSum = 0;
+  private slowWindows = 0;
+
   private resize(): void {
     // tamanho de layout (não afetado por transformações, ex.: animação de abertura do modal)
     this.W = Math.max(1, this.root.clientWidth);
     this.H = Math.max(1, this.root.clientHeight);
-    this.dpr = this.low ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    // resolução adaptativa: em vez de cortar logo os efeitos, baixa primeiro a resolução interna
+    this.dpr = this.low ? 1 : Math.max(1, Math.min(window.devicePixelRatio || 1, 2) * this.resScale);
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
   }
@@ -341,13 +345,24 @@ export class FightScene {
         this.fight = this.newFight();
       }
     }
-    // adapta a qualidade se o dispositivo estiver a sofrer
-    if (!this.low && this.frames < 240) {
+    // adapta a qualidade se o dispositivo estiver a sofrer: janelas de 2 s; primeiro baixa a resolução
+    // (quase invisível num ecrã de telemóvel) e só em último caso desliga efeitos
+    if (!this.low && dt < 0.25) {
       this.frames++;
-      if (dt > 0.026) this.slowFrames++;
-      if (this.frames === 240 && this.slowFrames > 90) {
-        this.low = true;
-        this.resize();
+      this.frameSum += dt;
+      if (this.frames >= 120) {
+        const avg = this.frameSum / this.frames;
+        this.frames = 0;
+        this.frameSum = 0;
+        if (avg > 0.024) {
+          if (this.resScale > 0.62) {
+            this.resScale = Math.max(0.6, this.resScale - 0.15);
+            this.resize();
+          } else if (avg > 0.03 && ++this.slowWindows >= 2) {
+            this.low = true;
+            this.resize();
+          }
+        } else this.slowWindows = 0;
       }
     }
     if (this.paused) {

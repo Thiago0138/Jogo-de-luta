@@ -1,8 +1,8 @@
-import { CHESTS, type ChestDef, type ChestId } from '../data/chests';
+import { CHESTS, CHEST_ORDER, type ChestDef, type ChestId } from '../data/chests';
 import { KIND_NAMES, item } from '../data/items';
 import { RARITIES } from '../data/rarity';
 import { sfx, unlockAudio } from '../audio/sfx';
-import { applyDrops, rollChest, type ChestDrop } from '../core/state';
+import { S, applyDrops, rollChest, type ChestDrop } from '../core/state';
 import { BACK_Y, setArena, drawBackdrop, drawFloor, drawRingBack, drawRingFront, ensureArena, newRopes } from '../fight/arena';
 import { PK, Particles } from '../fight/fx';
 import { glowSprite } from '../render/fighter';
@@ -409,4 +409,59 @@ function miniCard(d: ChestDrop): HTMLElement {
   c.appendChild(n);
   if (d.isNew) c.appendChild(el('div', 'rc-new sm', 'NEW'));
   return c;
+}
+
+/** Quantos baús o jogador tem por abrir. */
+export function chestCount(): number {
+  return CHEST_ORDER.reduce((n, id) => n + (S.chests[id] ?? 0), 0);
+}
+
+/** Abre todos os baús de uma vez e mostra logo tudo o que saiu (itens repetidos agrupados). */
+export function openAllChests(onDone: () => void): void {
+  unlockAudio();
+  const merged = new Map<string, ChestDrop>();
+  let opened = 0;
+  for (const id of CHEST_ORDER) {
+    while (S.chests[id] > 0) {
+      const drops = rollChest(id);
+      applyDrops(id, drops);
+      opened++;
+      for (const d of drops) {
+        const k = d.kind === 'item' ? d.id! : d.kind;
+        const m = merged.get(k);
+        if (m) {
+          m.amount += d.amount;
+          m.isNew = m.isNew || d.isNew;
+        } else merged.set(k, { ...d });
+      }
+    }
+  }
+  if (!opened) return onDone();
+  const all = [...merged.values()].sort((a, b) => RARITIES[b.rarity].tier - RARITIES[a.rarity].tier || (a.kind === 'item' ? 1 : -1));
+  const bestTier = Math.max(...all.map((d) => RARITIES[d.rarity].tier));
+  sfx.reveal(bestTier);
+
+  const root = el('div', 'chest-root all-open');
+  const ui = el('div', 'chest-ui');
+  const box = el('div', 'chest-summary');
+  const items = all.filter((d) => d.kind === 'item').length;
+  box.innerHTML = `<h2>${opened} chests opened!</h2><p class="muted small">${items} item${items === 1 ? '' : 's'} · ${all.filter((d) => d.isNew).length} new</p>`;
+  const grid = el('div', 'sum-grid');
+  all.forEach((d, i) => {
+    const c = miniCard(d);
+    c.style.animationDelay = `${Math.min(i, 30) * 40}ms`;
+    grid.appendChild(c);
+  });
+  box.appendChild(grid);
+  const btn = el('button', 'btn btn-gold', 'Continue');
+  btn.onclick = () => {
+    sfx.click();
+    root.classList.add('out');
+    setTimeout(() => root.remove(), 250);
+    onDone();
+  };
+  box.appendChild(btn);
+  ui.appendChild(box);
+  root.appendChild(ui);
+  document.body.appendChild(root);
 }

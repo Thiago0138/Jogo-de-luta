@@ -3,7 +3,7 @@
  * 5 capítulos × 8 etapas, 1–3 estrelas por etapa, chefes de capítulo, baús de estrelas.
  * O progresso fica numa chave própria do localStorage (não mexe no Save principal).
  */
-import { ITEMS, ITEM_LIST, type ItemDef } from '../data/items';
+import { ITEMS, ITEM_LIST, isPassItem, type ItemDef } from '../data/items';
 import { RARITIES } from '../data/rarity';
 import { STAT_CAP, STAT_IDS, POINTS_PER_LEVEL, powerRating, type Stats } from '../data/stats';
 import type { ChestId } from '../data/chests';
@@ -216,7 +216,7 @@ function retarget(st: Stats, total: number, r: () => number): Stats {
 }
 
 function gearPick(kind: ItemDef['kind'], maxTier: number, r: () => number, minTier = 0): string | null {
-  const pool = ITEM_LIST.filter((d) => d.kind === kind && RARITIES[d.rarity].tier <= maxTier && RARITIES[d.rarity].tier >= minTier && d.id !== EXCLUSIVE_ITEM);
+  const pool = ITEM_LIST.filter((d) => d.kind === kind && RARITIES[d.rarity].tier <= maxTier && RARITIES[d.rarity].tier >= minTier && d.id !== EXCLUSIVE_ITEM && !isPassItem(d));
   return pool.length ? pick(pool, r).id : null;
 }
 

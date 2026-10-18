@@ -12,7 +12,7 @@ import { powerRating } from '../../data/stats';
 import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
 import { go, render } from '../app';
-import { openChest } from '../chest';
+import { chestCount, openAllChests, openChest } from '../chest';
 import { el, esc, fmt, timeLeft, toast } from '../dom';
 import { Preview } from '../preview';
 import { startMatch } from '../play';
@@ -56,7 +56,7 @@ export function renderHome(page: HTMLElement): void {
       <button class="mode-btn m-pass" data-go="pass"><span class="mb-ico">${ico('star')}</span><span class="mb-txt"><b>FIGHT PASS</b><small>Season rewards</small></span><i class="mb-badge"></i></button>
     </section>
     <section class="card chests-card">
-      <div class="card-head"><h2>Chests</h2><button class="btn btn-ghost sm odds-btn">${ico('info')} Drop rates</button></div>
+      <div class="card-head"><h2>Chests</h2>${chestCount() > 1 ? `<button class="btn btn-gold sm open-all">${ico('chest')} Open all (${chestCount()})</button>` : ''}<button class="btn btn-ghost sm odds-btn">${ico('info')} Drop rates</button></div>
       <div class="chest-row"></div>
     </section>`;
 
@@ -67,6 +67,12 @@ export function renderHome(page: HTMLElement): void {
     prev.play('guard');
   };
 
+  const allBtn = page.querySelector('.open-all') as HTMLElement | null;
+  if (allBtn)
+    allBtn.onclick = () => {
+      sfx.click();
+      openAllChests(() => render());
+    };
   (page.querySelector('.news-btn') as HTMLElement).onclick = () => {
     sfx.click();
     openPatchNotes();

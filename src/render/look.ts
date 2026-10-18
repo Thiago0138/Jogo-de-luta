@@ -28,7 +28,7 @@ const EMPTY: Vis = {};
 const PLAIN: Vis = { style: 'trunks', c1: '#24242c', c2: '#4a4a56' };
 
 /** Materiais que também mudam a cor da cabeça (golems e corpo cósmico). */
-const HEAD_MAT: Record<string, string> = { lava: '#4a2c22', ice: '#a8e2ff', cosmic: '#2a1a6a' };
+const HEAD_MAT: Record<string, string> = { lava: '#4a2c22', ice: '#a8e2ff', cosmic: '#2a1a6a', gold: '#e8b21c' };
 
 export function resolveLook(a: Appearance, l: Pick<Loadout, 'outfit' | 'gloves' | 'mask' | 'aura'>): Look {
   const o = ITEMS[l.outfit]?.vis ?? PLAIN;

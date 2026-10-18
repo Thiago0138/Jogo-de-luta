@@ -240,6 +240,7 @@ function card(r: PassReward, n: number, track: 'free' | 'prem', tier: number): H
   c.appendChild(rewardArt(r));
   c.appendChild(el('div', 'fp-lbl', esc(shortLabel(r))));
   if (top) c.appendChild(el('div', 'fp-excl', 'EXCLUSIVE'));
+  else if (r.kind === 'item') c.appendChild(el('i', 'fp-ex', ico('crown')));
   if (claimed) c.appendChild(el('i', 'fp-st ok', ico('check')));
   else if (locked) c.appendChild(el('i', 'fp-st lock', ico('lock')));
   c.onclick = () => {
@@ -297,12 +298,12 @@ function openPremium(): void {
   const body = el('div', 'fp-pm');
   const hero = el('div', `fp-pm-hero r-${rewardRarity(top)}`);
   hero.appendChild(rewardArt(top));
-  hero.appendChild(el('div', 'fp-pm-name', `<small>TIER ${TIERS} · SEASON EXCLUSIVE</small><b class="rar-${rewardRarity(top)}">${esc(rewardName(top))}</b>${rarityTag(rewardRarity(top))}`));
+  hero.appendChild(el('div', 'fp-pm-name', `<small>TIER ${TIERS} · ${top.kind === 'item' && ITEMS[top.id]?.season && ITEMS[top.id].season !== P.season ? 'RETURNING EXCLUSIVE' : 'SEASON EXCLUSIVE'}</small><b class="rar-${rewardRarity(top)}">${esc(rewardName(top))}</b>${rarityTag(rewardRarity(top))}`));
   hero.onclick = () => top.kind === 'item' && openItem(top.id, 'collection');
   body.appendChild(hero);
   body.appendChild(el('ul', 'fp-pm-list', `
     <li>${ico('gift')} <b>40 premium rewards</b> unlocked instantly for every tier you've reached</li>
-    <li>${ico('star')} <b>${items} cosmetic items</b> up to Mythic + the exclusive reward</li>
+    <li>${ico('star')} <b>${items} Fight Pass exclusive items</b> you can't get anywhere else, up to Celestial</li>
     <li>${ico('gem')} <b>${fmt(gems)} gems</b> back, plus Gold, Legendary &amp; Mythic chests</li>
     <li>${ico('xp')} <b>+20% Pass XP</b> from every fight</li>`));
   modal(`${ico('crown')} Premium Pass`, body, [

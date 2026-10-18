@@ -435,6 +435,101 @@ export function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: n
       rimLight(ctx, 0, 8, 12, L, sh(c1, 0.5), 0.4);
       break;
     }
+    case 'cetro': {
+      // punhos-cetro: manopla de ouro lavrado, gola de veludo com pedras e uma coroa nos nós
+      // dos dedos a segurar uma grande ametista que brilha (a cabeça de um cetro real)
+      const vel = g.c3 ?? '#5b1fa8';
+      add(ctx, () => {
+        ctx.globalAlpha = 0.55 + Math.sin(t * 4) * 0.2;
+        ctx.drawImage(glowSprite(c2), -24, 6, 48, 48);
+      });
+      // cano em sino, de ouro
+      ctx.beginPath();
+      ctx.moveTo(-8, 0);
+      ctx.lineTo(-12, -17);
+      ctx.quadraticCurveTo(0, -21, 12, -17);
+      ctx.lineTo(8, 0);
+      ctx.closePath();
+      paint(ctx, metal(ctx, -12, -18, 12, 0, c1), 3);
+      cel(ctx, 0, -9, 10, L, 0.25, 0.3, '#5a3a00');
+      // faixa de veludo com pedras
+      ctx.beginPath();
+      ctx.roundRect(-11, -12, 22, 6.5, 2.5);
+      paint(ctx, vel, 2.2);
+      for (const sx of [-6, 0, 6]) {
+        ctx.beginPath();
+        ctx.arc(sx, -8.8, sx ? 1.7 : 2.3, 0, TAU);
+        paint(ctx, sx ? '#fff3b0' : c2, 1.2);
+      }
+      // punho de ouro com filigrana
+      fistPath(ctx);
+      paint(ctx, metal(ctx, -12, -2, 12, 22, c1), 3);
+      cel(ctx, 0, 9, 13, L, 0.3, 0.75, '#6a4300');
+      if (!PS.F) {
+        ctx.strokeStyle = sh(c1, -0.45);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(-10, 3);
+        ctx.bezierCurveTo(-4, 0, -6, 8, 0, 6);
+        ctx.bezierCurveTo(5, 4, 4, 11, 9, 9);
+        ctx.moveTo(-11, 10);
+        ctx.quadraticCurveTo(-1, 15.5, 11, 10.5);
+        ctx.stroke();
+        fistPath(ctx);
+        sweep(ctx, t, 0.7, 0.6);
+      }
+      // polegar
+      ctx.beginPath();
+      ctx.ellipse(10.4, 4.6, 4.4, 7.6, -0.22, 0, TAU);
+      paint(ctx, metal(ctx, 6, -2, 14, 12, c1), 2.6);
+      // coroa nos nós dos dedos
+      ctx.beginPath();
+      ctx.moveTo(-10, 17);
+      ctx.lineTo(-11, 24);
+      ctx.lineTo(-6, 21);
+      ctx.lineTo(0, 27);
+      ctx.lineTo(6, 21);
+      ctx.lineTo(11, 24);
+      ctx.lineTo(10, 17);
+      ctx.quadraticCurveTo(0, 20.5, -10, 17);
+      ctx.closePath();
+      paint(ctx, metal(ctx, -10, 16, 10, 27, c1), 2.2);
+      // a ametista
+      ctx.beginPath();
+      ctx.arc(0, 29, 6.2, 0, TAU);
+      paint(ctx, c2, 2.4);
+      if (!PS.F) {
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = sh(c2, -0.4);
+        ctx.beginPath();
+        ctx.arc(-L[0] * 3, 29 - L[1] * 3, 6.2, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = sh(c2, 0.35);
+        ctx.beginPath();
+        ctx.moveTo(0, 23);
+        ctx.lineTo(3.5, 29);
+        ctx.lineTo(0, 35);
+        ctx.lineTo(-3.5, 29);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+        add(ctx, () => {
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.ellipse(L[0] * 2.5, 29 + L[1] * 2.5, 2, 1.3, 0.5, 0, TAU);
+          ctx.fill();
+          // faíscas a orbitar a pedra
+          for (let i = 0; i < 2; i++) {
+            const a = t * 3 + i * Math.PI;
+            ctx.globalAlpha = 0.6 + Math.sin(t * 6 + i) * 0.4;
+            twinkle(ctx, Math.cos(a) * 11, 29 + Math.sin(a) * 5, 2.6, i ? '#fff3b0' : '#ffffff');
+          }
+        });
+      }
+      break;
+    }
     case 'garra': {
       // manopla de aço articulada com garras afiadas
       ctx.beginPath();

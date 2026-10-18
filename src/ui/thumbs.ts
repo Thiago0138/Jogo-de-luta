@@ -527,6 +527,42 @@ function entranceScene(c: CanvasRenderingContext2D, W: number, H: number, d: Ite
         }
         break;
       }
+      case 'coroacao': {
+        add(c, () => {
+          c.globalAlpha = 0.8;
+          c.drawImage(glowSprite('#ffd23d'), cx - 60, 10, 120, 90);
+        });
+        // coroa de ouro a descer
+        c.fillStyle = '#ffd23d';
+        c.strokeStyle = '#6a3c00';
+        c.lineWidth = 3;
+        c.beginPath();
+        c.moveTo(cx - 30, 70);
+        c.lineTo(cx - 30, 38);
+        c.lineTo(cx - 15, 54);
+        c.lineTo(cx, 28);
+        c.lineTo(cx + 15, 54);
+        c.lineTo(cx + 30, 38);
+        c.lineTo(cx + 30, 70);
+        c.closePath();
+        c.fill();
+        c.stroke();
+        c.fillStyle = '#b05cff';
+        for (const dx of [-16, 0, 16]) {
+          c.beginPath();
+          c.arc(cx + dx, 62, 4, 0, TAU);
+          c.fill();
+        }
+        for (let i = 0; i < 40; i++) {
+          c.fillStyle = i % 2 ? '#ffd23d' : '#b05cff';
+          c.save();
+          c.translate(hash(i) * W, hash(i + 9) * gy);
+          c.rotate(hash(i + 3) * 6);
+          c.fillRect(-3, -1.5, 6, 3);
+          c.restore();
+        }
+        break;
+      }
       case 'dragao':
         add(c, () => {
           for (let i = 0; i < 10; i++) {

@@ -134,6 +134,8 @@ export function sourceText(d: ItemDef): string {
       return 'Legendary Challenge reward';
     case 'level':
       return `Unlocks at level ${d.unlockLevel}`;
+    case 'pass':
+      return `Fight Pass exclusive · Season ${d.season ?? 1}`;
   }
 }
 

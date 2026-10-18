@@ -738,6 +738,154 @@ export function drawAura(ctx: CanvasRenderingContext2D, a: Vis, s: Skel, t: numb
       break;
     }
 
+    // ── Mítico (Fight Pass T1): juba de leão dourada à volta da cabeça (o lutador é o leão), coroa e rugido ──
+    case 'leao': {
+      const roarPh = (t * 0.33) % 1;
+      const roar = roarPh < 0.22 ? Math.sin((roarPh / 0.22) * Math.PI) : 0;
+      const lr = HEAD_R * 1.25 * (1 + roar * 0.08);
+      const lx = X[J_HEAD];
+      const ly = Y[J_HEAD] + 2;
+      // brilho real por trás do corpo
+      ctx.globalCompositeOperation = ADD;
+      ctx.globalAlpha = 0.4 + pulse * 0.15 + roar * 0.2;
+      ctx.drawImage(glowSprite(c1), cx - bw * 0.9, cy - bh * 0.75, bw * 1.8, bh * 1.4);
+      ctx.globalAlpha = 0.3;
+      ctx.drawImage(glowSprite(c2), mx - bw * 0.7, gy - bh * 0.6, bw * 1.4, bh * 0.8);
+      ctx.globalCompositeOperation = NORM;
+      // juba: duas coroas de madeixas (escura por fora, clara por dentro), a ondular
+      const NM = low ? 14 : 22;
+      for (let layer = 0; layer < 2; layer++) {
+        const rr = lr * (layer ? 1.25 : 1.75) * (1 + roar * 0.18);
+        ctx.fillStyle = layer ? c1 : '#c98a00';
+        ctx.strokeStyle = '#6a3c00';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = layer ? 0.92 : 0.85;
+        ctx.beginPath();
+        for (let i = 0; i <= NM * 2; i++) {
+          const a = (i / (NM * 2)) * TAU + layer * 0.12;
+          const wob = Math.sin(t * 3 + i * 1.7 + layer) * 0.06;
+          const r = i % 2 ? rr * (0.72 + wob) : rr * (1 + wob);
+          const px = lx + Math.cos(a) * r;
+          const py = ly + Math.sin(a) * r * 1.05;
+          if (i) ctx.lineTo(px, py);
+          else ctx.moveTo(px, py);
+        }
+        ctx.closePath();
+        ctx.stroke();
+        ctx.fill();
+      }
+      // orelhas de leão
+      for (const sx of [-1, 1]) {
+        const ex = lx + sx * lr * 0.95;
+        const ey = ly - lr * 1.05;
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.arc(ex, ey, lr * 0.32, 0, TAU);
+        ctx.fillStyle = c1;
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#6a3c00';
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(ex, ey + 2, lr * 0.16, 0, TAU);
+        ctx.fillStyle = '#a86a00';
+        ctx.fill();
+      }
+      // chamas de luz nas pontas da juba
+      ctx.globalCompositeOperation = ADD;
+      for (let i = 0; i < (low ? 6 : 12); i++) {
+        const a = (i / (low ? 6 : 12)) * TAU + t * 0.3;
+        const r0 = lr * 1.55;
+        ctx.globalAlpha = 0.55;
+        flame(ctx, lx + Math.cos(a) * r0, ly + Math.sin(a) * r0, Math.cos(a), Math.sin(a), lr * (0.7 + roar * 0.5), lr * 0.16, c1, '#fff3b0', t, i * 1.3);
+      }
+      ctx.globalCompositeOperation = NORM;
+      // coroa sobre a juba
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = c1;
+      ctx.strokeStyle = '#6a3c00';
+      ctx.lineWidth = 2.5;
+      const cw = lr * 0.62;
+      const cyy = ly - lr * 1.95 - Math.sin(t * 2) * 2;
+      ctx.beginPath();
+      ctx.moveTo(lx - cw, cyy + cw * 0.45);
+      ctx.lineTo(lx - cw, cyy - cw * 0.35);
+      ctx.lineTo(lx - cw * 0.5, cyy + cw * 0.05);
+      ctx.lineTo(lx, cyy - cw * 0.6);
+      ctx.lineTo(lx + cw * 0.5, cyy + cw * 0.05);
+      ctx.lineTo(lx + cw, cyy - cw * 0.35);
+      ctx.lineTo(lx + cw, cyy + cw * 0.45);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = c2;
+      for (const sx of [-1, 0, 1]) {
+        ctx.beginPath();
+        ctx.arc(lx + sx * cw * 0.55, cyy + cw * 0.22, 3, 0, TAU);
+        ctx.fill();
+      }
+      // silhueta do lutador: dourado por fora, violeta por dentro
+      halo(ctx, s, 52 + pulse * 8, c1, 0.32);
+      halo(ctx, s, 34, c2, 0.5);
+      jointGlow(ctx, s, c1, 0.45, 38, low);
+      // selo real no chão: anel violeta com coroas douradas a rodar
+      ctx.save();
+      ctx.translate(mx, gy);
+      ctx.scale(1, 0.26);
+      ctx.globalAlpha = 0.9;
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, 96, 0, TAU);
+      ctx.stroke();
+      ctx.strokeStyle = c1;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(0, 0, 84, 0, TAU);
+      ctx.stroke();
+      ctx.fillStyle = c1;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * TAU + t * 0.4;
+        ctx.save();
+        ctx.translate(Math.cos(a) * 90, Math.sin(a) * 90);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.beginPath();
+        ctx.moveTo(-7, 4);
+        ctx.lineTo(-7, -4);
+        ctx.lineTo(-3.5, 0);
+        ctx.lineTo(0, -6);
+        ctx.lineTo(3.5, 0);
+        ctx.lineTo(7, -4);
+        ctx.lineTo(7, 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+      ctx.restore();
+      // rugido: onda de choque dourada
+      if (roar > 0.05) {
+        const k = roarPh / 0.22;
+        ctx.globalAlpha = (1 - k) * 0.9;
+        ctx.strokeStyle = c1;
+        ctx.lineWidth = 6 * (1 - k) + 1;
+        ctx.beginPath();
+        ctx.ellipse(lx, ly, lr * (1.6 + k * 2.4), lr * (1.6 + k * 2.4), 0, 0, TAU);
+        ctx.stroke();
+      }
+      // poeira de ouro e pétalas violeta a subir
+      ctx.globalCompositeOperation = ADD;
+      for (let i = 0; i < 16 * m; i++) {
+        const ph = (t * 0.5 + hash(i + 300)) % 1;
+        const x = x0 - 20 + hash(i + 301) * (bw + 40) + Math.sin(t * 2 + i) * 8;
+        const y = gy - ph * (bh + 80);
+        ctx.globalAlpha = (1 - ph) * 0.95;
+        ctx.fillStyle = i % 3 ? c1 : c2;
+        sparkle(ctx, x, y, 3 + (i % 3) * 1.5);
+      }
+      ctx.globalCompositeOperation = NORM;
+      break;
+    }
+
     // ── Celestial: galáxia, anéis orbitais, planetas e círculo de constelações ──
     case 'cosmos':
     default: {
@@ -867,6 +1015,12 @@ export function drawAura(ctx: CanvasRenderingContext2D, a: Vis, s: Skel, t: numb
 }
 
 // ───────────────────────── Cenários de fundo (menus) ─────────────────────────
+
+function shadeHex(hex: string, amt: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (v: number) => Math.max(0, Math.min(255, Math.round(amt < 0 ? v * (1 + amt) : v + (255 - v) * amt)));
+  return '#' + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => f(v).toString(16).padStart(2, '0')).join('');
+}
 
 function vgrad(ctx: CanvasRenderingContext2D, H: number, stops: [number, string][]) {
   const g = ctx.createLinearGradient(0, 0, 0, H);
@@ -1237,6 +1391,81 @@ export function drawBackdrop(ctx: CanvasRenderingContext2D, a: Vis | null, W: nu
           ctx.fill();
           ctx.globalAlpha = 0.3;
           ctx.drawImage(glowSprite(c2), x - s * 8, y - s * 5, s * 16, s * 10);
+        }
+      });
+      break;
+    }
+    case 'leao': {
+      // salão do trono: colunas, estandartes violeta com coroas e um leão dourado na parede
+      ctx.fillStyle = vgrad(ctx, H, [[0, '#12051f'], [0.6, '#2a0b45'], [1, '#0c0314']]);
+      ctx.fillRect(0, 0, W, H);
+      add(ctx, () => {
+        ctx.globalAlpha = 0.55 + Math.sin(t * 1.4) * 0.1;
+        ctx.drawImage(glowSprite(c1), cx - W * 0.42, H * 0.02, W * 0.84, H * 0.7);
+      });
+      // colunas
+      for (const fx of [0.1, 0.9]) {
+        const x = W * fx;
+        const cw2 = 22 * k;
+        ctx.fillStyle = vgrad(ctx, H, [[0, '#3a1a5c'], [1, '#1a0a2a']]);
+        ctx.fillRect(x - cw2, 0, cw2 * 2, H);
+        ctx.fillStyle = 'rgba(255,207,58,0.35)';
+        ctx.fillRect(x - cw2, 0, 3 * k, H);
+        ctx.fillRect(x + cw2 - 3 * k, 0, 3 * k, H);
+      }
+      // estandartes
+      for (const fx of [0.24, 0.76]) {
+        const x = W * fx;
+        const bwid = 30 * k;
+        const bh2 = H * 0.5;
+        const sway = Math.sin(t * 1.2 + fx * 9) * 3 * k;
+        ctx.fillStyle = c2.length === 7 ? shadeHex(c2, -0.35) : '#5b1fa8';
+        ctx.beginPath();
+        ctx.moveTo(x - bwid, 0);
+        ctx.lineTo(x + bwid, 0);
+        ctx.lineTo(x + bwid + sway, bh2);
+        ctx.lineTo(x + sway, bh2 - 18 * k);
+        ctx.lineTo(x - bwid + sway, bh2);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = c1;
+        ctx.lineWidth = 2.5 * k;
+        ctx.stroke();
+        // coroa no estandarte
+        const cy2 = bh2 * 0.45;
+        const w2 = bwid * 0.55;
+        ctx.fillStyle = c1;
+        ctx.beginPath();
+        ctx.moveTo(x - w2 + sway * 0.5, cy2 + w2 * 0.5);
+        ctx.lineTo(x - w2 + sway * 0.5, cy2 - w2 * 0.4);
+        ctx.lineTo(x - w2 * 0.5 + sway * 0.5, cy2);
+        ctx.lineTo(x + sway * 0.5, cy2 - w2 * 0.7);
+        ctx.lineTo(x + w2 * 0.5 + sway * 0.5, cy2);
+        ctx.lineTo(x + w2 + sway * 0.5, cy2 - w2 * 0.4);
+        ctx.lineTo(x + w2 + sway * 0.5, cy2 + w2 * 0.5);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // passadeira violeta até ao trono
+      ctx.fillStyle = c2.length === 7 ? shadeHex(c2, -0.5) : '#3d0f73';
+      ctx.beginPath();
+      ctx.moveTo(cx - W * 0.12, fy);
+      ctx.lineTo(cx + W * 0.12, fy);
+      ctx.lineTo(cx + W * 0.3, H);
+      ctx.lineTo(cx - W * 0.3, H);
+      ctx.fill();
+      ctx.strokeStyle = c1;
+      ctx.lineWidth = 2 * k;
+      ctx.stroke();
+      // pó de ouro
+      add(ctx, () => {
+        for (let i = 0; i < 40; i++) {
+          const ph = (t * (0.08 + hash(i) * 0.1) + hash(i + 2)) % 1;
+          const x = hash(i + 11) * W + Math.sin(t + i) * 8;
+          const y = H - ph * H * 1.1;
+          ctx.globalAlpha = (1 - ph) * 0.9;
+          ctx.fillStyle = i % 4 ? c1 : c2;
+          ctx.fillRect(x, y, 2.2, 2.2);
         }
       });
       break;

@@ -287,6 +287,26 @@ export function matPattern(
       if (seed % 3 === 0) lighter(ctx, () => line([M(0.45, 0.2), M(0.6, 0.2)], 2, c2, 0.7 + Math.sin(t * 5 + seed) * 0.3));
       break;
     }
+    case 'gold': {
+      // ouro vivo: veios de energia violeta que pulsam, reflexo que varre o metal e cintilações
+      const dark = sh(suit, -0.35);
+      if (seed !== 11) {
+        line([M(0.05, -0.6), M(0.95, -0.6)], 2.6, '#fff3b0', 0.55);
+        line([M(0.05, 0.75), M(0.95, 0.75)], 2, dark, 0.5);
+      }
+      lighter(ctx, () => {
+        const pulse = 0.55 + Math.sin(t * 2.4 + seed) * 0.35;
+        const vein: [number, number][] = [];
+        for (let i = 0; i <= 5; i++) vein.push(M(0.08 + i * 0.17, Math.sin(i * 1.7 + seed) * 0.55));
+        line(vein, 4.5, c2, pulse * 0.35);
+        line(vein, 1.6, '#f0dcff', pulse * 0.9);
+        const u = ((t * 0.4 + seed * 0.21) % 1.8) - 0.4;
+        line([M(u - 0.06, -1.3), M(u + 0.06, 1.3)], 7, '#ffffff', 0.22);
+        line([M(u - 0.06, -1.3), M(u + 0.06, 1.3)], 2, '#ffffff', 0.6);
+      });
+      sparkles(2, 0.8, 4, '#fffbe6', 1.4);
+      break;
+    }
     case 'cosmic': {
       // janela para o espaço: mosaico de nebulosa a deslizar, contínuo entre membros
       const q = [M(0, -1.3), M(1, -1.3), M(0, 1.3), M(1, 1.3)];
@@ -713,12 +733,14 @@ export function bodyPieces(
   switch (o.back) {
     case 'cape':
     case 'cape_long':
-    case 'royalcape': {
+    case 'royalcape':
+    case 'ermine': {
       const long = o.back !== 'cape';
-      const royal = o.back === 'royalcape';
+      const ermine = o.back === 'ermine';
+      const royal = o.back === 'royalcape' || ermine;
       const L = o.back === 'cape' ? 62 : 112;
-      const outer = royal ? '#a3121f' : o.c3 ?? '#cc2222';
-      const inner = royal ? '#5e0a12' : o.c4 ?? sh(outer, -0.35);
+      const outer = ermine ? o.cape ?? '#5b1fa8' : royal ? '#a3121f' : o.c3 ?? '#cc2222';
+      const inner = ermine ? sh(outer, -0.5) : royal ? '#5e0a12' : o.c4 ?? sh(outer, -0.35);
       const trimC = royal ? '#ffd23d' : o.back === 'cape' ? (o.c4 ?? '#ffd700') : sh(outer, -0.3);
       const rows = long ? 7 : 5;
       const cols = 10;
@@ -744,8 +766,8 @@ export function bodyPieces(
         cloth(ctx, Tb, grid, outer, inner, 4.5, trimC);
         if (!PS.F) {
           // estrelas / brasão na face de fora
-          if (o.back === 'cape') {
-            const spots = [[2, 2.5], [2, 6.5], [3, 4.5]];
+          if (o.back === 'cape' || ermine) {
+            const spots = ermine ? [[2, 4.5], [4, 2.5], [4, 6.5]] : [[2, 2.5], [2, 6.5], [3, 4.5]];
             for (const [i, j] of spots) {
               const a = Tb.p(grid[i][Math.floor(j)][0], grid[i][Math.floor(j)][1], grid[i][Math.floor(j)][2]);
               const b = Tb.p(grid[i][Math.floor(j) + 1][0], grid[i][Math.floor(j) + 1][1], grid[i][Math.floor(j) + 1][2]);
@@ -759,6 +781,21 @@ export function bodyPieces(
               ctx.strokeStyle = OC();
               ctx.lineWidth = 1.5;
               ctx.beginPath();
+              if (ermine) {
+                // coroa bordada a ouro
+                const w = r * 1.1;
+                ctx.moveTo(cx - w, cy + r * 0.6);
+                ctx.lineTo(cx - w, cy - r * 0.5);
+                ctx.lineTo(cx - w * 0.5, cy);
+                ctx.lineTo(cx, cy - r * 0.9);
+                ctx.lineTo(cx + w * 0.5, cy);
+                ctx.lineTo(cx + w, cy - r * 0.5);
+                ctx.lineTo(cx + w, cy + r * 0.6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                continue;
+              }
               for (let q = 0; q < 10; q++) {
                 const aa = -Math.PI / 2 + (q * Math.PI) / 5;
                 const rr = q % 2 ? r * (royal ? 0.55 : 0.42) : r;
@@ -794,10 +831,27 @@ export function bodyPieces(
             ctx.fill();
           }
         }
+        if (ermine) {
+          // gola de arminho larga sobre os ombros
+          for (let i = 0; i <= 6; i++) {
+            const zz = -24 + i * 8;
+            const yy = -4 + Math.abs(zz) * 0.08;
+            ell(ctx, Tb, 2 - Math.abs(zz) * 0.12, yy, zz, 7.5, 6.5, 6, '#f7f4ee', { line: 2.4, shade: '#cfc7b8' });
+            if (!PS.F && i % 2 === 1) {
+              const p = Tb.p(4, yy + 1, zz);
+              ctx.fillStyle = '#16121a';
+              ctx.beginPath();
+              ctx.moveTo(p[0], p[1] - 2.6);
+              ctx.lineTo(p[0] + 1.6, p[1] + 2.2);
+              ctx.lineTo(p[0] - 1.6, p[1] + 2.2);
+              ctx.fill();
+            }
+          }
+        }
         // fechos nos ombros (com brilho)
         for (const zz of [-20, 20]) {
           ell(ctx, Tb, 4, -1, zz, 4.8, 4.8, 4.8, o.back === 'cape' ? (o.c4 ?? '#ffd700') : '#ffd23d', { line: 2 });
-          if (royal) ell(ctx, Tb, 5, -1, zz, 2, 2, 2, '#d6202f', { line: 1.2, shade: null });
+          if (royal) ell(ctx, Tb, 5, -1, zz, 2, 2, 2, ermine ? o.gem ?? '#b05cff' : '#d6202f', { line: 1.2, shade: null });
         }
         if ((royal || o.anim === 'gold') && !PS.F) glint(ctx, Tb.p(4, -1, 20), t, 1);
       });
@@ -1298,6 +1352,63 @@ export function chestDecal(
       ctx.fill();
       break;
     }
+    case 'lion': {
+      // brasão do leão real: disco violeta, juba dourada em raios, cara, olhos e focinho
+      const gem = o.c2 ?? '#b05cff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 13.5, 0, TAU);
+      ctx.fillStyle = C(sh(gem.length === 7 ? gem : '#b05cff', -0.35));
+      ctx.fill();
+      ctx.lineWidth = 2.2;
+      ctx.strokeStyle = OC();
+      ctx.stroke();
+      ctx.beginPath();
+      for (let i = 0; i < 24; i++) {
+        const a = (i / 24) * TAU;
+        const r = i % 2 ? 8.2 : 12;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fillStyle = C('#c98a00');
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(0, 0.5, 6.6, 0, TAU);
+      ctx.fillStyle = C('#ffd23d');
+      ctx.fill();
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      if (!PS.F) {
+        for (const sx of [-1, 1]) {
+          ctx.fillStyle = '#ffd23d';
+          ctx.beginPath();
+          ctx.arc(sx * 5, -5, 2.2, 0, TAU);
+          ctx.fill();
+          ctx.fillStyle = gem;
+          ctx.beginPath();
+          ctx.arc(sx * 2.5, -1, 1.2, 0, TAU);
+          ctx.fill();
+        }
+        ctx.fillStyle = '#fff3b0';
+        ctx.beginPath();
+        ctx.ellipse(0, 3.2, 3.2, 2.4, 0, 0, TAU);
+        ctx.fill();
+        ctx.fillStyle = '#3a2208';
+        ctx.beginPath();
+        ctx.moveTo(-1.6, 1.6);
+        ctx.lineTo(1.6, 1.6);
+        ctx.lineTo(0, 3.3);
+        ctx.fill();
+        const prev = ctx.globalCompositeOperation;
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.45 + Math.sin(t * 3) * 0.25;
+        ctx.drawImage(glowSprite(gem), -20, -20, 40, 40);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = prev;
+      }
+      break;
+    }
     case 'medal':
       ctx.strokeStyle = C('#e2b44a');
       ctx.lineWidth = 2;
@@ -1375,7 +1486,7 @@ export function chestDecal(
 
 // ───────────────────────── Peças da cabeça ─────────────────────────
 
-const HIDE_HAIR = new Set(['ninja', 'kabuto', 'galea', 'robo', 'lava', 'ice', 'fenix', 'shark', 'dino']);
+const HIDE_HAIR = new Set(['ninja', 'kabuto', 'galea', 'robo', 'lava', 'ice', 'fenix', 'shark', 'dino', 'bearskin', 'sovereign']);
 const HIDE_MASK = new Set(['ninja', 'kabuto', 'galea', 'robo', 'lava', 'ice', 'fenix', 'shark', 'dino', 'astro']);
 
 export const hidesHair = (o: Vis) => !!o.head && HIDE_HAIR.has(o.head);
@@ -1385,7 +1496,7 @@ export const hidesMask = (o: Vis) => !!o.head && HIDE_MASK.has(o.head);
 export function coversHead(outfitId: string): boolean {
   const o = ITEMS[outfitId]?.vis;
   if (!o) return false;
-  return hidesHair(o) || hidesMask(o) || o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic';
+  return hidesHair(o) || hidesMask(o) || o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold';
 }
 
 /**
@@ -1688,6 +1799,221 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
         }
       }
       break;
+    case 'circlet': {
+      // diadema de príncipe: aro fino de ouro inclinado (mais baixo na testa) com uma pedra e uma ponta à frente
+      const gem = o.gem ?? '#b05cff';
+      const n = 18;
+      const yA = (a: number) => -19 - Math.cos(a) * 5;
+      const rA = (a: number, dy = 0) => Math.sqrt(Math.max(1, R * R - (yA(a) + dy) * (yA(a) + dy))) + 2;
+      if (phase !== 'skin') {
+        for (let j = 0; j < n; j++) {
+          const a0 = (j / n) * TAU;
+          const a1 = ((j + 1) / n) * TAU;
+          const m = ringAt(yA((a0 + a1) / 2), rA((a0 + a1) / 2), (a0 + a1) / 2);
+          byDepth(m[0], m[1], m[2], () => {
+            const grid = [0, 1].map((i) => [a0, a1].map((a) => ringAt(yA(a) - 2.2 + i * 4.4, rA(a, i * 2), a)));
+            cloth(ctx, H, grid, '#ffcf3a', '#b8860b', 2.2);
+          });
+        }
+      }
+      if (phase === 'front') {
+        const f = ringAt(yA(0) - 1, rA(0) + 1, 0);
+        if (H.p(f[0], f[1], f[2])[2] > D0) {
+          spike(ctx, H, f[0], f[1] - 2, f[2], f[0] + 1, f[1] - 13, f[2], 4, '#ffcf3a', 2);
+          ell(ctx, H, f[0] + 0.5, f[1], f[2], 2.6, 4, 3.4, gem, { line: 1.8 });
+          for (const sd of [-1, 1]) {
+            const s2 = ringAt(yA(sd * 0.45) - 1, rA(sd * 0.45) + 1, sd * 0.45);
+            if (H.p(s2[0], s2[1], s2[2])[2] > D0) ell(ctx, H, s2[0], s2[1], s2[2], 1.8, 1.8, 1.8, '#fff3b0', { line: 1.4, shade: null });
+          }
+          if (!PS.F) glint(ctx, H.p(f[0], f[1] - 9, f[2]), t, 5, 6);
+        }
+      }
+      break;
+    }
+    case 'bearskin': {
+      // barretina de pele de urso da guarda real: muito alta, preta e felpuda, com francalete dourado
+      if (phase === 'front') {
+        const fur = '#17131d';
+        ell(ctx, H, -2, -46, 0, 23, 30, 23, fur, { line: 3.5, hi: false });
+        capDome(ctx, H, -1, -5, R + 4, -9, fur);
+        ell(ctx, H, -2, -46, 0, 23, 30, 23, fur, { line: 0, hi: false });
+        if (!PS.F) {
+          // pelo: tufos curtos em traço claro
+          ctx.strokeStyle = '#3a3346';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          for (let i = 0; i < 26; i++) {
+            const lon = hash(i * 3.1) * TAU;
+            const y = -70 + hash(i * 5.3) * 58;
+            const rr = y < -30 ? 22 * Math.sqrt(Math.max(0, 1 - ((y + 46) / 30) ** 2)) : R + 3;
+            const p = H.p(Math.cos(lon) * rr - 2, y, Math.sin(lon) * rr);
+            if (p[2] < D0 - 4) continue;
+            ctx.moveTo(p[0], p[1]);
+            ctx.lineTo(p[0] + 2, p[1] - 4);
+          }
+          ctx.stroke();
+          ctx.globalAlpha = 0.18;
+          ctx.fillStyle = '#ffffff';
+          const hl = H.p(4, -62, -8);
+          ctx.beginPath();
+          ctx.ellipse(hl[0], hl[1], 6, 10, -0.3, 0, TAU);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+        }
+        // francalete (corrente dourada até ao queixo) e emblema real na frente
+        for (const sd of [-1, 1]) {
+          const a = [2, -6, sd * (R + 3)];
+          if (H.p(a[0], a[1], a[2])[2] < D0 - 6) continue;
+          tube(ctx, H, [a, [10, 8, sd * (R - 1)], [16, 22, sd * 10], [18, 26, 0]], [1.8, 1.8, 1.8, 1.8], '#ffcf3a', '#b8860b', 1.5);
+        }
+        const e = [R + 1, -22, 0];
+        if (H.p(e[0], e[1], e[2])[2] > D0) {
+          ell(ctx, H, e[0], e[1], e[2], 2, 7, 7, '#ffcf3a', { line: 2 });
+          ell(ctx, H, e[0] + 1.5, e[1], e[2], 1, 3.2, 3.2, c1, { line: 1.2, shade: null });
+          if (!PS.F) glint(ctx, H.p(e[0], e[1] - 4, e[2]), t, 9, 6);
+        }
+        // pluma vermelha de lado
+        const sdp = H.p(0, -30, R)[2] > H.p(0, -30, -R)[2] ? 1 : -1;
+        tube(ctx, H, [[-2, -18, sdp * (R + 1)], [-4, -40, sdp * (R + 2)], [-6, -60, sdp * (R - 2)]], [3, 4, 2.5], '#c4122c', '#7a0a16', 2.5);
+      }
+      break;
+    }
+    case 'kingcrown': {
+      // coroa imperial: arminho na base, aro de ouro com pedras, barrete de veludo, 4 arcos, orbe e cruz
+      const gem = o.gem ?? '#b05cff';
+      const vel = o.cape ?? '#5b1fa8';
+      if (phase !== 'front') break;
+      const dl = new DL();
+      const n = 16;
+      // arminho
+      const erm: number[][][] = [0, 1].map((i) => Array.from({ length: n + 1 }, (_, j) => ringAt(-26 + i * 5, 22 + i * 1.5, (j / n) * TAU)));
+      dl.add(-50, () => {
+        cloth(ctx, H, erm, '#f7f4ee', '#ddd6c8', 3);
+        if (!PS.F) {
+          ctx.fillStyle = '#16121a';
+          for (let j = 0; j < n; j += 2) {
+            const p = ringAt(-23.5, 23.6, (j / n) * TAU + 0.15);
+            const q = H.p(p[0], p[1], p[2]);
+            if (q[2] < D0) continue;
+            ctx.beginPath();
+            ctx.moveTo(q[0], q[1] - 2.6);
+            ctx.lineTo(q[0] + 1.6, q[1] + 2.2);
+            ctx.lineTo(q[0] - 1.6, q[1] + 2.2);
+            ctx.fill();
+          }
+        }
+      });
+      // aro de ouro
+      const band: number[][][] = [0, 1].map((i) => Array.from({ length: n + 1 }, (_, j) => ringAt(-35 + i * 9, 20.5 + i * 0.5, (j / n) * TAU)));
+      dl.add(-40, () => cloth(ctx, H, band, '#ffcf3a', '#b8860b', 3));
+      // pontas (flores-de-lis simplificadas) com pérolas
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU + Math.PI / 8;
+        const b = ringAt(-35, 20.5, a);
+        const tp = ringAt(k % 2 ? -42 : -46, 20, a);
+        const d = H.p(b[0], b[1], b[2])[2] - D0;
+        dl.add(d > 0 ? 10 + d * 0.01 : -45 + d * 0.01, () => {
+          const ta = [-Math.sin(a) * 4.5, 0, Math.cos(a) * 4.5];
+          poly(ctx, H, [[b[0] - ta[0], b[1], b[2] - ta[2]], tp, [b[0] + ta[0], b[1], b[2] + ta[2]]], '#ffcf3a', 2.2);
+          ell(ctx, H, tp[0], tp[1], tp[2], 2.2, 2.2, 2.2, '#fff8e6', { line: 1.6, shade: null });
+        });
+      }
+      // barrete de veludo
+      dl.add(0, () => capDome(ctx, H, -1, -33, 18.5, -35, vel));
+      // arcos: os de trás antes do barrete, os da frente depois
+      for (let k = 0; k < 4; k++) {
+        const a = (k / 4) * TAU;
+        const pts = [ringAt(-35, 20.5, a), ringAt(-47, 18.5, a), ringAt(-56, 11, a), [-1, -59, 0]];
+        const m = pts[1];
+        const d = H.p(m[0], m[1], m[2])[2] - D0;
+        dl.add(d > 0 ? 5 + d * 0.01 : -5 + d * 0.01, () => {
+          tube(ctx, H, pts, [2.6, 2.4, 2.2, 2], '#ffcf3a', '#b8860b', 2);
+          if (!PS.F && d > 0) {
+            for (const q of [pts[1], pts[2]]) ell(ctx, H, q[0], q[1], q[2], 1.5, 1.5, 1.5, '#fff8e6', { line: 0, shade: null, hi: false });
+          }
+        });
+      }
+      // pedras no aro (só as viradas para quem vê)
+      for (let k = 0; k < 8; k++) {
+        const a = (k / 8) * TAU;
+        const g = ringAt(-30.5, 21.4, a);
+        const d = H.p(g[0], g[1], g[2])[2] - D0;
+        if (d <= 0) continue;
+        dl.add(-39 + d * 0.01, () => ell(ctx, H, g[0], g[1], g[2], 2.6, 3.2, 2.6, k % 2 ? '#2fbf71' : gem, { line: 1.5, shade: null }));
+      }
+      // orbe e cruz
+      dl.add(20, () => {
+        ell(ctx, H, -1, -63, 0, 4.6, 4.6, 4.6, '#ffcf3a', { line: 2 });
+        poly(ctx, H, [[-1, -67, -1.2], [-1, -75, -1.2], [-1, -75, 1.2], [-1, -67, 1.2]], '#ffcf3a', 1.8);
+        poly(ctx, H, [[-1, -71.5, -4], [-1, -73.5, -4], [-1, -73.5, 4], [-1, -71.5, 4]], '#ffcf3a', 1.8);
+        ell(ctx, H, -1, -63, 0, 1.6, 1.6, 1.6, gem, { line: 0, shade: null, hi: false });
+      });
+      dl.flush();
+      if (!PS.F) {
+        glint(ctx, H.p(-1, -73, 0), t, 11, 8);
+        const f = ringAt(-30, 21, 0.4);
+        glint(ctx, H.p(f[0], f[1], f[2]), t, 4, 6);
+      }
+      break;
+    }
+    case 'sovereign': {
+      // coroa de estrelas a flutuar: aro de luz com pontas douradas e pedras violeta, a rodar devagar
+      const gem = o.c2 ?? '#b05cff';
+      if (phase === 'skin') break;
+      const bob = Math.sin(t * 2) * 2.5;
+      const yb = -44 + bob;
+      if (phase === 'back') {
+        if (!PS.F) {
+          lighter(ctx, () => {
+            const c = H.p(-2, yb - 6, 0);
+            ctx.globalAlpha = 0.55 + Math.sin(t * 3) * 0.15;
+            ctx.drawImage(glowSprite('#ffe9a0'), c[0] - 46, c[1] - 30, 92, 60);
+            ctx.globalAlpha = 0.35;
+            ctx.drawImage(glowSprite(gem), c[0] - 36, c[1] - 20, 72, 40);
+          });
+        }
+        break;
+      }
+      const dl = new DL();
+      const n = 20;
+      const rot = t * 0.5;
+      const ring: number[][][] = [0, 1].map((i) => Array.from({ length: n + 1 }, (_, j) => ringAt(yb + i * 4, 21 - i * 0.5, (j / n) * TAU + rot)));
+      dl.add(0, () => cloth(ctx, H, ring, '#ffe27a', '#c98a00', 2.6));
+      for (let k = 0; k < 7; k++) {
+        const a = (k / 7) * TAU + rot;
+        const b = ringAt(yb, 21, a);
+        const tp = ringAt(yb - 16 - (k % 2) * 5, 22.5, a);
+        const d = H.p(b[0], b[1], b[2])[2] - D0;
+        dl.add(d * 0.01 + (d > 0 ? 1 : -1), () => {
+          const ta = [-Math.sin(a) * 4.2, 0, Math.cos(a) * 4.2];
+          poly(ctx, H, [[b[0] - ta[0], b[1], b[2] - ta[2]], tp, [b[0] + ta[0], b[1], b[2] + ta[2]]], '#ffd23d', 2.2);
+          ell(ctx, H, tp[0], tp[1], tp[2], 2.8, 2.8, 2.8, gem, { line: 1.6, shade: null });
+          if (!PS.F && d > 0) {
+            lighter(ctx, () => {
+              const p = H.p(tp[0], tp[1], tp[2]);
+              ctx.globalAlpha = 0.7 + Math.sin(t * 5 + k) * 0.3;
+              ctx.drawImage(glowSprite(gem), p[0] - 8, p[1] - 8, 16, 16);
+            });
+          }
+        });
+      }
+      dl.flush();
+      if (!PS.F) {
+        lighter(ctx, () => {
+          // poeira de estrelas a cair da coroa
+          for (let i = 0; i < 6; i++) {
+            const ph = (t * 0.6 + i / 6) % 1;
+            const a = i * 2.1 + rot;
+            const p = H.p(Math.cos(a) * 20, yb + ph * 26, Math.sin(a) * 20);
+            ctx.globalAlpha = (1 - ph) * 0.9;
+            twinkle(ctx, p[0], p[1], 2.6 * (1 - ph) + 1, i % 2 ? '#fff3b0' : '#e2c2ff');
+          }
+        });
+        glint(ctx, H.p(0, yb - 18, 0), t, 13, 8);
+      }
+      eyesGlow(ctx, H, '#d8a8ff', t);
+      break;
+    }
     case 'horns':
       for (const sd of [-1, 1]) {
         const base = [6, -22, sd * 15];

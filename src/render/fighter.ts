@@ -1569,6 +1569,121 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
       }
       break;
     }
+    case 'mascarada': {
+      // máscara de baile real: meia-máscara dourada com olhos recortados, pedras violeta e penas de lado
+      // penas (atrás da máscara, a subir para trás)
+      for (let i = 0; i < 3; i++) {
+        const a = -2.0 - i * 0.32 + Math.sin(t * 2.2 + i) * 0.05;
+        const len = 30 - i * 4;
+        ctx.save();
+        ctx.translate(-3, -8);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.beginPath();
+        ctx.ellipse(0, -len / 2, 4.6, len / 2, 0, 0, TAU);
+        ctx.fillStyle = C(i === 1 ? shade(c2, 0.25) : c2);
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = OC();
+        ctx.stroke();
+        if (!PS.F) {
+          ctx.strokeStyle = shade(c2, -0.4);
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, -1);
+          ctx.lineTo(0, -len + 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+      const shape = () => {
+        ctx.beginPath();
+        ctx.moveTo(-6, -6);
+        ctx.quadraticCurveTo(-4, -13, 2, -12);
+        ctx.quadraticCurveTo(8, -11.5, 12.5, -8);
+        ctx.quadraticCurveTo(17, -12.5, 24, -11);
+        ctx.quadraticCurveTo(29.5, -9.5, 30, -5);
+        ctx.quadraticCurveTo(29.5, 1.5, 26, 3.5);
+        ctx.quadraticCurveTo(21, 6.5, 15.5, 3);
+        ctx.quadraticCurveTo(13, 1, 11, 3.5);
+        ctx.quadraticCurveTo(6, 8, -1, 5);
+        ctx.quadraticCurveTo(-6, 2, -6, -6);
+        ctx.closePath();
+        ctx.moveTo(11.5, -1);
+        ctx.ellipse(6, -1.2, 5.6, 4.4, -0.12, 0, TAU, true);
+        ctx.moveTo(23.6, -1.6);
+        ctx.ellipse(19, -1.6, 4.6, 3.9, 0.12, 0, TAU, true);
+      };
+      shape();
+      if (PS.F) {
+        ctx.fillStyle = C(c1);
+        ctx.fill('evenodd');
+        break;
+      }
+      const gg = ctx.createLinearGradient(0, -13, 0, 7);
+      gg.addColorStop(0, shade(c1, 0.45));
+      gg.addColorStop(0.45, c1);
+      gg.addColorStop(1, shade(c1, -0.35));
+      ctx.fillStyle = gg;
+      ctx.fill('evenodd');
+      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = OC();
+      ctx.stroke();
+      // debrum violeta à volta dos olhos e filigrana
+      ctx.strokeStyle = c2;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(6, -1.2, 6.8, 5.6, -0.12, Math.PI * 0.95, Math.PI * 2.05);
+      ctx.moveTo(24.8, -2.6);
+      ctx.ellipse(19, -1.6, 5.8, 5, 0.12, Math.PI * 1.95, Math.PI * 0.95, true);
+      ctx.stroke();
+      ctx.strokeStyle = shade(c1, -0.45);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-3, -2);
+      ctx.bezierCurveTo(-1, -8, 3, -2, 0, 2);
+      ctx.moveTo(26, 0);
+      ctx.quadraticCurveTo(29, -3, 27, -7);
+      ctx.stroke();
+      // pedras: losango no nariz e lágrimas debaixo dos olhos
+      ctx.fillStyle = c2;
+      ctx.strokeStyle = OC();
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(12.5, -11);
+      ctx.lineTo(15, -7.5);
+      ctx.lineTo(12.5, -4);
+      ctx.lineTo(10, -7.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      for (const [x, y] of [[4, 5.5], [19.5, 4.3]]) {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, TAU);
+        ctx.fill();
+      }
+      // brilho do metal
+      glow(() => {
+        const ph = (t * 0.5) % 1.6;
+        if (ph < 1) {
+          ctx.save();
+          shape();
+          ctx.clip('evenodd');
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = '#ffffff';
+          const x = -8 + ph * 42;
+          ctx.beginPath();
+          ctx.moveTo(x, -14);
+          ctx.lineTo(x + 5, -14);
+          ctx.lineTo(x - 2, 8);
+          ctx.lineTo(x - 7, 8);
+          ctx.fill();
+          ctx.restore();
+        }
+        ctx.globalAlpha = 0.6 + Math.sin(t * 4) * 0.3;
+        ctx.drawImage(glowSprite(c2), 6.5, -13.5, 12, 12);
+      });
+      break;
+    }
     case 'cyber': {
       // visor envolvente: armação metálica, vidro com reflexos, linha de varrimento e módulo lateral
       ctx.beginPath();
@@ -1745,7 +1860,7 @@ function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number)
     ctx.restore();
     ctx.globalAlpha = 1;
   }
-  if (o.mat && (o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic') && !PS.F) {
+  if (o.mat && (o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold') && !PS.F) {
     ctx.save();
     headPath(ctx);
     ctx.clip();
@@ -2188,7 +2303,7 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
         ctx.ellipse(ax + nx * 4, ay + ny * 4, rr * 1.3, rr, a, 0, TAU);
       }
       ctx.stroke();
-      ctx.fillStyle = '#d6202f';
+      ctx.fillStyle = o.gem ?? '#d6202f';
       ctx.beginPath();
       ctx.arc(ax + nx * 4, ay + ny * 4, 4, 0, TAU);
       ctx.fill();
@@ -2251,8 +2366,8 @@ function drawTorso(ctx: CanvasRenderingContext2D, L: Look, s: Skel, t: number) {
 
   if (suit) {
     // cinto dos fatos tecnológicos / divinos
-    if (o.mat === 'astro' || o.mat === 'metal' || o.mat === 'cosmic' || o.mat === 'feather') {
-      const bc = o.mat === 'astro' ? '#cfd6e2' : o.mat === 'metal' ? '#59627a' : '#ffd23d';
+    if (o.mat === 'astro' || o.mat === 'metal' || o.mat === 'cosmic' || o.mat === 'feather' || o.mat === 'gold') {
+      const bc = o.mat === 'astro' ? '#cfd6e2' : o.mat === 'metal' ? '#59627a' : o.mat === 'gold' ? (o.cape ?? '#5b1fa8') : '#ffd23d';
       seg(ctx, hx - nx * 20 + ux * 10, hy - ny * 20 + uy * 10, hx + nx * 21 + ux * 10, hy + ny * 21 + uy * 10, 7, bc);
       circle(ctx, hx + nx * 16 + ux * 10, hy + ny * 16 + uy * 10, 4.5, o.mat === 'metal' ? (o.c2 ?? '#2be3ff') : o.mat === 'astro' ? '#3a8bff' : '#fff3b0');
     }

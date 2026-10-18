@@ -15,7 +15,8 @@ export type ItemKind =
   | 'taunt'
   | 'arena';
 
-export type ItemSource = 'start' | 'shop' | 'chest' | 'mission' | 'level';
+/** 'pass' = exclusivo do Fight Pass: não aparece na loja, baús, recompensas diárias/carreira nem nos adversários. */
+export type ItemSource = 'start' | 'shop' | 'chest' | 'mission' | 'level' | 'pass';
 
 export interface Vis {
   style?: string;
@@ -41,6 +42,10 @@ export interface Vis {
   chest?: string;
   /** Ombreiras. */
   shoulders?: string;
+  /** Cor exterior da capa (capas reais com arminho). */
+  cape?: string;
+  /** Cor das pedras preciosas (coroas, peitorais, cetros). */
+  gem?: string;
 }
 
 export interface ItemDef {
@@ -57,6 +62,8 @@ export interface ItemDef {
   vis?: Vis;
   /** Número do efeito (ex.: multiplicador de dano do super). */
   power?: number;
+  /** Itens do Fight Pass: temporada em que estrearam. */
+  season?: number;
 }
 
 export const KIND_NAMES: Record<ItemKind, string> = {
@@ -240,6 +247,23 @@ const I: ItemDef[] = [
   { id: 'ar_desert', kind: 'arena', name: 'Pharaoh\'s Sands', rarity: 'epico', desc: 'A ring in the middle of the desert at sunset: pyramids, ancient ruins, blazing torches and blowing sand.', icon: '🏜️', source: 'shop', gems: 300 },
   { id: 'ar_neon', kind: 'arena', name: 'Neon Rooftop', rarity: 'lendario', desc: 'Fight on a skyscraper rooftop in a neon megacity: rain, flying cars, giant billboards and a police chopper spotlight.', icon: '🌃', source: 'shop', gems: 450 },
   { id: 'ar_temple', kind: 'arena', name: 'Sakura Temple', rarity: 'mitico', desc: 'A moonlit mountain temple: glowing lanterns, a red pagoda, cherry blossoms and petals drifting through the ring.', icon: '🌸', source: 'shop', gems: 600 },
+  // ───────────── Fight Pass · Temporada 1 "Rise of the Kings" (exclusivos: só se ganham no passe) ─────────────
+  // trilho grátis
+  { id: 'fp1_hc_arminho', kind: 'hairColor', name: 'Ermine Frost', rarity: 'incomum', desc: 'Royal white with a violet sheen. Fight Pass Season 1 exclusive.', icon: '🤍', source: 'pass', season: 1, vis: { c1: '#e9e3f5', c2: '#b58cff' } },
+  { id: 'fp1_g_veludo', kind: 'gloves', name: 'Velvet Court Gloves', rarity: 'raro', desc: 'Royal violet velvet with a gold crest strap. Fight Pass Season 1 exclusive.', icon: '🧤', source: 'pass', season: 1, vis: { style: 'pro', c1: '#55209a', c2: '#ffcf3a' } },
+  { id: 'fp1_a_brasas', kind: 'aura', name: 'Violet Embers', rarity: 'raro', desc: 'Violet and gold sparks fountain from your feet. Fight Pass Season 1 exclusive.', icon: '💜', source: 'pass', season: 1, vis: { type: 'faiscas', c1: '#c07bff', c2: '#ffe08a' } },
+  { id: 'fp1_o_principe', kind: 'outfit', name: 'Crown Prince', rarity: 'epico', desc: 'Violet trunks, a short royal cape and a golden circlet. Fight Pass Season 1 exclusive.', icon: '🤴', source: 'pass', season: 1, vis: { style: 'trunks', c1: '#5b1fa8', c2: '#ffcf3a', boots: '#ffcf3a', pattern: 'stripe', back: 'cape', c3: '#6a24c4', c4: '#ffcf3a', head: 'circlet', gem: '#c07bff' } },
+  // trilho premium
+  { id: 'fp1_m_mascarada', kind: 'mask', name: 'Royal Masquerade', rarity: 'epico', desc: 'A gilded ball mask with violet jewels and a crown crest. Fight Pass Season 1 exclusive.', icon: '🎭', source: 'pass', season: 1, vis: { style: 'mascarada', c1: '#ffcf3a', c2: '#8a2be2' } },
+  { id: 'fp1_hc_ametista', kind: 'hairColor', name: 'Royal Amethyst', rarity: 'raro', desc: 'Deep amethyst with shining gold highlights. Fight Pass Season 1 exclusive.', icon: '💜', source: 'pass', season: 1, vis: { c1: '#5b1fa8', c2: '#ffd86b', anim: 'shine' } },
+  { id: 'fp1_t_vassalos', kind: 'taunt', name: 'All Hail the King', rarity: 'epico', desc: 'Raise a golden crown to the sky and demand the crowd bow. Charges your Super. Fight Pass Season 1 exclusive.', icon: '👑', source: 'pass', season: 1, vis: { type: 'hail' } },
+  { id: 'fp1_o_guarda', kind: 'outfit', name: 'Royal Guard', rarity: 'epico', desc: 'A violet tunic with gold braid, epaulettes and a towering bearskin hat. Fight Pass Season 1 exclusive.', icon: '💂', source: 'pass', season: 1, vis: { style: 'gi', c1: '#4b1a85', c2: '#ffcf3a', c3: '#ffcf3a', boots: '#15121c', pattern: 'none', chest: 'medal', shoulders: 'gold', head: 'bearskin' } },
+  { id: 'fp1_g_cetro', kind: 'gloves', name: 'Scepter Fists', rarity: 'lendario', desc: 'Solid gold gauntlets crowned with glowing amethysts, like two royal scepters. Fight Pass Season 1 exclusive.', icon: '🔱', source: 'pass', season: 1, vis: { style: 'cetro', c1: '#ffcf3a', c2: '#b05cff', c3: '#5b1fa8', anim: 'shine' } },
+  { id: 'fp1_ms_spear_real', kind: 'moveStyle', name: 'Royal Spear', rarity: 'lendario', desc: 'A violet-and-gold trail and a crown of light bursts on impact of your Spear. Same damage, more spectacle. Fight Pass Season 1 exclusive.', icon: '👑', source: 'pass', season: 1, vis: { type: 'spear', style: 'realeza', c1: '#b05cff' } },
+  { id: 'fp1_e_coroacao', kind: 'entrance', name: 'Coronation', rarity: 'mitico', desc: 'A violet carpet, royal banners and a giant golden crown descending onto your head. Fight Pass Season 1 exclusive.', icon: '👑', source: 'pass', season: 1, vis: { type: 'coroacao', style: 'victory' } },
+  { id: 'fp1_o_regalia', kind: 'outfit', name: "King's Regalia", rarity: 'mitico', desc: 'Gilded armor, an imperial crown and a violet mantle trimmed with ermine. Fight Pass Season 1 exclusive.', icon: '🫅', source: 'pass', season: 1, vis: { style: 'armor', c1: '#4b1a85', c2: '#ffcf3a', c3: '#fff3b0', boots: '#2a0f4a', pattern: 'royal', gem: '#b05cff', anim: 'gold', head: 'kingcrown', back: 'ermine', cape: '#5b1fa8', shoulders: 'gold' } },
+  { id: 'fp1_a_leao', kind: 'aura', name: 'Golden Lion', rarity: 'mitico', desc: 'A blazing golden mane, lion ears and a crown frame your head and roar every few seconds; violet royal banners in the menus. Fight Pass Season 1 exclusive.', icon: '🦁', source: 'pass', season: 1, vis: { type: 'leao', c1: '#ffcf3a', c2: '#b05cff' } },
+  { id: 'fp1_o_soberano', kind: 'outfit', name: 'Eternal Sovereign', rarity: 'celestial', desc: 'A body of living gold veined with violet light, a floating crown of stars and an ermine mantle. The Season 1 tier-40 showpiece.', icon: '🌟', source: 'pass', season: 1, vis: { style: 'none', mat: 'gold', suit: '#e8b21c', c1: '#e8b21c', c2: '#b05cff', c3: '#fff3b0', boots: '#a87400', pattern: 'none', anim: 'gold', head: 'sovereign', back: 'ermine', cape: '#3d0f73', chest: 'lion' } },
 ];
 
 export const ITEMS: Record<string, ItemDef> = Object.fromEntries(I.map((i) => [i.id, i]));
@@ -257,8 +281,11 @@ export function itemsOfKind(kind: ItemKind): ItemDef[] {
 
 /** Itens que se podem trocar entre jogadores (skins e habilidades; não os itens iniciais). */
 export function isTradeable(d: ItemDef): boolean {
-  return d.source !== 'start';
+  return d.source !== 'start' && d.source !== 'pass';
 }
+
+/** Exclusivos do Fight Pass (nunca entram na loja, baús, recompensas aleatórias nem no equipamento da IA). */
+export const isPassItem = (d: ItemDef): boolean => d.source === 'pass';
 
 /** Máximo de golpes de assinatura equipados (o 3.º espaço abre no nível MOVE_SLOT3_LEVEL). */
 export const MOVE_SLOTS = 3;

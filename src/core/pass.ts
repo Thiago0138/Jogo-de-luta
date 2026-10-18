@@ -2,9 +2,9 @@
  * FIGHT PASS — passe de temporada (lógica e dados, sem UI).
  * Estado próprio em localStorage ('kotr-pass-v1'); as recompensas vão para o save principal (S).
  */
-import { S, addXp, commit, grant, type LevelUp } from './state';
+import { S, addXp, commit, grant, owns, type LevelUp } from './state';
 import { onFightEnd, type FightEndEvent } from './events';
-import { ITEMS, ITEM_LIST, type ItemDef, type ItemKind } from '../data/items';
+import { ITEMS, type ItemDef } from '../data/items';
 import { RARITIES, type Rarity } from '../data/rarity';
 import type { ChestId } from '../data/chests';
 import { hashStr, seeded, shuffle, weekKey } from './rng';
@@ -31,9 +31,6 @@ const SEASON_NAMES: [string, string][] = [
   ['Blood Moon Brawl', '#ff3d6e'],
   ['Dragon Dynasty', '#ff9f1a'],
 ];
-
-/** Recompensa máxima exclusiva (premium, nível 40), roda por temporada. */
-const TOP_REWARDS = ['g_cosmicas', 'a_sombra', 'o_lava', 'e_dragao', 'g_sombra', 'h_cometa'];
 
 export interface Season {
   n: number;
@@ -66,48 +63,50 @@ export interface Tier {
   prem: PassReward;
 }
 
-const COSMETIC: ItemKind[] = ['outfit', 'aura', 'gloves', 'taunt', 'entrance', 'mask', 'hair', 'hairColor', 'moveStyle'];
-const KIND_CYCLE: ItemKind[] = ['outfit', 'aura', 'gloves', 'entrance', 'taunt', 'outfit', 'mask', 'gloves', 'aura', 'hair', 'entrance', 'moveStyle'];
-const FREE_ITEMS: Record<number, Rarity> = { 5: 'incomum', 10: 'raro', 15: 'raro', 20: 'epico', 25: 'epico', 30: 'epico', 35: 'lendario', 40: 'lendario' };
-const PREM_ITEMS: Record<number, Rarity> = {
-  1: 'epico', 3: 'raro', 6: 'epico', 9: 'epico', 12: 'lendario', 15: 'epico', 18: 'lendario', 21: 'lendario',
-  24: 'epico', 27: 'lendario', 30: 'mitico', 33: 'lendario', 36: 'lendario', 39: 'mitico',
+/**
+ * Exclusivos do passe por temporada (itens com `source: 'pass'`, que não existem em mais lado nenhum).
+ * Cada temporada tem o seu conjunto; enquanto uma temporada não tiver conjunto próprio, volta o
+ * conjunto mais antigo ("returning") — nunca itens da loja ou dos baús. Se o jogador já tiver o item,
+ * recebe gemas em vez de um duplicado (ver `applyReward`).
+ */
+interface PassSet {
+  free: Record<number, string>;
+  prem: Record<number, string>;
+}
+const SEASON_SETS: PassSet[] = [
+  // Temporada 1 — Rise of the Kings (ouro real + violeta)
+  {
+    free: { 5: 'fp1_hc_arminho', 15: 'fp1_g_veludo', 25: 'fp1_a_brasas', 35: 'fp1_o_principe' },
+    prem: {
+      1: 'fp1_m_mascarada', 5: 'fp1_hc_ametista', 9: 'fp1_t_vassalos', 13: 'fp1_o_guarda', 17: 'fp1_g_cetro',
+      21: 'fp1_ms_spear_real', 26: 'fp1_e_coroacao', 30: 'fp1_o_regalia', 35: 'fp1_a_leao', 40: 'fp1_o_soberano',
+    },
+  },
+];
+export function passSet(season: number): PassSet {
+  return SEASON_SETS[(Math.max(1, season) - 1) % SEASON_SETS.length];
+}
+
+const FREE_CHESTS: Record<number, ChestId> = { 4: 'bronze', 8: 'prata', 12: 'bronze', 16: 'prata', 20: 'ouro', 22: 'prata', 28: 'prata', 30: 'ouro', 32: 'ouro', 38: 'lendario', 40: 'lendario' };
+const PREM_CHESTS: Record<number, ChestId> = {
+  2: 'prata', 3: 'ouro', 7: 'ouro', 11: 'prata', 14: 'ouro', 20: 'lendario', 23: 'ouro', 27: 'lendario', 29: 'ouro', 32: 'lendario', 36: 'mitico', 38: 'lendario', 39: 'mitico',
 };
-const FREE_CHESTS: Record<number, ChestId> = { 4: 'bronze', 8: 'prata', 12: 'bronze', 16: 'prata', 22: 'ouro', 28: 'prata', 32: 'ouro', 38: 'lendario' };
-const PREM_CHESTS: Record<number, ChestId> = { 2: 'prata', 7: 'ouro', 11: 'prata', 14: 'ouro', 20: 'lendario', 23: 'ouro', 26: 'lendario', 29: 'ouro', 32: 'lendario', 35: 'mitico', 38: 'lendario' };
+/** Níveis do trilho grátis que dão gemas em dobro (compensam os itens que deixaram de ser aleatórios). */
+const FREE_GEM_BONUS = new Set([10]);
 
 const tierCache = new Map<number, Tier[]>();
 
-/** Tabela de 40 níveis da temporada (determinística por temporada). */
+/** Tabela de 40 níveis da temporada (determinística por temporada). Todos os itens são exclusivos do passe. */
 export function seasonTiers(season: number): Tier[] {
   const hit = tierCache.get(season);
   if (hit) return hit;
-  const rng = seeded(hashStr(`pass-s${season}`));
-  const top = TOP_REWARDS[(season - 1) % TOP_REWARDS.length];
-  const used = new Set<string>([top]);
-  const pool = ITEM_LIST.filter((d) => COSMETIC.includes(d.kind) && (d.source === 'shop' || d.source === 'chest') && !TOP_REWARDS.includes(d.id));
-  let kc = Math.floor(rng() * KIND_CYCLE.length);
-  const order = [...RARITIES_ORDER];
-  const pickItem = (r: Rarity): string => {
-    const ri = order.indexOf(r);
-    // procura na raridade pedida (tipo preferido primeiro), depois desce
-    for (let k = ri; k >= 0; k--) {
-      const cand = pool.filter((d) => d.rarity === order[k] && !used.has(d.id));
-      if (!cand.length) continue;
-      const kind = KIND_CYCLE[kc++ % KIND_CYCLE.length];
-      const pref = cand.filter((d) => d.kind === kind);
-      const list = pref.length ? pref : cand;
-      const d = list[Math.floor(rng() * list.length)];
-      used.add(d.id);
-      return d.id;
-    }
-    return 'a_holofotes';
-  };
+  const set = passSet(season);
   const tiers: Tier[] = [];
   for (let n = 1; n <= TIERS; n++) {
     let free: PassReward;
-    if (FREE_ITEMS[n]) free = { kind: 'item', id: pickItem(FREE_ITEMS[n]) };
+    if (set.free[n] && ITEMS[set.free[n]]) free = { kind: 'item', id: set.free[n] };
     else if (FREE_CHESTS[n]) free = { kind: 'chest', id: FREE_CHESTS[n], n: 1 };
+    else if (FREE_GEM_BONUS.has(n)) free = { kind: 'gems', n: 30 };
     else {
       const k = n % 4;
       if (k === 1) free = { kind: 'coins', n: 150 + n * 15 };
@@ -116,8 +115,7 @@ export function seasonTiers(season: number): Tier[] {
       else free = { kind: 'stat', n: 1 };
     }
     let prem: PassReward;
-    if (n === TIERS) prem = { kind: 'item', id: top };
-    else if (PREM_ITEMS[n]) prem = { kind: 'item', id: pickItem(PREM_ITEMS[n]) };
+    if (set.prem[n] && ITEMS[set.prem[n]]) prem = { kind: 'item', id: set.prem[n] };
     else if (PREM_CHESTS[n]) prem = { kind: 'chest', id: PREM_CHESTS[n], n: 1 };
     else {
       const k = n % 4;
@@ -131,7 +129,14 @@ export function seasonTiers(season: number): Tier[] {
   tierCache.set(season, tiers);
   return tiers;
 }
-const RARITIES_ORDER: Rarity[] = ['comum', 'incomum', 'raro', 'epico', 'lendario', 'mitico', 'celestial'];
+
+/** Gemas dadas em vez de um exclusivo repetido (temporadas em que o conjunto regressa). */
+const DUPE_GEMS: Record<Rarity, number> = { comum: 20, incomum: 40, raro: 80, epico: 150, lendario: 300, mitico: 500, celestial: 800 };
+
+/** O exclusivo já é do jogador? (então vale gemas). */
+export function isReturningOwned(r: PassReward): boolean {
+  return r.kind === 'item' && owns(r.id);
+}
 
 export function rewardRarity(r: PassReward): Rarity {
   if (r.kind === 'item') return ITEMS[r.id]?.rarity ?? 'comum';
@@ -141,8 +146,19 @@ export function rewardRarity(r: PassReward): Rarity {
   return 'comum';
 }
 
-/** Aplica a recompensa ao save principal (sem commit). */
-export function applyReward(r: PassReward): LevelUp | null {
+/** Aplica a recompensa ao save principal (sem commit). Devolve a recompensa efetivamente entregue. */
+export function applyReward(r: PassReward): PassReward {
+  if (r.kind === 'item' && ITEMS[r.id] && owns(r.id)) {
+    // exclusivo repetido (conjunto que regressa noutra temporada): gemas em vez de um duplicado
+    const g: PassReward = { kind: 'gems', n: DUPE_GEMS[ITEMS[r.id].rarity] };
+    giveReward(g);
+    return g;
+  }
+  giveReward(r);
+  return r;
+}
+
+function giveReward(r: PassReward): LevelUp | null {
   switch (r.kind) {
     case 'coins':
       S.coins += r.n;
@@ -346,9 +362,8 @@ export function claim(n: number, track: 'free' | 'prem'): Claimed | null {
   syncPass();
   if (!canClaim(n, track)) return null;
   const tr = seasonTiers(P.season)[n - 1];
-  const reward = track === 'free' ? tr.free : tr.prem;
   (track === 'free' ? P.free : P.prem).push(n);
-  applyReward(reward);
+  const reward = applyReward(track === 'free' ? tr.free : tr.prem);
   savePass();
   commit();
   return { tier: n, track, reward };

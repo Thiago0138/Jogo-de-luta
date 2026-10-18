@@ -395,6 +395,9 @@ export class Fight {
         case 'rei':
           yield* this.entRei(f, side, beam);
           break;
+        case 'coroacao':
+          yield* this.entCoroacao(f, side, beam);
+          break;
         case 'dragao':
           yield* this.entDragao(f, side, beam);
           break;
@@ -758,6 +761,65 @@ export class Fight {
     yield* this.pose(f, 'victory', 2.0, 0.05, () => {
       for (const sx of [-1, 1]) this.parts.spawn(PK.Ember, sx * (FRONT_X - 20), FRONT_Y - POST_H, (Math.random() - 0.5) * 80, -520 - Math.random() * 180, 0.9, 18, '#ffd23d', 900);
       if (Math.random() < 0.3) this.confetti(f.x, 8, GOLD);
+    }, beam);
+  }
+
+  /** Coroa desenhada com estrelas (partículas) centrada em (x, y), com largura w. */
+  private starCrown(x: number, y: number, w: number, life: number, colors: string[]): void {
+    const pts: [number, number][] = [[-1, 0.45], [-1, -0.35], [-0.5, 0.05], [0, -0.6], [0.5, 0.05], [1, -0.35], [1, 0.45]];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const [ax, ay] = pts[i];
+      const [bx, by] = pts[i + 1];
+      for (let k = 0; k < 3; k++) {
+        const u = k / 3;
+        this.parts.spawn(PK.Star, x + (ax + (bx - ax) * u) * w, y + (ay + (by - ay) * u) * w, 0, 0, life, 11, colors[(i + k) % colors.length], 0);
+      }
+    }
+    for (let k = 0; k <= 6; k++) this.parts.spawn(PK.Star, x + (-1 + k / 3) * w, y + 0.45 * w, 0, 0, life, 11, colors[k % colors.length], 0);
+  }
+
+  // Coroação (Fight Pass T1): confetes violeta e ouro, uma coroa de estrelas desce sobre a cabeça e rebenta em luz
+  private *entCoroacao(f: Fighter, side: number, beam: Beam): Script {
+    const ROY = ['#ffd23d', '#b05cff', '#fff3b0', '#7a2bd6'];
+    beam.color = '#e6d0ff';
+    sfx.levelUp();
+    yield* this.stepThrough(f, side, beam);
+    f.play('victory');
+    while (Math.abs(f.x - side * 210) > 6) {
+      f.vx = -side * 90;
+      beam.x = f.x;
+      if (Math.random() < 0.5) this.confetti(f.x, 3, ROY);
+      yield FRAME;
+    }
+    f.vx = 0;
+    f.facing = -side as 1 | -1;
+    // a coroa desce do teto até à cabeça
+    const hy = this.jy(f, J_HEAD) - 70;
+    let t = 0;
+    while (t < 1.3) {
+      t += this.dt;
+      const k = Math.min(1, t / 1.3);
+      const e = 1 - (1 - k) * (1 - k);
+      this.starCrown(f.x, -900 + (hy + 900) * e, 46, 0.06, ['#ffd23d', '#fff3b0', '#ffd23d', '#b05cff']);
+      if (Math.random() < 0.4) this.parts.spawn(PK.Ember, f.x + (Math.random() - 0.5) * 80, -900 + (hy + 900) * e, 0, 120, 0.5, 14, '#ffd23d', 0);
+      yield FRAME;
+    }
+    // coroação!
+    this.flash = 0.55;
+    this.flashColor = '#fff0c0';
+    this.wave(f.x, hy, 420, '#ffd23d', 0.6);
+    this.wave(f.x, hy, 260, '#b05cff', 0.5);
+    this.sparks(f.x, hy, 40, '#ffd23d', 700, PK.Star);
+    this.sparks(f.x, hy, 20, '#b05cff', 500, PK.Star);
+    this.confetti(f.x, 40, ROY);
+    this.starCrown(f.x, hy, 46, 1.4, ['#ffd23d', '#fff3b0', '#b05cff']);
+    this.pop('ALL HAIL THE KING!', f.x, -320, '#ffd23d', 26);
+    sfx.boom();
+    sfx.cheer(1.2);
+    this.addHype(0.2);
+    yield* this.pose(f, 'victory', 1.8, 0.05, () => {
+      for (const sx of [-1, 1]) this.parts.spawn(PK.Ember, sx * (FRONT_X - 20), FRONT_Y - POST_H, (Math.random() - 0.5) * 80, -520 - Math.random() * 180, 0.9, 18, Math.random() < 0.5 ? '#ffd23d' : '#b05cff', 900);
+      if (Math.random() < 0.3) this.confetti(f.x, 6, ROY);
     }, beam);
   }
 
@@ -1840,7 +1902,10 @@ export class Fight {
       f.vx = f.facing * 640;
       // câmara lenta mesmo antes do ombro entrar
       if (Math.abs(o.x - f.x) < hitD + 640 * 0.06 && o.state === 'idle') this.cinematic((f.x + o.x) / 2, -110, 0.3, 0.85);
-      if (sty && Math.random() < 0.8) this.parts.spawn(PK.Ember, f.x - f.facing * 20, -60 - Math.random() * 50, -f.facing * 120, -40, 0.45, 26, sty.color, 0);
+      if (sty && Math.random() < 0.8) {
+        const royal = sty.style === 'realeza';
+        this.parts.spawn(royal ? PK.Star : PK.Ember, f.x - f.facing * 20, -60 - Math.random() * 50, -f.facing * 120, -40, 0.45, royal ? 16 : 26, royal && Math.random() < 0.5 ? '#ffd23d' : sty.color, 0);
+      }
       yield FRAME;
     }
     f.vx = 0;
@@ -2671,6 +2736,21 @@ export class Fight {
       case 'ouro':
         this.sparks(x, y, 40, s.color, 700, PK.Star);
         break;
+      case 'realeza':
+        // coroa de luz: ondas violeta e ouro, cinco jatos de estrelas em leque e confetes reais
+        this.wave(x, y, 420, s.color, 0.6);
+        this.wave(x, y, 260, '#ffd23d', 0.45);
+        for (let k = 0; k < 5; k++) {
+          const a = -Math.PI / 2 + (k - 2) * 0.38;
+          const sp = k % 2 ? 420 : 620;
+          for (let i = 0; i < 6; i++) this.parts.spawn(PK.Star, x, y, Math.cos(a) * sp * (0.6 + i * 0.1), Math.sin(a) * sp * (0.6 + i * 0.1), 0.8, 14, i % 2 ? '#ffd23d' : s.color, 300);
+        }
+        for (let i = 0; i < 24; i++) this.parts.spawn(PK.Confetti, x + (Math.random() - 0.5) * 200, y - 60 - Math.random() * 100, (Math.random() - 0.5) * 300, -200 - Math.random() * 200, 1.6, 5, i % 2 ? '#ffd23d' : s.color, 400);
+        this.starCrown(x, y - 150, 40, 0.7, ['#ffd23d', '#fff3b0', s.color]);
+        this.flash = Math.max(this.flash, 0.3);
+        this.flashColor = '#e8d0ff';
+        sfx.boom();
+        break;
       case 'sismo':
         this.wave(x, 0, 520, s.color, 0.7);
         this.wave(x, 0, 300, '#ffffff', 0.4);
@@ -2945,7 +3025,7 @@ export class Fight {
     f.tauntCd = 6;
     this.emit('taunt', f);
     sfx.cheer(0.7);
-    const TYPE_IDX: Record<string, number> = { sixseven: 0, aura: 1, ear: 2, flex: 3, belt: 4, point: 5, classic: 6 };
+    const TYPE_IDX: Record<string, number> = { sixseven: 0, aura: 1, ear: 2, flex: 3, belt: 4, point: 5, classic: 6, hail: 7 };
     const own = (f.spec.taunts?.length ? f.spec.taunts : ['t_classic']).map((id) => ITEMS[id]?.vis?.type ?? 'classic');
     const pick = TYPE_IDX[forced ?? own[Math.floor(Math.random() * own.length)]] ?? 6;
     const say = (t: string, c = '#ff7ae0', size = 22) => this.pop(t, f.x, -260, c, size);
@@ -3017,6 +3097,24 @@ export class Fight {
           say(['THIS IS MY RING!', 'YOU ARE NEXT!', 'WATCH THIS!'][Math.floor(Math.random() * 3)], '#7af7ff', 22);
           yield 1.2;
           break;
+        case 7: {
+          // "All Hail the King": braços ao alto, uma coroa de estrelas aparece sobre a cabeça e o público curva-se
+          f.play('victory');
+          f.setExpr('happy', 1.8);
+          this.pop('ALL HAIL THE KING!', f.x, -300, '#ffd23d', 24);
+          const hy = this.jy(f, J_HEAD) - 75;
+          for (let i = 0; i < 3; i++) {
+            this.starCrown(f.x, hy, 34, 0.5, ['#ffd23d', '#fff3b0', '#b05cff']);
+            this.confetti(f.x, 6, ['#ffd23d', '#b05cff', '#fff3b0']);
+            yield 0.4;
+          }
+          this.sparks(f.x, hy, 18, '#ffd23d', 450, PK.Star);
+          sfx.cheer(1.1);
+          this.addHype(0.06);
+          yield 0.3;
+          meter *= 1.1;
+          break;
+        }
         default:
           f.play('taunt');
           f.setExpr('happy', 1.2);

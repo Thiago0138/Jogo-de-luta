@@ -690,7 +690,14 @@ function prewarmSamples(): void {
   let i = 0;
   const step = () => {
     while (i < names.length && !genOne(names[i])) i++;
-    if (i < names.length) setTimeout(step, 16);
+    if (i < names.length) later();
+  };
+  // só calcula em tempo livre do browser; durante um combate espera mais (evita engasgos)
+  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  const later = () => {
+    const busy = !!document.querySelector('.fight-layer');
+    if (ric) ric(step, { timeout: busy ? 3000 : 400 });
+    else setTimeout(step, busy ? 250 : 16);
   };
   setTimeout(step, 150);
 }

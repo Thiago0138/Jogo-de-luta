@@ -1,5 +1,5 @@
 import { BEARD_STYLES, BROW_STYLES, EYE_COLORS, EYE_STYLES, MOUTH_STYLES, SKIN_TONES, type Appearance } from '../data/appearance';
-import { ITEM_LIST, type ItemDef } from '../data/items';
+import { ITEM_LIST, isPassItem, type ItemDef } from '../data/items';
 import { RARITIES } from '../data/rarity';
 import { POINTS_PER_LEVEL, STAT_CAP, STAT_IDS, baseStats, type StatId, type Stats } from '../data/stats';
 import { leagueIndex } from '../data/leagues';
@@ -29,8 +29,8 @@ export function randomName(r: () => number = Math.random): string {
 }
 
 export function randomAppearance(r: () => number = Math.random): Appearance {
-  const hairs = ITEM_LIST.filter((d) => d.kind === 'hair' && RARITIES[d.rarity].tier <= 2);
-  const colors = ITEM_LIST.filter((d) => d.kind === 'hairColor' && RARITIES[d.rarity].tier <= 2);
+  const hairs = ITEM_LIST.filter((d) => d.kind === 'hair' && !isPassItem(d) && RARITIES[d.rarity].tier <= 2);
+  const colors = ITEM_LIST.filter((d) => d.kind === 'hairColor' && !isPassItem(d) && RARITIES[d.rarity].tier <= 2);
   return {
     skin: rint(0, SKIN_TONES.length - 1, r),
     hair: pick(hairs, r).id,
@@ -70,7 +70,7 @@ function distribute(level: number, r: () => number, arch: Archetype, bonus = 0):
 /** Escolhe itens por raridade máxima permitida (mais raros em ligas mais altas). */
 function gear(kind: ItemDef['kind'], maxTier: number, r: () => number, chance = 1): string | null {
   if (r() > chance) return null;
-  const pool = ITEM_LIST.filter((d) => d.kind === kind && RARITIES[d.rarity].tier <= maxTier);
+  const pool = ITEM_LIST.filter((d) => d.kind === kind && !isPassItem(d) && RARITIES[d.rarity].tier <= maxTier);
   if (!pool.length) return null;
   // ligeira preferência pelos mais raros disponíveis
   pool.sort((a, b) => RARITIES[a.rarity].tier - RARITIES[b.rarity].tier);
@@ -140,7 +140,7 @@ export function makeOpponent(o: OppOpts = {}): FighterSpec {
 /** Parceiro de tag team do jogador: um lutador fixo (semente própria) que acompanha o nível do jogador. */
 /** 2 provocações ao acaso para um adversário. */
 function tauntsFor(r: () => number): string[] {
-  const all = ITEM_LIST.filter((d) => d.kind === 'taunt').map((d) => d.id);
+  const all = ITEM_LIST.filter((d) => d.kind === 'taunt' && !isPassItem(d)).map((d) => d.id);
   const a = all[Math.floor(r() * all.length)];
   let b = all[Math.floor(r() * all.length)];
   if (b === a) b = all[(all.indexOf(a) + 1) % all.length];

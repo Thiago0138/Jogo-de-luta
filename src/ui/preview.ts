@@ -205,7 +205,9 @@ function ensureLoop(): void {
     }
     const dt = Math.min(0.1, (now - lastT) / 1000);
     lastT = now;
-    if (!document.hidden) for (const p of active) p.draw(dt, now / 1000);
+    // durante um combate, os bonecos dos menus por trás não precisam de ser desenhados
+    const fight = document.querySelector('.fight-layer');
+    if (!document.hidden) for (const p of active) if (!fight || fight.contains(p.canvas)) p.draw(dt, now / 1000);
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
