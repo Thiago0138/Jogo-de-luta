@@ -6,7 +6,7 @@ import { S, commit } from '../core/state';
 import { APRON_X, BACK_Y, FRONT_X, TEAM_COLORS, arenaTone, drawAtmosphere, drawBackdrop, drawFloor, drawForeground, drawRingBack, drawRingFront, ensureArena, isArena, setArena } from './arena';
 import { Fight, type FightReport, type FightSetup } from './engine';
 import type { Fighter } from './fighter';
-import { drawBolt, hash } from './fx';
+import { drawBolt, hash, type PopText } from './fx';
 import { Announcer } from '../audio/announcer';
 import { music } from '../audio/music';
 import { ANIMS, sample } from './anims';
@@ -656,6 +656,10 @@ export class FightScene {
     const ts = 1 / Math.max(0.45, z);
     for (const p of F.pops) {
       const a = Math.min(1, p.life * 3);
+      if (p.crit) {
+        this.drawCritPop(ctx, p, a, ts);
+        continue;
+      }
       const sc = (1 + Math.max(0, p.life - 0.85) * 3) * ts * 0.85;
       ctx.globalAlpha = a;
       ctx.font = `${Math.round(p.size * sc)}px ${FONT}`;
@@ -1117,6 +1121,44 @@ export class FightScene {
   }
 
   /** "Impact frame": negativo a preto e branco por uns frames, depois um clarão na cor do golpe. */
+
+  /** Número de um golpe crítico: entra com ressalto, dourado, com o selo vermelho "CRITICAL!" por cima. */
+  private drawCritPop(ctx: CanvasRenderingContext2D, p: PopText, a: number, ts: number): void {
+    const age = p.max - p.life;
+    // ressalto de entrada (passa de 1.6× para 1× nos primeiros ~0.25 s)
+    const k = Math.min(1, age / 0.25);
+    const bounce = 1 + (1 - k) * 0.6 + Math.sin(k * Math.PI) * 0.12;
+    const sc = bounce * ts * 0.85;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.translate(p.x, p.y);
+    // número
+    ctx.font = `${Math.round(p.size * sc)}px ${FONT}`;
+    ctx.lineWidth = 7 * sc;
+    ctx.strokeStyle = '#140a1c';
+    ctx.strokeText(p.text, 0, 0);
+    ctx.fillStyle = p.color;
+    ctx.fillText(p.text, 0, 0);
+    // selo
+    ctx.translate(0, -p.size * 0.95 * sc);
+    ctx.rotate(-0.09 + Math.sin(age * 18) * 0.03 * (1 - k));
+    const fs = Math.round(17 * sc);
+    ctx.font = `${fs}px ${FONT}`;
+    const w = ctx.measureText('CRITICAL!').width + 16 * sc;
+    const h = fs * 1.35;
+    ctx.beginPath();
+    ctx.roundRect(-w / 2, -h / 2, w, h, h * 0.3);
+    ctx.fillStyle = '#140a1c';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(-w / 2 + 2.5 * sc, -h / 2 + 2.5 * sc, w - 5 * sc, h - 5 * sc, h * 0.25);
+    ctx.fillStyle = (Math.floor(age * 14) % 2 === 0 || age > 0.4) ? '#e8203c' : '#ff7a2a';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText('CRITICAL!', 0, h * 0.04);
+    ctx.restore();
+  }
+
   private drawImpactFrame(ctx: CanvasRenderingContext2D, W: number, H: number, left: number): void {
     const F = this.fight;
     const total = 0.13;

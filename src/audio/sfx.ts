@@ -632,6 +632,194 @@ function genStomp(sr: number): Float32Array {
   return out;
 }
 
+// ── Baús ──
+
+/** Baú pesado a assentar no ringue: baque oco de madeira + ferragens a chocalhar. */
+function genChestThump(sr: number): Float32Array {
+  const L = 0.7;
+  const out = mk(sr, L);
+  const th = mk(sr, L);
+  addSweep(th, sr, 0, rnd(95, 110), 46, 0.03, 0.1, 1, 0.0015);
+  mix(out, th, 1);
+  const x = mk(sr, L);
+  addBurst(x, sr, 0, rnd(0.004, 0.007), 1);
+  const wood = mk(sr, L);
+  for (const [f, t60, g] of [[rnd(170, 190), 0.16, 1], [rnd(290, 320), 0.12, 0.8], [rnd(480, 540), 0.08, 0.5], [rnd(800, 880), 0.05, 0.3]] as [number, number, number][]) resonate(x, wood, sr, f, t60, g);
+  mix(out, wood, 0.75);
+  mix(out, lowpass(highpass(Float32Array.from(x), sr, 200), sr, 3000), 0.5);
+  // ferragens/cadeado a saltar
+  const cl = mk(sr, L);
+  addBurst(cl, sr, rnd(0.02, 0.03), 0.0006, 1);
+  addBurst(cl, sr, rnd(0.07, 0.09), 0.0006, 0.6);
+  addBurst(cl, sr, rnd(0.12, 0.15), 0.0005, 0.3);
+  const me = mk(sr, L);
+  for (const [f, t60, g] of [[rnd(2100, 2300), 0.12, 1], [rnd(3300, 3600), 0.08, 0.7], [rnd(5000, 5400), 0.05, 0.4]] as [number, number, number][]) resonate(cl, me, sr, f, t60, g);
+  mix(out, me, 0.16);
+  saturate(out, 1.5);
+  return out;
+}
+
+/** Cadeado a chocalhar: três ou quatro "clincs" metálicos inarmónicos. */
+function genLockRattle(sr: number): Float32Array {
+  const L = 0.4;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  let t = 0;
+  let a = 1;
+  for (let k = 0; k < 4; k++) {
+    addBurst(x, sr, t, 0.0007, a);
+    t += rnd(0.035, 0.06);
+    a *= rnd(0.55, 0.8);
+  }
+  const r = mk(sr, L);
+  const b = rnd(1800, 2100);
+  for (const [k, t60, g] of [[1, 0.14, 1], [1.52, 0.1, 0.8], [2.43, 0.07, 0.55], [3.61, 0.05, 0.35]] as [number, number, number][]) resonate(x, r, sr, b * k, t60, g);
+  mix(out, r, 1);
+  mix(out, highpass(x, sr, 3000), 0.3);
+  return out;
+}
+
+/** Rangido da tampa: fricção (stick-slip) com o ritmo a acelerar, filtrada por modos de madeira. */
+function genCreak(sr: number): Float32Array {
+  const L = 0.75;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  const n = Math.floor(sr * 0.6);
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const k = i / n;
+    const f = 38 + k * k * 120 + Math.sin(k * 23) * 8;
+    ph += f / sr;
+    if (ph >= 1) {
+      ph -= 1;
+      const env = Math.sin(Math.PI * k) * (0.6 + Math.random() * 0.4);
+      x[i] += env;
+    }
+  }
+  const r = mk(sr, L);
+  for (const [f, t60, g] of [[rnd(420, 470), 0.05, 1], [rnd(880, 960), 0.04, 0.8], [rnd(1500, 1650), 0.03, 0.5], [rnd(2400, 2600), 0.02, 0.3]] as [number, number, number][]) resonate(x, r, sr, f, t60, g);
+  mix(out, r, 1);
+  saturate(out, 1.3);
+  return out;
+}
+
+/** Nota de glockenspiel (Dó6): tocada com playbackRate dá a escala que sobe a cada toque. */
+function genChime(sr: number): Float32Array {
+  const L = 1.4;
+  const out = mk(sr, L);
+  const f = 1046.5;
+  for (const [k, tau, g] of [[1, 0.42, 1], [2.76, 0.16, 0.4], [5.4, 0.07, 0.22], [8.93, 0.04, 0.1]] as [number, number, number][]) {
+    const s = mk(sr, L);
+    addSweep(s, sr, 0, f * k, f * k, 1, tau, 1, 0.0008);
+    mix(out, s, g);
+  }
+  const c = mk(sr, L);
+  addBurst(c, sr, 0, 0.0008, 1);
+  mix(out, highpass(c, sr, 4000), 0.15);
+  return out;
+}
+
+/** Cintilar mágico: dezenas de ressoadores agudos a piscar (luz a sair do baú). */
+function genSparkle(sr: number): Float32Array {
+  const L = 1.5;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  for (let k = 0; k < 46; k++) addBurst(x, sr, Math.pow(Math.random(), 1.6) * 1.1, 0.0005, rnd(0.3, 1));
+  const r = mk(sr, L);
+  for (let k = 0; k < 7; k++) resonate(x, r, sr, rnd(2600, 7800), rnd(0.12, 0.3), rnd(0.4, 1));
+  mix(out, r, 1);
+  const air = mk(sr, L);
+  addBurst(air, sr, 0, 0.35, 1, 0.08);
+  mix(out, highpass(highpass(air, sr, 5000), sr, 5000), 0.18);
+  return out;
+}
+
+/** Coração: "tum-tum" grave (antes de um item raro). */
+function genHeartbeat(sr: number): Float32Array {
+  const L = 0.8;
+  const out = mk(sr, L);
+  const a = mk(sr, L);
+  addSweep(a, sr, 0, 72, 44, 0.03, 0.07, 1, 0.006);
+  addSweep(a, sr, 0.2, 64, 40, 0.03, 0.06, 0.7, 0.006);
+  mix(out, lowpass(a, sr, 300), 1);
+  saturate(out, 2);
+  return out;
+}
+
+/** Rufar de tambores em crescendo (1,4 s) que acaba num golpe de prato abafado. */
+function genDrumroll(sr: number): Float32Array {
+  const L = 1.9;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  let t = 0;
+  while (t < 1.35) {
+    const k = t / 1.35;
+    addBurst(x, sr, t, 0.012, (0.25 + 0.75 * k * k) * rnd(0.8, 1));
+    t += 0.034 - k * 0.012 + rnd(-0.003, 0.003);
+  }
+  const sn = mk(sr, L);
+  resonate(x, sn, sr, 190, 0.08, 0.6);
+  resonate(x, sn, sr, 330, 0.06, 0.4);
+  mix(out, sn, 0.7);
+  mix(out, lowpass(highpass(x, sr, 900), sr, 6000), 0.8);
+  // golpe final: bombo + prato
+  const bd = mk(sr, L);
+  addSweep(bd, sr, 1.38, 120, 48, 0.03, 0.12, 1, 0.001);
+  mix(out, bd, 1);
+  const cy = mk(sr, L);
+  addBurst(cy, sr, 1.38, 0.14, 1);
+  mix(out, highpass(cy, sr, 3500), 0.5);
+  saturate(out, 1.3);
+  return out;
+}
+
+/** Fanfarra de metais: arpejo Sol-Dó-Mi e acorde de Dó maior com brilho a abrir. */
+function genFanfare(sr: number): Float32Array {
+  const L = 2.3;
+  const out = mk(sr, L);
+  const notes: [number, number, number][] = [
+    // [freq, início, duração]
+    [392, 0, 0.13], [523.25, 0.14, 0.13], [659.25, 0.28, 0.13],
+    [523.25, 0.44, 1.6], [659.25, 0.44, 1.6], [783.99, 0.44, 1.6], [261.63, 0.44, 1.6], [1046.5, 0.6, 1.4],
+  ];
+  for (const [f, at, dur] of notes) {
+    const s0 = Math.floor(at * sr);
+    const n = Math.min(out.length - s0, Math.floor((dur + 0.25) * sr));
+    let ph = Math.random();
+    let y = 0;
+    let y2 = 0;
+    const vib = rnd(4.5, 5.5);
+    for (let i = 0; i < n; i++) {
+      const tt = i / sr;
+      const env = Math.min(1, tt / 0.02) * (tt < dur ? 1 - 0.25 * (tt / dur) : Math.exp(-(tt - dur) / 0.07));
+      ph += (f * (1 + 0.004 * Math.sin(TAU * vib * tt) * Math.min(1, tt * 3))) / sr;
+      if (ph >= 1) ph -= 1;
+      const saw = ph * 2 - 1;
+      // brilho: abre no ataque e fecha um pouco (sopro de metal)
+      const fc = 900 + 2600 * Math.exp(-tt / 0.25) + 600 * env;
+      const a = 1 - Math.exp((-TAU * fc) / sr);
+      y += a * (saw - y);
+      y2 += a * (y - y2);
+      out[s0 + i] += y2 * env * (f < 300 ? 0.5 : 0.32);
+    }
+  }
+  saturate(out, 1.4);
+  return out;
+}
+
+/** Folha de cartão a virar. */
+function genFlick(sr: number): Float32Array {
+  const L = 0.18;
+  const out = mk(sr, L);
+  const x = mk(sr, L);
+  addBurst(x, sr, 0, 0.03, 1, 0.012);
+  mix(out, lowpass(highpass(x, sr, 1400), sr, 6000), 0.8);
+  const c = mk(sr, L);
+  addBurst(c, sr, 0.045, 0.002, 1);
+  mix(out, highpass(c, sr, 1800), 0.5);
+  return out;
+}
+
 const RECIPES: Record<string, { n: number; gen: (sr: number) => Float32Array }> = {
   stomp: { n: 3, gen: genStomp },
   punchHead: { n: 4, gen: (sr) => genPunch(sr, false) },
@@ -643,6 +831,16 @@ const RECIPES: Record<string, { n: number; gen: (sr: number) => Float32Array }> 
   ropes: { n: 3, gen: genRopes },
   whoosh: { n: 4, gen: genWhoosh },
   bell: { n: 1, gen: genBell },
+  // baús (calculados no fim: os sons da luta têm prioridade)
+  chime: { n: 1, gen: genChime },
+  chestThump: { n: 2, gen: genChestThump },
+  lockRattle: { n: 2, gen: genLockRattle },
+  creak: { n: 1, gen: genCreak },
+  sparkle: { n: 2, gen: genSparkle },
+  heartbeat: { n: 1, gen: genHeartbeat },
+  drumroll: { n: 1, gen: genDrumroll },
+  fanfare: { n: 1, gen: genFanfare },
+  flick: { n: 2, gen: genFlick },
 };
 
 type SampleName = keyof typeof RECIPES;
@@ -895,6 +1093,92 @@ export const sfx = {
   },
   levelUp() {
     [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ f, dur: 0.35, peak: 0.14, type: 'triangle', delay: i * 0.09, bus: master! }));
+  },
+
+  // ───── Abertura de baús ─────
+
+  /** Pré-calcula já as amostras dos baús (uma por tick, para não engasgar a animação de entrada). */
+  warmChest() {
+    const names: SampleName[] = ['chestThump', 'lockRattle', 'chime', 'creak', 'sparkle', 'flick', 'heartbeat', 'drumroll', 'fanfare'];
+    let i = 0;
+    const step = () => {
+      while (i < names.length && !genOne(names[i])) i++;
+      if (i < names.length) setTimeout(step, 30);
+    };
+    setTimeout(step, 0);
+  },
+  /** Baú a cair no ringue. */
+  chestLand(power = 1) {
+    shot('chestThump', 0.7 + 0.3 * Math.min(1, power), { rate: jit(1, 0.04), force: true });
+    shot('lockRattle', 0.25, { rate: jit(1, 0.06), delay: 0.03 });
+  },
+  /** Toque no baú para o carregar: tom que sobe a cada toque (`step` 0..), cadeado e baque. */
+  chestTap(step: number) {
+    const semis = [0, 4, 7, 12, 16, 19][Math.min(5, step)];
+    shot('chime', 0.32, { rate: Math.pow(2, (semis - 12) / 12), force: true });
+    shot('lockRattle', 0.45 + step * 0.12, { rate: jit(0.95 + step * 0.06, 0.04) });
+    shot('chestThump', 0.35 + step * 0.1, { rate: jit(1.15, 0.04), lp: 1800 });
+  },
+  /** A luz que vaza muda de cor (a raridade escondida subiu). */
+  chestUpgradeHint() {
+    shot('sparkle', 0.55, { rate: jit(1.1, 0.05), force: true });
+    shot('chime', 0.28, { rate: 1, delay: 0.02 });
+    shot('chime', 0.24, { rate: Math.pow(2, 7 / 12), delay: 0.09 });
+  },
+  /** Evento raro: o baú transforma-se no seguinte. */
+  chestTransform() {
+    [0, 4, 7, 12, 16, 19, 24].forEach((s, i) => shot('chime', 0.26, { rate: Math.pow(2, (s - 12) / 12), delay: i * 0.05, force: true }));
+    shot('sparkle', 0.8, { rate: 0.9, force: true });
+    shot('chestThump', 0.8, { rate: 0.8, delay: 0.38, force: true });
+    tone({ f: 60, to: 40, dur: 0.6, peak: 0.4, delay: 0.38 });
+  },
+  creak() {
+    shot('creak', 0.55, { rate: jit(1, 0.06) });
+  },
+  heartbeat() {
+    shot('heartbeat', 0.9, { force: true });
+  },
+  drumroll() {
+    shot('drumroll', 0.6, { force: true });
+  },
+  /** Tampa a rebentar: baque, ar, cintilar e um acorde que sobe (mais rico quanto melhor o conteúdo). */
+  chestBurst(tier: number) {
+    shot('chestThump', 0.9, { rate: 0.85, force: true });
+    shot('whoosh', 0.5, { rate: 1.35, force: true });
+    shot('sparkle', 0.7, { rate: jit(1, 0.04), delay: 0.04, force: true });
+    const n = 3 + Math.min(3, tier >> 1);
+    for (let i = 0; i < n; i++) shot('chime', 0.2, { rate: Math.pow(2, ([0, 4, 7, 12, 16, 19][i] - 12) / 12), delay: 0.08 + i * 0.06, force: true });
+    if (tier >= 4) tone({ f: 55, to: 38, dur: 0.8, peak: 0.45 });
+  },
+  /** Luz a passar rápida (carta a sair do baú). */
+  lightWhoosh() {
+    shot('whoosh', 0.26, { rate: jit(1.6, 0.08) });
+    shot('sparkle', 0.16, { rate: jit(1.4, 0.08) });
+  },
+  cardFlip() {
+    shot('flick', 0.5, { rate: jit(1, 0.08), force: true });
+  },
+  /** "Tique" da revelação rápida (abrir todos): sobe de tom com `i`. */
+  tick(i: number) {
+    shot('chime', 0.14, { rate: Math.pow(2, ((i % 12) - 12) / 12) });
+  },
+  /** Assinatura sonora de cada raridade ao virar a carta. */
+  stinger(tier: number) {
+    const sc = [0, 4, 7, 12, 16, 19, 24];
+    const n = Math.min(6, 1 + tier);
+    const base = [-12, -10, -8, -5, -3, -2, 0][Math.min(6, tier)];
+    for (let i = 0; i < n; i++) shot('chime', 0.22 + tier * 0.02, { rate: Math.pow(2, (base + sc[i]) / 12), delay: i * (0.07 - tier * 0.005), force: true });
+    if (tier >= 2) shot('sparkle', 0.25 + tier * 0.08, { rate: jit(1, 0.05), force: true });
+    if (tier >= 4) {
+      // fanfarra (mítico: mais grave e dramático; celestial: mais aguda, com coro cósmico)
+      shot('fanfare', 0.75, { rate: tier === 5 ? Math.pow(2, -3 / 12) : tier >= 6 ? Math.pow(2, 2 / 12) : 1, delay: 0.05, force: true });
+      sfx.cheer(1.3);
+      if (tier >= 5) tone({ f: 48, to: 34, dur: 1.2, peak: 0.5 });
+      if (tier >= 6) {
+        for (const f of [523, 659, 784, 1047]) tone({ f, dur: 1.8, peak: 0.05, wobble: 5, attack: 0.4, bus: master!, delay: 0.3 });
+        shot('sparkle', 0.7, { rate: 1.5, delay: 0.5, force: true });
+      }
+    }
   },
 };
 

@@ -961,9 +961,10 @@ export class Fight {
     this.shakeT = Math.max(this.shakeT, t);
   }
 
-  pop(text: string, x: number, y: number, color = '#fff', size = 28): void {
+  pop(text: string, x: number, y: number, color = '#fff', size = 28, crit = false): void {
     if (this.pops.length > 24) this.pops.shift();
-    this.pops.push({ text, x: x + (Math.random() - 0.5) * 20, y, vy: -90, life: 1, max: 1, color, size });
+    const life = crit ? 1.35 : 1;
+    this.pops.push({ text, x: x + (Math.random() - 0.5) * 20, y, vy: crit ? -70 : -90, life, max: life, color, size, crit });
   }
 
   banner(text: string, sub = '', color = '#ffd23d', life = 1.4, size = 1): void {
@@ -3269,8 +3270,7 @@ export class Fight {
     // efeitos
     const heavy = !!o.heavy || crit || o.kind === 'super';
     // números só nos golpes que contam (menos ruído no ecrã)
-    this.pop(String(dmg), hx, hy - 20, crit ? '#ffd23d' : '#ffffff', crit ? 30 : heavy ? 26 : 21);
-    if (crit) this.pop('CRITICAL!', hx, hy - 60, '#ff5a5a', 22);
+    this.pop(String(dmg), hx, hy - 20, crit ? '#ffd23d' : '#ffffff', crit ? 34 : heavy ? 26 : 21, crit);
     this.sparks(hx, hy, heavy ? 16 : 8, o.color ?? (heavy ? '#ffd23d' : '#ffffff'), heavy ? 700 : 450);
     this.parts.spawn(PK.Star, hx, hy, 0, 0, 0.18, heavy ? 46 : 30, '#ffffff', 0);
     if (Math.random() < 0.6) {

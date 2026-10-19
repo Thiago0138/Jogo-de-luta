@@ -1,5 +1,5 @@
 import { DEFAULT_APPEARANCE, type Appearance } from '../data/appearance';
-import { CHESTS, type ChestId } from '../data/chests';
+import { CHESTS, CHEST_UPGRADE_CHANCE, LUCKY_BONUS_CHANCE, nextChest, type ChestId } from '../data/chests';
 import { ITEMS, ITEM_LIST, MOVE_SLOTS, MOVE_SLOT3_LEVEL, SUPER2_LEVEL, PASSIVE2_LEVEL, STARTER_ITEMS, isTradeable, item, type ItemDef } from '../data/items';
 import { DAILY_POOL, LEGENDARY, WEEKLY_POOL, emptyTally, type MissionDef, type Reward, type Tally } from '../data/missions';
 import { LEAGUES, leagueIndex } from '../data/leagues';
@@ -507,6 +507,34 @@ export function rollChest(id: ChestId): ChestDrop[] {
   // Ordena por raridade: o melhor sai no fim.
   drops.sort((a, b) => RARITIES[a.rarity].tier - RARITIES[b.rarity].tier);
   return drops;
+}
+
+export interface ChestRoll {
+  /** Baú que foi realmente sorteado (diferente do original se houve "upgrade"). */
+  rolledAs: ChestId;
+  upgraded: boolean;
+  /** Recompensas normais, da pior para a melhor. */
+  drops: ChestDrop[];
+  /** Item extra do evento "Lucky bonus" (já incluído em `all`). */
+  bonus: ChestDrop | null;
+  /** Tudo o que sai (drops + bónus) — é isto que se passa a applyDrops. */
+  all: ChestDrop[];
+}
+
+/**
+ * Sorteia um baú com os eventos raros: o upgrade é decidido ANTES do sorteio (os drops são mesmo do
+ * baú melhor) e o bónus é um item extra tirado de um segundo sorteio do mesmo baú.
+ */
+export function rollChestEvents(id: ChestId): ChestRoll {
+  const up = Math.random() < CHEST_UPGRADE_CHANCE ? nextChest(id) : null;
+  const rolledAs = up ?? id;
+  const drops = rollChest(rolledAs);
+  let bonus: ChestDrop | null = null;
+  if (Math.random() < LUCKY_BONUS_CHANCE) {
+    const extra = rollChest(id).filter((d) => d.kind === 'item');
+    if (extra.length) bonus = { ...pick(extra) };
+  }
+  return { rolledAs, upgraded: !!up, drops, bonus, all: bonus ? [...drops, bonus] : drops };
 }
 
 export function applyDrops(chest: ChestId, drops: ChestDrop[]): void {

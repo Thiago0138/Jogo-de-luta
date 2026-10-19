@@ -55,3 +55,13 @@ export const CHESTS: Record<ChestId, ChestDef> = {
 };
 
 export const CHEST_ORDER: ChestId[] = ['bronze', 'prata', 'ouro', 'lendario', 'mitico'];
+
+/** Evento raro ao abrir: o baú transforma-se no tier seguinte (nunca acima de Mítico). */
+export const CHEST_UPGRADE_CHANCE = 0.04;
+/** Evento raro ao abrir: um item extra da mesma tabela do baú. */
+export const LUCKY_BONUS_CHANCE = 0.06;
+
+export function nextChest(id: ChestId): ChestId | null {
+  const i = CHEST_ORDER.indexOf(id);
+  return i >= 0 && i < CHEST_ORDER.length - 1 ? CHEST_ORDER[i + 1] : null;
+}
