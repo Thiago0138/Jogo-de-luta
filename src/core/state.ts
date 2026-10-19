@@ -156,7 +156,10 @@ function load(): Save {
     if (Array.isArray(s.legendaryClaimed)) s.legendaryClaimed = s.legendaryClaimed.map((id) => (id === 'l_noPot' ? 'l_counter300' : id));
     s.appearance = { ...base.appearance, ...(data.appearance ?? {}) };
     // Remove itens que deixaram de existir.
+    // Penteados retirados (Mohawk, Afro, Pompadour, Mullet): o Mullet comprado é reembolsado.
+    if (s.owned.h_mullet) s.coins += 5400;
     for (const id of Object.keys(s.owned)) if (!ITEMS[id]) delete s.owned[id];
+    if (!ITEMS[s.appearance.hair]) s.appearance.hair = 'h_curto';
     return s;
   } catch {
     return fresh();

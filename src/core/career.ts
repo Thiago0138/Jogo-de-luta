@@ -58,7 +58,7 @@ export const CHAPTERS: ChapterDef[] = [
   {
     n: 1, name: 'Backyard Brawls', sub: 'Kiddie pools, garage rings and a lot of heart', color: '#7bdc1f', dark: '#1d3a0c', arena: 'ar_kings',
     levels: [1, 5], bonus: -14, tier: 1,
-    boss: { name: 'Big Rudy', title: 'King of the Backyard', quote: 'This is MY trampoline, kid.', outfit: 'o_leopardo', gloves: 'g_fita', mask: null, aura: null, hair: 'h_mullet', hairColor: 'hc_loiro', super: 's_lariat', passive: 'p_ferro', entrance: 'e_danca' },
+    boss: { name: 'Big Rudy', title: 'King of the Backyard', quote: 'This is MY trampoline, kid.', outfit: 'o_leopardo', gloves: 'g_fita', mask: null, aura: null, hair: 'h_longo', hairColor: 'hc_loiro', super: 's_lariat', passive: 'p_ferro', entrance: 'e_danca' },
     reward: { chest: 'prata', gems: 20, items: ['g_fita'] },
   },
   {

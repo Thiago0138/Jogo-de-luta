@@ -133,6 +133,128 @@ function fistPath(ctx: CanvasRenderingContext2D, k = 1) {
   ctx.closePath();
 }
 
+/**
+ * Mão nua fechada em punho, vista pelas costas da mão (nós dos dedos para +y, polegar para +x):
+ * pulso, costas da mão com tendões, quatro dedos dobrados (do mindinho, mais curto, ao indicador),
+ * nós dos dedos com brilho, vincos das falanges e polegar a fechar por cima, com unha.
+ * `wrap` (opcional) desenha por cima das costas da mão e dos nós — usado pelas ligaduras.
+ */
+function bareFist(ctx: CanvasRenderingContext2D, sk: string, L: V2, wrap?: (clip: () => void) => void) {
+  const dk = sh(sk, -0.32);
+  const lt = sh(sk, 0.22);
+  // pulso + costas da mão
+  const backPath = () => {
+    ctx.beginPath();
+    ctx.moveTo(-6.8, -13);
+    ctx.lineTo(6.8, -13);
+    ctx.bezierCurveTo(7.4, -7, 10.6, -3, 10.2, 3);
+    ctx.lineTo(10, 8);
+    ctx.lineTo(-10.4, 8);
+    ctx.lineTo(-10.6, 3);
+    ctx.bezierCurveTo(-10.8, -3, -7.4, -7, -6.8, -13);
+    ctx.closePath();
+  };
+  backPath();
+  paint(ctx, sk, 3);
+  cel(ctx, 0, 0, 12, L, 0.22, 0.25);
+  if (!PS.F && !wrap) {
+    // tendões nas costas da mão
+    ctx.strokeStyle = dk;
+    ctx.globalAlpha = 0.45;
+    ctx.lineWidth = 0.9;
+    ctx.beginPath();
+    for (let i = 0; i < 3; i++) {
+      const x = -5.2 + i * 4.3;
+      ctx.moveTo(x * 0.55, -6);
+      ctx.quadraticCurveTo(x * 0.85, 0, x, 6.5);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  // dedos dobrados: mindinho (-x) → indicador (+x); o indicador fica à frente
+  const FX = [-10.8, -5.6, -0.3, 4.9];
+  const FW = [5.4, 5.8, 5.8, 5.6];
+  const FT = [4.6, 3.8, 3.6, 3.9];
+  const FB = [17, 19.4, 20.2, 19.2];
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.roundRect(FX[i], FT[i], FW[i], FB[i] - FT[i], [2.2, 2.2, 2.6, 2.6]);
+    paint(ctx, i === 0 ? sh(sk, -0.06) : sk, 2.3);
+  }
+  if (wrap) wrap(() => {
+    ctx.beginPath();
+    ctx.rect(-12, -13, 24, 25.5);
+  });
+  if (!PS.F) {
+    for (let i = 0; i < 4; i++) {
+      const cx = FX[i] + FW[i] / 2;
+      // vinco da articulação do meio
+      ctx.strokeStyle = dk;
+      ctx.lineWidth = 0.9;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(cx - FW[i] * 0.32, FB[i] - 4.6);
+      ctx.quadraticCurveTo(cx, FB[i] - 3.6, cx + FW[i] * 0.32, FB[i] - 4.6);
+      ctx.stroke();
+      // sombra na ponta dobrada (a ponta do dedo enrola para dentro)
+      ctx.globalAlpha = 0.28;
+      ctx.fillStyle = '#2a0f10';
+      ctx.beginPath();
+      ctx.roundRect(FX[i] + 0.9, FB[i] - 2.4, FW[i] - 1.8, 1.6, 0.8);
+      ctx.fill();
+      // brilho no nó do dedo
+      ctx.globalAlpha = wrap ? 0.25 : 0.55;
+      ctx.fillStyle = lt;
+      ctx.beginPath();
+      ctx.ellipse(cx - 0.3, FT[i] + 2.3, FW[i] * 0.3, 1.3, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  }
+  // polegar: sai do lado +x e fecha por cima do indicador e do médio
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = OC();
+  ctx.lineWidth = 8.8;
+  ctx.beginPath();
+  ctx.moveTo(9.6, -2.5);
+  ctx.quadraticCurveTo(11.4, 10.5, 2.4, 13.6);
+  ctx.stroke();
+  ctx.strokeStyle = C(sk);
+  ctx.lineWidth = 6;
+  ctx.stroke();
+  if (!PS.F) {
+    // sombra por baixo do polegar e brilho por cima
+    ctx.globalAlpha = 0.3;
+    ctx.strokeStyle = dk;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(8.2, 0.5);
+    ctx.quadraticCurveTo(8.8, 9.8, 2.8, 12.2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = lt;
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(10.6, 0);
+    ctx.quadraticCurveTo(11.6, 7.5, 7.8, 12);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+    // unha do polegar
+    ctx.save();
+    ctx.translate(3.4, 13.3);
+    ctx.rotate(-0.35);
+    ctx.beginPath();
+    ctx.roundRect(-2.1, -1.5, 3.2, 2.9, 1.2);
+    ctx.fillStyle = sh(sk, 0.32);
+    ctx.fill();
+    ctx.lineWidth = 0.8;
+    ctx.strokeStyle = dk;
+    ctx.stroke();
+    ctx.restore();
+  }
+  rimLight(ctx, 0, 6, 12, L, lt, 0.3);
+}
+
 /** Brilho de varrimento (luvas douradas e metais nobres), recortado pelo caminho atual. */
 function sweep(ctx: CanvasRenderingContext2D, t: number, speed = 0.8, a = 0.75) {
   if (PS.F) return;
@@ -277,101 +399,44 @@ export function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: n
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
   switch (g.style) {
-    case 'bare': {
-      // sem luvas: punho nu (dedos dobrados, nós dos dedos e polegar)
-      const sk = back ? sh(skin, -0.12) : skin;
-      ctx.beginPath();
-      ctx.roundRect(-9, -10, 19, 20, 7);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = OC();
-      ctx.stroke();
-      ctx.fillStyle = C(sk);
-      ctx.fill();
-      if (!PS.F) {
-        ctx.strokeStyle = sh(sk, -0.3);
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        for (const yy of [-4.5, 0.5, 5]) {
-          ctx.moveTo(4, yy);
-          ctx.lineTo(9, yy);
-        }
-        ctx.stroke();
-        ctx.globalAlpha = 0.35;
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.ellipse(4, -6, 3.5, 2, 0, 0, TAU);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-      }
-      // polegar
-      ctx.beginPath();
-      ctx.ellipse(-2, 7, 6, 3.6, -0.3, 0, TAU);
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = OC();
-      ctx.stroke();
-      ctx.fillStyle = C(sk);
-      ctx.fill();
+    case 'bare':
+      // sem luvas: mão nua fechada em punho
+      bareFist(ctx, back ? sh(skin, -0.12) : skin, L);
       break;
-    }
     case 'fita': {
-      // ligaduras de rua: pulso enrolado, punho nu com voltas nos nós dos dedos e ponta solta
+      // ligaduras de rua: pulso enrolado, nós dos dedos ligados, pontas dos dedos à mostra e ponta solta
       if (!PS.F) {
         const sw = Math.sin(t * 7) * 3;
         ctx.strokeStyle = OC();
         ctx.lineWidth = 5.5;
         ctx.beginPath();
-        ctx.moveTo(-6, -11);
-        ctx.quadraticCurveTo(-13, -16 + sw * 0.4, -16 + sw, -23);
+        ctx.moveTo(-6, -9);
+        ctx.quadraticCurveTo(-13, -14 + sw * 0.4, -16 + sw, -21);
         ctx.stroke();
         ctx.strokeStyle = c1;
         ctx.lineWidth = 3;
         ctx.stroke();
       }
-      ctx.beginPath();
-      ctx.roundRect(-7.5, -15, 15, 15, 3.5);
-      paint(ctx, c1, 3);
-      cel(ctx, 0, -7, 8, L, 0.25, 0);
-      if (!PS.F) {
-        ctx.strokeStyle = c2;
-        ctx.lineWidth = 1.1;
-        ctx.beginPath();
-        for (let i = 0; i < 4; i++) {
-          ctx.moveTo(-7, -13 + i * 3.6);
-          ctx.lineTo(7, -10.5 + i * 3.6);
-        }
-        ctx.stroke();
-      }
-      fistPath(ctx, 0.8);
-      paint(ctx, skin, 3);
-      cel(ctx, 0, 7, 10, L, 0.3, 0.3);
-      if (!PS.F) {
-        // voltas da ligadura sobre os nós dos dedos
+      const sk = back ? sh(skin, -0.12) : skin;
+      bareFist(ctx, sk, L, (clip) => {
+        // voltas da ligadura: pulso, costas da mão e nós dos dedos (as pontas dos dedos ficam nuas)
         ctx.save();
-        fistPath(ctx, 0.8);
+        clip();
         ctx.clip();
-        for (let i = 0; i < 3; i++) {
-          const yy = 1 + i * 4.2;
+        for (let i = 0; i < 6; i++) {
+          const yy = -11 + i * 3.7;
           ctx.strokeStyle = OC();
-          ctx.lineWidth = 4.6;
+          ctx.lineWidth = 4.4;
           ctx.beginPath();
-          ctx.moveTo(-14, yy - 1.5);
-          ctx.lineTo(14, yy + 2.5);
+          ctx.moveTo(-14, yy - 1.6 + (i % 2) * 0.8);
+          ctx.lineTo(14, yy + 1.6 - (i % 2) * 0.8);
           ctx.stroke();
           ctx.strokeStyle = i % 2 ? c2 : c1;
           ctx.lineWidth = 3;
           ctx.stroke();
         }
         ctx.restore();
-        // dedos marcados
-        ctx.strokeStyle = sh(skin, -0.35);
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let i = 0; i < 3; i++) {
-          ctx.moveTo(-5 + i * 4.2, 14.5);
-          ctx.lineTo(-4.4 + i * 4.2, 17.5);
-        }
-        ctx.stroke();
-      }
+      });
       break;
     }
     case 'pro':

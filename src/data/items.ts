@@ -95,13 +95,9 @@ const I: ItemDef[] = [
   // ───────────── Penteados ─────────────
   { id: 'h_careca', kind: 'hair', name: 'Bald', rarity: 'comum', desc: 'Shines under the spotlights.', icon: '🥚', source: 'start', vis: { style: 'careca' } },
   { id: 'h_curto', kind: 'hair', name: 'Short', rarity: 'comum', desc: 'Classic and practical.', icon: '💇', source: 'start', vis: { style: 'curto' } },
-  { id: 'h_moicano', kind: 'hair', name: 'Mohawk', rarity: 'comum', desc: 'Pure punk attitude.', icon: '🦔', source: 'start', vis: { style: 'moicano' } },
-  { id: 'h_afro', kind: 'hair', name: 'Afro', rarity: 'comum', desc: 'Maximum volume.', icon: '☁️', source: 'start', vis: { style: 'afro' } },
   { id: 'h_espetado', kind: 'hair', name: 'Spiky', rarity: 'comum', desc: 'Every spike is a threat.', icon: '⚡', source: 'start', vis: { style: 'espetado' } },
   { id: 'h_rabo', kind: 'hair', name: 'Ponytail', rarity: 'comum', desc: 'Swings with every hit.', icon: '🎀', source: 'start', vis: { style: 'rabo' } },
-  { id: 'h_topete', kind: 'hair', name: 'Pompadour', rarity: 'comum', desc: 'Straight out of 50s rock.', icon: '🎸', source: 'start', vis: { style: 'topete' } },
   { id: 'h_longo', kind: 'hair', name: 'Long', rarity: 'comum', desc: 'Hair in the wind.', icon: '🌊', source: 'start', vis: { style: 'longo' } },
-  { id: 'h_mullet', kind: 'hair', name: 'Mullet', rarity: 'incomum', desc: 'Business in the front, party in the back.', icon: '🦅', source: 'shop', coins: 5400, vis: { style: 'mullet' } },
   { id: 'h_trancas', kind: 'hair', name: 'Braids', rarity: 'raro', desc: 'Warrior braids that whip through the air.', icon: '🪢', source: 'shop', coins: 14400, vis: { style: 'trancas' } },
   { id: 'h_samurai', kind: 'hair', name: 'Samurai Bun', rarity: 'raro', desc: 'Honor above all.', icon: '🗡️', source: 'shop', coins: 15600, vis: { style: 'samurai' } },
   { id: 'h_super', kind: 'hair', name: 'Super Spiky', rarity: 'epico', desc: 'Power level over 9000.', icon: '🌟', source: 'shop', gems: 180, vis: { style: 'super' } },

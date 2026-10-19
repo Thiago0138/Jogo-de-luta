@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.1.1',
+    date: '2026-10-19',
+    title: 'Real hands',
+    items: [
+      'Bare hands redrawn from scratch: proper fists with four curled fingers, knuckles, finger creases, tendons and a thumb with its nail wrapped over the front. Street Wraps now leave the fingertips showing.',
+      'Removed hairstyles: Mohawk, Afro, Pompadour and Mullet. Fighters using them switch to Short hair, and the Mullet is refunded in coins.',
+    ],
+  },
+  {
     version: '2.1.0',
     date: '2026-10-18',
     title: 'Royal Season',
