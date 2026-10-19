@@ -25,7 +25,7 @@ import { ico } from './icons';
 const RAINBOW = ['#ff8af0', '#7af7ff', '#fff6a0', '#8affb0', '#b4a0ff', '#ffb36a'];
 const CONFETTI = ['#ff3d6e', '#ffd23d', '#3aa0ff', '#4cd964', '#b45cff', '#ffffff'];
 /** Escala do baú no mundo (sobre o zoom da cena). */
-const CS = 1.45;
+const CS = 1.3;
 const TAPS = 3;
 
 const tierOf = (r: Rarity) => RARITIES[r].tier;
@@ -151,9 +151,12 @@ class Stage {
     g.fill();
     drawRingFront(g, this.ropes);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const v = g.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.3, W / 2, H * 0.55, Math.max(W, H) * 0.75);
+    // escurece tudo (o baú tem de ser a estrela) com uma vinheta forte
+    g.fillStyle = 'rgba(6,3,14,0.38)';
+    g.fillRect(0, 0, W, H);
+    const v = g.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.25, W / 2, H * 0.55, Math.max(W, H) * 0.7);
     v.addColorStop(0, 'rgba(0,0,0,0)');
-    v.addColorStop(1, 'rgba(0,0,0,0.6)');
+    v.addColorStop(1, 'rgba(0,0,0,0.72)');
     g.fillStyle = v;
     g.fillRect(0, 0, W, H);
   }
@@ -728,6 +731,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
     ht.textContent = charge >= TAPS ? '' : charge === TAPS - 1 ? 'One more!' : 'Again!';
     if (charge === 2 && roll.upgraded && !swapped) {
       setPhase('transform');
+      top.classList.add('gone');
       sfx.chestTransform();
       st.rayColor = '#ffd23d';
       st.rainbow = false;
@@ -839,7 +843,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
     if (r.drop?.isNew) buzz(20);
     if (r.tier >= 4) {
       const [txt, cls] = SPECIAL[Math.min(6, r.tier)];
-      st.banner(txt, esc(dropName(r.drop!)), cls, 2200);
+      st.banner(txt, '', cls, 2200);
       st.darkTo = 0.78;
       st.rayTo = 1.1;
       st.rayA = 1.6;
@@ -934,7 +938,11 @@ export function openChest(id: ChestId, onDone: () => void): void {
         tap();
         break;
       case 'transform':
-        if (swapped && pt > 0.7) setPhase('charge');
+        if (swapped && pt > 0.7) {
+          top.classList.remove('gone');
+          st.rayTo = 0;
+          setPhase('charge');
+        }
         break;
       case 'prime':
         if (pt > 0.25) startBurst();
@@ -1015,6 +1023,7 @@ export function openChest(id: ChestId, onDone: () => void): void {
           tease.el.remove();
         }
         if (pt > 1.6) {
+          top.classList.remove('gone');
           wobA = 0;
           st.rayTo = 0;
           setPhase('charge');
@@ -1237,7 +1246,7 @@ export function openAllChests(onDone: () => void): void {
     st.burst(wx, wy, 30 + bestTier * 10, hexOf(best.rarity), 700, 6.28);
     if (bestTier >= 4) {
       const [txt, cls] = SPECIAL[Math.min(6, bestTier)];
-      st.banner(txt, esc(dropName(best)), cls, 2000);
+      st.banner(txt, '', cls, 2000);
       st.flash = 0.7;
       st.flashColor = bestTier >= 6 ? '#ffffff' : hexOf(best.rarity);
       st.shake = 12;

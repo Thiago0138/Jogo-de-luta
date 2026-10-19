@@ -48,7 +48,7 @@ function chestBody(id: ChestId): HTMLElement {
   if (c.guaranteed) extra.push(`${ico('check')} at least 1 <b class="rar-${c.guaranteed}">${RARITIES[c.guaranteed].name}</b> or better`);
   box.innerHTML = `<div class="dr-head" style="--cg:${c.glow}"><div class="dr-art">${chestSvg(c.body, c.trim)}</div><div class="dr-info"><b>${esc(c.name)}</b>${extra.map((x) => `<span>${x}</span>`).join('')}</div></div>
     <table class="dr-table"><thead><tr><th>Rarity</th><th>Each reward</th><th>Per chest</th></tr></thead><tbody></tbody></table>
-    <p class="muted small">"Per chest" is the real chance of getting at least one, guarantee included. Items are drawn evenly within their rarity; duplicates can be recycled for coins.</p>
+    <p class="muted small">"Per chest" is the real chance of getting at least one, guarantee included. Items are drawn evenly within their rarity; duplicates can be recycled into shards in the Forge.</p>
     <div class="dr-items"></div>`;
   const tb = box.querySelector('tbody') as HTMLElement;
   const items = box.querySelector('.dr-items') as HTMLElement;

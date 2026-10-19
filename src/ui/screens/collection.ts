@@ -1,9 +1,10 @@
-import { rememberSub } from '../app';
+import { go, rememberSub } from '../app';
+import { duplicateCount, shards } from '../../core/forge';
 import { S, collectibleTotal, collectionCount, owns } from '../../core/state';
 import { ITEM_LIST, type ItemKind } from '../../data/items';
 import { RARITIES, RARITY_ORDER, type Rarity } from '../../data/rarity';
 import { sfx } from '../../audio/sfx';
-import { el } from '../dom';
+import { el, fmt } from '../dom';
 import { itemCard } from './cards';
 import { openItem } from './itemModal';
 import { openTrade } from './trade';
@@ -32,7 +33,7 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
   const have = collectionCount();
   const total = collectibleTotal();
   page.innerHTML = `
-    <div class="page-head"><h1>Collection</h1><button class="btn btn-blue sm trade-btn">${ico('swap')} Trades</button></div>
+    <div class="page-head"><h1>Collection</h1><button class="btn btn-gold sm forge-btn">${ico('anvil')} Forge <span class="fb-sh">${ico('shard')}${fmt(shards())}</span>${duplicateCount() ? `<i class="fb-dot">${duplicateCount()}</i>` : ''}</button><button class="btn btn-blue sm trade-btn">${ico('swap')} Trades</button></div>
     <div class="card coll-head">
       <div class="ch-top"><b>${have}</b><span>/ ${total} items collected</span></div>
       <div class="ch-bar"><i style="transform:scaleX(${have / total})"></i></div>
@@ -42,6 +43,10 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
     ${rarF ? `<p class="muted small rar-note">Showing only <b class="rar-${rarF}">${RARITIES[rarF].name}</b> items · tap it again to show all</p>` : ''}
     <label class="toggle"><input type="checkbox" ${onlyOwned ? 'checked' : ''}/> Show owned only</label>
     <div class="grid coll-grid"></div>`;
+  (page.querySelector('.forge-btn') as HTMLElement).onclick = () => {
+    sfx.click();
+    go('forge');
+  };
   (page.querySelector('.trade-btn') as HTMLElement).onclick = () => {
     sfx.click();
     openTrade();
