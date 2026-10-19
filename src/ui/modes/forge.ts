@@ -22,6 +22,7 @@ const rc = (r: Rarity) => (r === 'celestial' ? '#7af7ff' : RARITIES[r].color);
 let keepHigh = true;
 let craftR: Rarity | 'all' = 'all';
 let fuseR: Rarity = 'comum';
+let fuseTouched = false;
 
 const buzz = (p: number | number[]) => {
   try {
@@ -294,9 +295,10 @@ function fuseTab(page: HTMLElement, body: HTMLElement): void {
   const fusable = RARITY_ORDER.slice(0, -1) as Rarity[];
   if (!fusable.includes(fuseR)) fuseR = 'comum';
   // escolhe sozinho a primeira raridade que já dá para fundir
-  if (!FG.canFuse(fuseR)) {
+  if (!FG.canFuse(fuseR) && !fuseTouched) {
+    // sem escolha do jogador: a primeira que já dá para fundir, senão a que está mais perto
     const ready = fusable.find((r) => FG.canFuse(r));
-    if (ready) fuseR = ready;
+    fuseR = ready ?? fusable.reduce((best, r) => (FG.fuseSpares(r) > FG.fuseSpares(best) ? r : best), fusable[0]);
   }
   const next = RARITY_ORDER[RARITIES[fuseR].tier + 1];
   const have = FG.fuseSpares(fuseR);
@@ -327,6 +329,7 @@ function fuseTab(page: HTMLElement, body: HTMLElement): void {
     b.onclick = () => {
       sfx.click();
       fuseR = r;
+      fuseTouched = true;
       renderForge(page, 'fuse');
     };
     tiers.appendChild(b);
@@ -439,12 +442,17 @@ function reveal(d: ItemDef, isNew: boolean, jumped: boolean, title: string, done
     sfx.reveal(tier);
     if (tier >= 4) buzz([30, 40, 60, 40, 120]);
   }, 650 + Math.min(tier, 5) * 120);
-  (root.querySelector('.fg-rv-ok') as HTMLElement).onclick = () => {
+  let gone = false;
+  const leave = () => {
+    if (gone || !root.classList.contains('flip')) return;
+    gone = true;
     sfx.click();
     root.classList.add('out');
     setTimeout(() => root.remove(), 250);
     done();
   };
+  // depois de a carta virar, tocar em qualquer lado continua
+  root.onclick = leave;
 }
 
 /** Atalho usado noutros ecrãs (ex.: janela do item). */

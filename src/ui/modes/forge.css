@@ -440,25 +440,28 @@
   background: radial-gradient(circle at 25% 50%, color-mix(in srgb, var(--nc) 22%, transparent), transparent 60%), var(--card, #1d1038);
 }
 .fg-ring {
+  --R: 74px; /* raio da órbita */
+  --S: 58px; /* tamanho das ranhuras */
+  --C: 66px; /* núcleo */
   position: relative;
   flex: none;
-  width: 210px;
-  height: 210px;
+  width: calc(var(--R) * 2 + var(--S) + 6px);
+  height: calc(var(--R) * 2 + var(--S) + 6px);
 }
 .fg-slot {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 62px;
-  height: 62px;
-  margin: -31px 0 0 -31px;
+  width: var(--S);
+  height: var(--S);
+  margin: calc(var(--S) / -2) 0 0 calc(var(--S) / -2);
   border-radius: 50%;
   border: 2px dashed color-mix(in srgb, var(--rc) 60%, transparent);
   background: rgba(0, 0, 0, 0.3);
   display: grid;
   place-items: center;
   overflow: hidden;
-  transform: rotate(calc(var(--i) * 72deg - 90deg)) translate(76px) rotate(calc(var(--i) * -72deg + 90deg));
+  transform: rotate(calc(var(--i) * 72deg - 90deg)) translate(var(--R)) rotate(calc(var(--i) * -72deg + 90deg));
 }
 .fg-slot.full {
   border-style: solid;
@@ -468,16 +471,16 @@
 }
 .fg-slot > canvas,
 .fg-slot > .thumb-icon {
-  width: 54px;
-  height: 54px;
+  width: calc(var(--S) - 8px);
+  height: calc(var(--S) - 8px);
 }
 .fg-core {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 76px;
-  height: 76px;
-  margin: -38px 0 0 -38px;
+  width: var(--C);
+  height: var(--C);
+  margin: calc(var(--C) / -2) 0 0 calc(var(--C) / -2);
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -571,22 +574,22 @@
 }
 .fg-orb {
   position: absolute;
-  width: 84px;
-  height: 84px;
-  margin: -42px 0 0 -42px;
+  width: min(84px, 20vh);
+  height: min(84px, 20vh);
+  margin: calc(min(84px, 20vh) / -2) 0 0 calc(min(84px, 20vh) / -2);
   border-radius: 50%;
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--rc) 25%, #140a28);
   border: 3px solid var(--rc);
   box-shadow: 0 0 20px var(--rc);
-  transform: rotate(var(--a)) translate(140px) rotate(calc(var(--a) * -1));
+  transform: rotate(var(--a)) translate(min(140px, 26vh)) rotate(calc(var(--a) * -1));
   animation: fgPull 1.65s cubic-bezier(0.6, 0, 0.9, 0.5) forwards;
 }
 .fg-orb > canvas,
 .fg-orb > .thumb-icon {
-  width: 70px;
-  height: 70px;
+  width: 82%;
+  height: 82%;
 }
 @keyframes fgOrbit {
   to {
@@ -689,7 +692,7 @@
 .fg-rv-title {
   position: relative;
   font-family: var(--font-display, inherit);
-  font-size: clamp(26px, 6vw, 44px);
+  font-size: clamp(24px, min(6vw, 9vh), 44px);
   font-weight: 900;
   color: #fff;
   text-shadow: 0 4px 0 #140a1c, 0 0 24px var(--rc);
@@ -710,7 +713,7 @@
 }
 .fg-rv-card {
   position: relative;
-  width: min(220px, 46vh);
+  width: min(220px, 36vh);
   aspect-ratio: 3 / 4;
   perspective: 900px;
   animation: fgCardIn 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
@@ -768,8 +771,8 @@
 }
 .fg-rv-art > canvas,
 .fg-rv-art > .thumb-icon {
-  width: min(130px, 26vh);
-  height: min(130px, 26vh);
+  width: min(130px, 22vh);
+  height: min(130px, 22vh);
 }
 .fg-rv-kind {
   font-size: 11px;
@@ -809,7 +812,12 @@
   opacity: 0;
 }
 .fg-reveal.flip .fg-rv-ok {
-  animation: fadeIn 0.3s 0.6s forwards;
+  animation: fgShow 0.3s 0.5s forwards;
+}
+@keyframes fgShow {
+  to {
+    opacity: 1;
+  }
 }
 .fg-conf {
   position: absolute;
@@ -833,27 +841,39 @@
 
 @media (max-height: 460px) {
   .fg-ring {
-    width: 170px;
-    height: 170px;
+    --R: 58px;
+    --S: 46px;
+    --C: 54px;
   }
-  .fg-slot {
-    width: 52px;
-    height: 52px;
-    margin: -26px 0 0 -26px;
-    transform: rotate(calc(var(--i) * 72deg - 90deg)) translate(60px) rotate(calc(var(--i) * -72deg + 90deg));
+  .fg-core span {
+    font-size: 9px;
   }
-  .fg-slot > canvas,
-  .fg-slot > .thumb-icon {
-    width: 46px;
-    height: 46px;
+  .fg-q {
+    font-size: 24px;
   }
-  .fg-core {
-    width: 62px;
-    height: 62px;
-    margin: -31px 0 0 -31px;
+  .fg-fuse {
+    gap: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+  .fg-fuse-txt {
+    gap: 3px;
   }
   .fg-fuse-txt > b {
+    font-size: 16px;
+  }
+  .fg-fuse-txt > span {
+    font-size: 13px;
+  }
+  .fg-go {
     font-size: 17px;
+    padding: 9px 14px;
+  }
+  .fg-tier {
+    padding: 4px 2px;
+  }
+  .fg-tarrow {
+    display: none;
   }
   .fg-title {
     font-size: 22px;
@@ -863,7 +883,23 @@
   .fg-feat-row {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .fg-fuse-tiers {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+  .fg-tn {
+    font-size: 10px;
+  }
+}
+.fg-dot:empty {
+  min-width: 11px;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  top: -3px;
+  right: -2px;
+}
+@media (max-height: 460px) {
+  .fg-reveal {
+    gap: 8px;
+  }
+  .fg-rv-name {
+    font-size: 15px;
   }
 }

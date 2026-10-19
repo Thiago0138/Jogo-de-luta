@@ -8,6 +8,16 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.3.1',
+    date: '2026-10-19',
+    title: 'Forge fixes',
+    items: [
+      'Fixed the Fuse and Craft reveal getting stuck: the "Awesome!" button now shows up, and you can tap anywhere to continue.',
+      'Fuse screen tidied up: the ring of items no longer overlaps, all rarities fit in one row on phones, and it opens on the rarity closest to a fusion.',
+      'Item windows close reliably with the X on phones (no more re-opening the item underneath).',
+    ],
+  },
+  {
     version: '2.3.0',
     date: '2026-10-19',
     title: 'Chest Mania',

@@ -39,6 +39,25 @@ export interface ModalAction {
   onClick?: () => void | boolean;
 }
 
+/**
+ * Depois de fechar um modal com o X, o toque ainda gera um "click" que, sem o modal por cima,
+ * caía no cartão por baixo e voltava a abrir o mesmo item. Engole esses cliques durante um instante.
+ */
+let ghostUntil = 0;
+function swallowGhostClicks(): void {
+  ghostUntil = performance.now() + 450;
+}
+document.addEventListener(
+  'click',
+  (e) => {
+    if (performance.now() < ghostUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  },
+  true,
+);
+
 /** Abre um modal. Devolve uma função para o fechar. */
 export function modal(
   title: string, body: HTMLElement | string, actions: ModalAction[] = [{ label: 'Close' }], cls = '', onClose?: () => void,
@@ -58,6 +77,8 @@ export function modal(
       onClose?.();
     }
     back.classList.add('out');
+    back.style.pointerEvents = 'none';
+    document.removeEventListener('keydown', onKey);
     setTimeout(() => back.remove(), 180);
   };
   for (const a of actions) {
@@ -81,10 +102,18 @@ export function modal(
     e.stopPropagation();
     if (closed) return;
     sfx.click();
+    swallowGhostClicks();
     close();
   };
+  // fecha logo ao pousar o dedo: no telemóvel o "click" podia perder-se ou chegar atrasado
+  xb.addEventListener('pointerdown', shut);
+  xb.addEventListener('touchstart', shut, { passive: false });
   xb.addEventListener('pointerup', shut);
   xb.onclick = shut;
+  const onKey = (e: KeyboardEvent) => {
+    if (e.key === 'Escape' && !closed) close();
+  };
+  document.addEventListener('keydown', onKey);
   document.body.appendChild(back);
   return close;
 }
