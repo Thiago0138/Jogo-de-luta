@@ -11,13 +11,18 @@ import { ico } from './ui/icons';
 import { installRotateHint } from './ui/rotateHint';
 
 async function boot(): Promise<void> {
-  installAudioUnlock();
-  setVolume(S.settings.volume);
-  setSound(S.settings.sound);
-  music.setVolume(S.settings.bgmVol);
-  music.setEnabled(S.settings.bgm);
-  music.play('menu');
-  setAmbient(S.settings.music);
+  // o áudio nunca pode impedir o jogo de abrir
+  try {
+    installAudioUnlock();
+    setVolume(S.settings.volume);
+    setSound(S.settings.sound);
+    music.setVolume(S.settings.bgmVol);
+    music.setEnabled(S.settings.bgm);
+    music.play('menu');
+    setAmbient(S.settings.music);
+  } catch (e) {
+    console.error(e);
+  }
   // A fonte é usada no canvas: espera por ela (com limite) para o primeiro desenho sair certo.
   try {
     await Promise.race([document.fonts.load('40px "Luckiest Guy"'), new Promise((r) => setTimeout(r, 1500))]);

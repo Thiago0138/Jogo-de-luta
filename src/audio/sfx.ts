@@ -891,7 +891,8 @@ function prewarmSamples(): void {
     if (i < names.length) later();
   };
   // só calcula em tempo livre do browser; durante um combate espera mais (evita engasgos)
-  const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+  const w = window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+  const ric = w.requestIdleCallback ? (cb: () => void, o: { timeout: number }) => w.requestIdleCallback!(cb, o) : null;
   const later = () => {
     const busy = !!document.querySelector('.fight-layer');
     if (ric) ric(step, { timeout: busy ? 3000 : 400 });

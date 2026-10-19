@@ -8,6 +8,17 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.4.1',
+    date: '2026-10-19',
+    title: 'Safer start-up',
+    items: [
+      'Fixed a start-up problem on some phones where the game could stay on the "Kings of the Ring" screen.',
+      'The game is now built for older iPhone/Safari versions too.',
+      'If the game ever fails to start, you now get a screen with the error and buttons to reload, go back to your main save or clear the app cache — no more getting stuck.',
+      'Fixed a sound-preparation bug that could throw an error on the first tap.',
+    ],
+  },
+  {
     version: '2.4.0',
     date: '2026-10-19',
     title: 'Fresh start',

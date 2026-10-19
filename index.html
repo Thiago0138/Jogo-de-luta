@@ -24,6 +24,35 @@
     <div id="splash"><span>KINGS OF THE RING</span></div>
     <div id="app"></div>
     <script>
+      /* Rede de segurança: se o jogo não arrancar, mostra o erro e opções em vez de ficar preso no ecrã inicial. */
+      (function () {
+        var errs = [];
+        window.addEventListener('error', function (e) { errs.push((e.message || 'error') + (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '')); });
+        window.addEventListener('unhandledrejection', function (e) { errs.push('promise: ' + (e.reason && (e.reason.message || e.reason))); });
+        setTimeout(function () {
+          var sp = document.getElementById('splash');
+          if (!sp) return;
+          sp.innerHTML = '<div style="max-width:520px;padding:20px;text-align:center;font:600 15px/1.4 system-ui,sans-serif;color:#fff;text-shadow:none;letter-spacing:0">' +
+            '<div style="font:900 26px Impact,system-ui;color:#ffd23d;margin-bottom:8px">KINGS OF THE RING</div>' +
+            '<p>The game is taking too long to start.</p>' +
+            '<p style="font-size:12px;color:#b9a8d8;word-break:break-word">' + (errs.join(' | ') || 'no error reported').replace(/</g, '&lt;') + '</p>' +
+            '<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">' +
+            '<button id="bg-reload" style="padding:12px;border-radius:12px;border:0;background:#ffd23d;font-weight:900">Reload</button>' +
+            '<button id="bg-main" style="padding:12px;border-radius:12px;border:0;background:#2f7bff;color:#fff;font-weight:900">Back to my main save</button>' +
+            '<button id="bg-cache" style="padding:12px;border-radius:12px;border:0;background:#3a2a5c;color:#fff;font-weight:900">Clear app cache and reload</button>' +
+            '</div></div>';
+          document.getElementById('bg-reload').onclick = function () { location.reload(); };
+          document.getElementById('bg-main').onclick = function () { try { localStorage.setItem('kotr-profile-pending', 'main'); } catch (e) {} location.reload(); };
+          document.getElementById('bg-cache').onclick = function () {
+            var p = [];
+            try { if (navigator.serviceWorker) p.push(navigator.serviceWorker.getRegistrations().then(function (r) { return Promise.all(r.map(function (x) { return x.unregister(); })); })); } catch (e) {}
+            try { if (window.caches) p.push(caches.keys().then(function (k) { return Promise.all(k.map(function (x) { return caches.delete(x); })); })); } catch (e) {}
+            Promise.all(p).then(function () { location.reload(); }, function () { location.reload(); });
+          };
+        }, 7000);
+      })();
+    </script>
+    <script>
       /* Perfis: troca o save principal por um "jogador novo" (e volta) antes de o jogo carregar. */
       (function () {
         try {
