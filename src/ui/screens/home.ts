@@ -13,6 +13,7 @@ import { resolveLook } from '../../render/look';
 import { sfx } from '../../audio/sfx';
 import { go, render } from '../app';
 import { chestCount, openAllChests, openChest } from '../chest';
+import { chestIconSvg, chestIdFromColors } from '../chestArt';
 import { el, esc, fmt, timeLeft, toast } from '../dom';
 import { Preview } from '../preview';
 import { startMatch } from '../play';
@@ -146,13 +147,7 @@ export function renderHome(page: HTMLElement): void {
   }
 }
 
-export function chestSvg(body: string, trim: string): string {
-  return `<svg viewBox="0 0 64 56" aria-hidden="true">
-    <path d="M6 24 Q6 6 32 6 Q58 6 58 24 Z" fill="${body}" stroke="#140a1c" stroke-width="3"/>
-    <rect x="6" y="24" width="52" height="28" rx="4" fill="${body}" stroke="#140a1c" stroke-width="3"/>
-    <rect x="12" y="8" width="7" height="44" fill="${trim}" stroke="#140a1c" stroke-width="2"/>
-    <rect x="45" y="8" width="7" height="44" fill="${trim}" stroke="#140a1c" stroke-width="2"/>
-    <rect x="26" y="19" width="12" height="13" rx="3" fill="${trim}" stroke="#140a1c" stroke-width="2"/>
-    <circle cx="32" cy="26" r="2.5" fill="#140a1c"/>
-  </svg>`;
+/** Ícone de baú para os menus: o tier é reconhecido pela cor do corpo (mesmo visual da abertura). */
+export function chestSvg(body: string, _trim?: string): string {
+  return chestIconSvg(chestIdFromColors(body));
 }
