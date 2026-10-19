@@ -5134,7 +5134,7 @@ body:has(> .fight-layer) .shell { visibility: hidden; }
   perspective: 1100px;
 }
 .cx-card {
-  --ch: min(320px, 66dvh);
+  --ch: min(400px, 66dvh);
   --pd: 1s;
   position: relative;
   height: var(--ch);

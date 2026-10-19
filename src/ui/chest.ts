@@ -111,7 +111,8 @@ class Stage {
     this.H = this.root.clientHeight || window.innerHeight;
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.portrait = this.H > this.W;
-    this.z = Math.min(this.W / 600, this.H / (this.portrait ? 640 : 560));
+    // limitado em ecrãs grandes: o baú não deve engolir o ecrã nem as cartas
+    this.z = Math.min(this.W / 600, this.H / (this.portrait ? 640 : 560), 1.2);
     this.floorY = this.H * (this.portrait ? 0.62 : 0.72);
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
@@ -583,7 +584,7 @@ function teaseEl(id: ChestId): { el: HTMLElement; step: () => void } {
   const egg = box.querySelector('.cx-tease-egg') as HTMLElement;
   const eggs: string[] = [];
   if (id !== 'mitico') eggs.push(`${ico('bolt')} Lucky upgrade: 1 in ${Math.round(1 / CHEST_UPGRADE_CHANCE)}`);
-  eggs.push(`${ico('gift')} Lucky bonus item: 1 in ${Math.round(1 / LUCKY_BONUS_CHANCE)}`);
+  eggs.push(`${ico('gift')} Lucky bonus: 1 in ${Math.round(1 / LUCKY_BONUS_CHANCE)}`);
   let i = 0;
   const step = () => {
     if (list.length) {
@@ -1165,6 +1166,7 @@ export function openAllChests(onDone: () => void): void {
     p.leakColor = hexOf(rarAt(t.best));
     return p;
   });
+  const labels = types.map((t) => `×${t.n}`);
   const vys = new Float32Array(k);
   const landed = new Uint8Array(k);
   const sprs = types.map((t) => chestSprites(t.id, 1));
@@ -1388,9 +1390,9 @@ export function openAllChests(onDone: () => void): void {
         const ly = p.y - (CH + LID_H) * scale - 6;
         ctx.lineWidth = 7;
         ctx.strokeStyle = '#140a1c';
-        ctx.strokeText(`×${types[i].n}`, lx, ly);
+        ctx.strokeText(labels[i], lx, ly);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`×${types[i].n}`, lx, ly);
+        ctx.fillText(labels[i], lx, ly);
       }
     }
   };
