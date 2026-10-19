@@ -8,6 +8,14 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.4.3',
+    date: '2026-10-19',
+    title: 'Wheel fix',
+    items: [
+      'Fixed the Lucky Wheel getting stuck mid-spin on some phones (for example after leaving the screen, locking the phone or a sound error). The spin now always finishes and you always get your prize.',
+    ],
+  },
+  {
     version: '2.4.2',
     date: '2026-10-19',
     title: 'Clean slate',

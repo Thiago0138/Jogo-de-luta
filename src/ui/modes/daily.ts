@@ -801,12 +801,27 @@ class WheelView {
     }
   }
 
+  /** Fim pendente de um giro (garante que o jogo nunca fica preso a "girar"). */
+  private pendingDone: (() => void) | null = null;
+
   private loop = (now: number): void => {
     this.raf = 0;
     if (!this.canvas.isConnected) {
       this.anim = null;
+      this.pendingDone?.();
       return;
     }
+    try {
+      this.step(now);
+    } catch (e) {
+      // um erro (ex.: som) nunca pode congelar a roda: acaba o giro já
+      console.error(e);
+      this.anim = null;
+      this.pendingDone?.();
+    }
+  };
+
+  private step(now: number): void {
     const dt = Math.min(0.04, (now - this.last) / 1000);
     this.last = now;
     this.t += dt;
@@ -820,7 +835,11 @@ class WheelView {
       const n = Math.abs(peg - this.lastPeg);
       this.lastPeg = peg;
       if (Math.abs(this.omega) > 0.05) {
-        A.tick(0.92 + Math.random() * 0.16);
+        try {
+          A.tick(0.92 + Math.random() * 0.16);
+        } catch {
+          /* sem som */
+        }
         this.pv -= Math.min(26, 8 + Math.abs(this.omega) * 0.9) * Math.min(2, n) * Math.sign(this.omega);
       }
     }
@@ -839,7 +858,7 @@ class WheelView {
     this.draw();
     const settling = Math.abs(this.pa) > 0.002 || Math.abs(this.pv) > 0.01;
     if (this.anim || settling || this.hl >= 0 || now < this.idleUntil) this.raf = requestAnimationFrame(this.loop);
-  };
+  }
 
   spinTo(index: number, onDone: () => void): void {
     const N = WHEEL.length;
@@ -857,7 +876,11 @@ class WheelView {
     total += turns * TAU;
     const T = 4.9 + Math.random() * 0.8;
     let t = 0;
-    A.riser(0.35);
+    try {
+      A.riser(0.35);
+    } catch {
+      /* sem som */
+    }
     this.anim = (dt) => {
       t += dt;
       if (t < 0.32) {
@@ -872,15 +895,26 @@ class WheelView {
         this.theta = fromWind + total;
         this.hl = index;
         this.hlT = 0;
-        setTimeout(() => {
-          this.hl = -1;
-          onDone();
-        }, 900);
+        setTimeout(finish, 900);
         setTimeout(() => this.kick(400), 950);
         return false;
       }
       return true;
     };
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(guard);
+      this.pendingDone = null;
+      this.anim = null;
+      this.theta = fromWind + total;
+      this.hl = -1;
+      onDone();
+    };
+    this.pendingDone = finish;
+    // se o telemóvel pausar a animação (app em segundo plano, erro…), o prémio sai na mesma
+    const guard = setTimeout(finish, (0.32 + T) * 1000 + 2500);
     this.kick(100);
   }
 
