@@ -191,6 +191,8 @@ export interface PopText {
   max: number;
   color: string;
   size: number;
+  /** Golpe crítico: o número leva o selo "CRITICAL!" por cima. */
+  crit?: boolean;
 }
 
 /** Texto grande do locutor no centro do ecrã. */

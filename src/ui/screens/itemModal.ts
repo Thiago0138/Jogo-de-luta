@@ -1,5 +1,6 @@
 import { coversHead } from '../../render/costume';
-import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, recycle, moveSlots, superSlots, passiveSlots } from '../../core/state';
+import { SHARD_VALUE, recycleOne } from '../../core/forge';
+import { S, buy, canAfford, canBuyEarly, commit, count, grant, owns, moveSlots, superSlots, passiveSlots } from '../../core/state';
 import { KIND_NAMES, isTradeable, item, type ItemDef } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { resolveLook } from '../../render/look';
@@ -280,15 +281,15 @@ export function openItem(id: string, ctx: 'shop' | 'collection', discount = 0, e
     } else actions.push({ label: `Equipped ${ico('check')}`, cls: 'btn-ghost', onClick: () => false });
     if (ctx === 'collection') {
       if (n >= 2) {
-        const v = r.recycle;
+        const v = SHARD_VALUE[d.rarity];
         actions.push({
-          label: `Recycle +${ico('coin')}${fmt(v)}`,
+          label: `Recycle +${ico('shard')}${fmt(v)}`,
           cls: 'btn-ghost',
           onClick: () => {
-            const got = recycle(id);
+            const got = recycleOne(id);
             if (got) {
               sfx.coin();
-              toast(`+${got} coins`, 'ok');
+              toast(`+${got} shards · spend them in the Forge`, 'ok');
               render();
             }
           },

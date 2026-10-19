@@ -62,9 +62,11 @@ export function renderHome(page: HTMLElement): void {
 
   const prev = new Preview(resolveLook(S.appearance, S.loadout), { turn: true, key: 'home' });
   page.querySelector('.hero-stage')!.appendChild(prev.canvas);
+  // tocar no lutador abre o ecrã do lutador
+  prev.canvas.style.cursor = 'pointer';
   prev.canvas.onclick = () => {
     sfx.click();
-    prev.play('guard');
+    go('fighter');
   };
 
   const allBtn = page.querySelector('.open-all') as HTMLElement | null;

@@ -8,6 +8,19 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.2.0',
+    date: '2026-10-19',
+    title: 'The Forge',
+    items: [
+      'NEW — THE FORGE (Collection → Forge): a home for all your duplicates.',
+      'Recycle: turn every extra copy into Shards with one tap (you always keep one of each item). Optionally keep Legendary+ duplicates for fusing.',
+      'Craft: spend Shards to make exactly the item you are missing. Weekly Forge Deals give 5 featured items at -30%.',
+      'Fuse: combine 5 duplicates of the same rarity into 1 random item of the next rarity — with a 4% chance of a DOUBLE UPGRADE.',
+      'Critical hits now show a big gold damage number with a red CRITICAL! badge.',
+      'New Shop and Fighter icons. Tap your fighter on the Ring screen to open the Fighter page.',
+    ],
+  },
+  {
     version: '2.1.1',
     date: '2026-10-19',
     title: 'Real hands',
