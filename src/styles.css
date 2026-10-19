@@ -6016,3 +6016,9 @@ body:has(> .fight-layer) .shell { visibility: hidden; }
   margin-left: 6px;
   vertical-align: middle;
 }
+.sp-gems {
+  flex-basis: 100%;
+  margin: 0;
+  padding: 6px 4px 0;
+  border: 0;
+}

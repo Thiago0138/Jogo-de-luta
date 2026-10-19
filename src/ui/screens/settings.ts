@@ -1,4 +1,4 @@
-import { S, commit, markPatchSeen, resetSave } from '../../core/state';
+import { S, bonusGemsOn, commit, markPatchSeen, resetSave, setBonusGems } from '../../core/state';
 import { PATCH_NOTES, CURRENT_VERSION } from '../../data/patchnotes';
 import { backToMain, currentProfile, playFresh, restartFresh } from '../../core/profiles';
 import { RARITIES, RARITY_ORDER } from '../../data/rarity';
@@ -22,7 +22,7 @@ export function openSettings(onClose?: () => void): void {
       }</p>
       <div class="sp-btns">${
         currentProfile() === 'fresh'
-          ? `<button class="btn btn-gold sp-main">${ico('crown')} Back to my main save</button><button class="btn btn-ghost sp-restart">Restart new player</button>`
+          ? `<button class="btn btn-gold sp-main">${ico('crown')} Back to my main save</button><button class="btn btn-ghost sp-restart">Restart new player</button><label class="set-row sp-gems"><span>${ico('gem')} 100K bonus gems</span><input type="checkbox" class="sp-gems-in" ${bonusGemsOn() ? 'checked' : ''}/></label>`
           : `<button class="btn btn-blue sp-fresh">${ico('sparkle')} Play as a new player</button>`
       }</div>
     </div>
@@ -72,7 +72,7 @@ export function openSettings(onClose?: () => void): void {
     commit();
     sfx.click();
   };
-  b.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((inp) => {
+  b.querySelectorAll<HTMLInputElement>('input[type="checkbox"][data-k]').forEach((inp) => {
     inp.onchange = () => {
       const k = inp.dataset.k!;
       if (k === 'sound') {
@@ -112,6 +112,13 @@ export function openSettings(onClose?: () => void): void {
         '<p>Your new-player progress is kept too, so you can come back to it later.</p>',
         [{ label: 'Cancel' }, { label: 'Switch', cls: 'btn-gold', onClick: () => backToMain() }],
       );
+  const spGems = b.querySelector('.sp-gems-in') as HTMLInputElement | null;
+  if (spGems)
+    spGems.onchange = (e) => {
+      e.stopPropagation();
+      setBonusGems(spGems.checked);
+      sfx.coin();
+    };
   const spRestart = b.querySelector('.sp-restart') as HTMLElement | null;
   if (spRestart)
     spRestart.onclick = () =>
@@ -128,7 +135,7 @@ export function openSettings(onClose?: () => void): void {
     ins.onclick = () => prompt.prompt();
   }
   (b.querySelector('.reset') as HTMLElement).onclick = () => {
-    modal('Delete progress?', '<p>You will lose your fighter, items, coins and gems. This cannot be undone.</p>', [
+    modal('Delete progress?', `<p>You will lose your fighter, items, coins, gems and all progress in Career, Gym, Daily, Fight Pass and the Forge${currentProfile() === 'fresh' ? ' (only for this new-player profile — your main save is not touched)' : ''}. This cannot be undone.</p>`, [
       { label: 'Cancel' },
       { label: 'Delete everything', cls: 'btn-red', onClick: () => resetSave() },
     ]);

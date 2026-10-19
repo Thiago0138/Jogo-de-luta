@@ -8,6 +8,15 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.4.2',
+    date: '2026-10-19',
+    title: 'Clean slate',
+    items: [
+      'The new-player profile now starts with 0 gems (no 100K gift). Turn on "100K bonus gems" in Settings → Profile any time to get them back, and off again to remove them.',
+      '"Delete progress" now really resets everything in the current profile: Career, Gym, Daily, Fight Pass and the Forge too, not just your fighter and items.',
+    ],
+  },
+  {
     version: '2.4.1',
     date: '2026-10-19',
     title: 'Safer start-up',

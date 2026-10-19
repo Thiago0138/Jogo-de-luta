@@ -13,7 +13,7 @@ export function currentProfile(): Profile {
   }
 }
 
-function request(action: 'main' | 'fresh' | 'reset-fresh'): void {
+function request(action: 'main' | 'fresh' | 'reset-fresh' | 'wipe'): void {
   try {
     localStorage.setItem('kotr-profile-pending', action);
   } catch {
@@ -29,3 +29,5 @@ export const playFresh = (): void => request('fresh');
 export const backToMain = (): void => request('main');
 /** Recomeça o perfil de jogador novo do zero. */
 export const restartFresh = (): void => request('reset-fresh');
+/** Apaga todo o progresso do perfil atual (todos os modos), sem tocar no outro perfil. */
+export const wipeProfile = (): void => request('wipe');

@@ -63,8 +63,8 @@
           var game = function (k) { return k === 'reis-do-ringue-save-v1' || (k.indexOf('kotr-') === 0 && k.indexOf('kotr-profile') !== 0 && k.indexOf('kotr-stash-') !== 0); };
           var keys = [], i;
           for (i = 0; i < L.length; i++) { var k = L.key(i); if (k && game(k)) keys.push(k); }
-          if (act === 'reset-fresh') {
-            if (cur !== 'fresh') return;
+          if (act === 'reset-fresh' || act === 'wipe') {
+            if (act === 'reset-fresh' && cur !== 'fresh') return;
             keys.forEach(function (k) { L.removeItem(k); });
             return;
           }

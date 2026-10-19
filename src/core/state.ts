@@ -7,6 +7,7 @@ import { RARITIES, RARITY_ORDER, type Rarity } from '../data/rarity';
 import { MAX_LEVEL, POINTS_PER_LEVEL, baseStats, xpToNext, type Stats } from '../data/stats';
 import { CURRENT_VERSION } from '../data/patchnotes';
 import { dayKey, hashStr, pick, rint, seeded, shuffle, weekKey, weighted } from './rng';
+import { currentProfile, wipeProfile } from './profiles';
 
 export interface Loadout {
   outfit: string;
@@ -226,9 +227,9 @@ export function commit(): void {
   });
 }
 
+/** Apaga todo o progresso do perfil atual (save, carreira, ginásio, daily, passe, forja) e recomeça. */
 export function resetSave(): void {
-  localStorage.removeItem(KEY);
-  location.reload();
+  wipeProfile();
 }
 
 // ───────────────────────── Inventário ─────────────────────────
@@ -613,10 +614,35 @@ export function markPatchSeen(): void {
   commit();
 }
 
-/** Presente único: 100 000 gemas para todos os jogadores (novos e existentes). */
+/**
+ * Presente único: 100 000 gemas para todos os jogadores (novos e existentes).
+ * No perfil "jogador novo" não há presente (começa mesmo do zero); dá para ligar nas definições.
+ */
 if (!S.grants) S.grants = [];
+const freshProfile = currentProfile() === 'fresh';
 if (!S.grants.includes('gems100k')) {
   S.grants.push('gems100k');
-  S.gems += 100000;
+  if (freshProfile) S.grants.push('fresh-gems-off');
+  else S.gems += 100000;
+  commit();
+} else if (freshProfile && !S.grants.includes('fresh-gems-off')) {
+  // perfis de jogador novo criados antes desta regra: tira o presente uma vez
+  S.grants.push('fresh-gems-off');
+  S.gems = Math.max(0, S.gems - 100000);
+  commit();
+}
+
+export const bonusGemsOn = (): boolean => S.grants.includes('fresh-gems-on');
+
+/** Liga/desliga as 100 000 gemas de bónus no perfil de jogador novo. */
+export function setBonusGems(on: boolean): void {
+  if (on === bonusGemsOn()) return;
+  if (on) {
+    S.grants.push('fresh-gems-on');
+    S.gems += 100000;
+  } else {
+    S.grants = S.grants.filter((g) => g !== 'fresh-gems-on');
+    S.gems = Math.max(0, S.gems - 100000);
+  }
   commit();
 }
