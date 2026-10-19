@@ -5956,3 +5956,63 @@ body:has(> .fight-layer) .shell { visibility: hidden; }
     animation: none;
   }
 }
+/* perfil (save principal / jogador novo) */
+.set-profile {
+  margin: 0 0 8px;
+  grid-column: 1 / -1;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(58, 160, 255, 0.1);
+  border: 1px solid rgba(58, 160, 255, 0.35);
+}
+.set-profile.fresh {
+  background: rgba(76, 217, 100, 0.1);
+  border-color: rgba(76, 217, 100, 0.45);
+}
+.sp-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sp-head .ic {
+  width: 20px;
+  height: 20px;
+}
+.sp-tag {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: #2f7bff;
+  color: #fff;
+}
+.set-profile.fresh .sp-tag {
+  background: #2fae3a;
+}
+.set-profile p {
+  margin: 6px 0 8px;
+}
+.sp-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sp-btns .btn {
+  flex: 1;
+  min-width: 150px;
+}
+.sp-btns .ic {
+  width: 18px;
+  height: 18px;
+}
+.tb-fresh {
+  font-size: 9px;
+  font-weight: 900;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: #2fae3a;
+  color: #fff;
+  margin-left: 6px;
+  vertical-align: middle;
+}

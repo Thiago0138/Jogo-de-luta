@@ -12,6 +12,7 @@ import { renderMissions } from './screens/missions';
 import { renderFighter } from './screens/fighter';
 import { careerBadge, renderCareer } from './modes/career';
 import { forgeBadge, renderForge } from './modes/forge';
+import { currentProfile } from '../core/profiles';
 import { gymBadge, renderGym } from './modes/gym';
 import { dailyBadge, renderDaily } from './modes/daily';
 import { passBadge, renderPass } from './modes/pass';
@@ -100,7 +101,9 @@ let lastCoins = -1;
 let lastGems = -1;
 export function refreshChrome(): void {
   if (!topbar) return;
-  (topbar.querySelector('.tb-name') as HTMLElement).textContent = S.name;
+  const nm = topbar.querySelector('.tb-name') as HTMLElement;
+  nm.textContent = S.name;
+  if (currentProfile() === 'fresh') nm.insertAdjacentHTML('beforeend', '<span class="tb-fresh">NEW PLAYER</span>');
   (topbar.querySelector('.tb-lvl') as HTMLElement).textContent = String(S.level);
   (topbar.querySelector('.tb-xp i') as HTMLElement).style.transform = `scaleX(${Math.min(1, S.xp / xpToNext(S.level))})`;
   if (S.coins !== lastCoins) {

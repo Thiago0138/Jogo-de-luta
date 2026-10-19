@@ -8,6 +8,16 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.4.0',
+    date: '2026-10-19',
+    title: 'Fresh start',
+    items: [
+      'New in Settings → Profile: "Play as a new player" starts the whole game from zero (fighter, items, coins and every mode) while your main save is kept safe.',
+      'Switch back to your main save at any time, exactly as you left it — your new-player progress is kept too. You can also restart the new player from zero.',
+      'A NEW PLAYER tag next to your name shows which profile you are playing.',
+    ],
+  },
+  {
     version: '2.3.1',
     date: '2026-10-19',
     title: 'Forge fixes',

@@ -1,5 +1,6 @@
 import { S, commit, markPatchSeen, resetSave } from '../../core/state';
 import { PATCH_NOTES, CURRENT_VERSION } from '../../data/patchnotes';
+import { backToMain, currentProfile, playFresh, restartFresh } from '../../core/profiles';
 import { RARITIES, RARITY_ORDER } from '../../data/rarity';
 import { setAmbient, setSound, setVolume, sfx } from '../../audio/sfx';
 import { music } from '../../audio/music';
@@ -12,6 +13,19 @@ export function openSettings(onClose?: () => void): void {
   const b = el('div', 'settings');
   const s = S.settings;
   b.innerHTML = `
+    <div class="set-profile ${currentProfile()}">
+      <div class="sp-head">${ico('fighter')} <b>Profile</b><span class="sp-tag">${currentProfile() === 'fresh' ? 'NEW PLAYER' : 'MAIN SAVE'}</span></div>
+      <p class="muted small">${
+        currentProfile() === 'fresh'
+          ? 'You are playing as a brand-new player. Your main save is safe and untouched — switch back any time.'
+          : 'Try the game from zero, like a brand-new player. Your main save is kept safe and you can come back to it any time, exactly as it is.'
+      }</p>
+      <div class="sp-btns">${
+        currentProfile() === 'fresh'
+          ? `<button class="btn btn-gold sp-main">${ico('crown')} Back to my main save</button><button class="btn btn-ghost sp-restart">Restart new player</button>`
+          : `<button class="btn btn-blue sp-fresh">${ico('sparkle')} Play as a new player</button>`
+      }</div>
+    </div>
     <label class="set-row vol-row"><span>${ico('speaker')} Volume</span><input type="range" class="vol" min="0" max="100" step="1" value="${Math.round(s.volume * 100)}"/><b class="vol-n">${Math.round(s.volume * 100)}%</b></label>
     <label class="set-row vol-row"><span>${ico('music')} Music</span><input type="range" class="bgmv" min="0" max="100" step="1" value="${Math.round(s.bgmVol * 100)}"/><b class="bgm-n">${Math.round(s.bgmVol * 100)}%</b></label>
     <label class="set-row"><span>${ico('music')} Music on</span><input type="checkbox" data-k="bgm" ${s.bgm ? 'checked' : ''}/></label>
@@ -82,6 +96,29 @@ export function openSettings(onClose?: () => void): void {
       sfx.click();
     };
   });
+  const spFresh = b.querySelector('.sp-fresh') as HTMLElement | null;
+  if (spFresh)
+    spFresh.onclick = () =>
+      modal(
+        'Play as a new player?',
+        '<p>You will start from zero: new fighter, no items, no coins, every mode from the beginning.</p><p><b>Your main save stays safe.</b> Come back to it any time in Settings → Profile, exactly as you left it.</p>',
+        [{ label: 'Cancel' }, { label: 'Start fresh', cls: 'btn-blue', onClick: () => playFresh() }],
+      );
+  const spMain = b.querySelector('.sp-main') as HTMLElement | null;
+  if (spMain)
+    spMain.onclick = () =>
+      modal(
+        'Back to your main save?',
+        '<p>Your new-player progress is kept too, so you can come back to it later.</p>',
+        [{ label: 'Cancel' }, { label: 'Switch', cls: 'btn-gold', onClick: () => backToMain() }],
+      );
+  const spRestart = b.querySelector('.sp-restart') as HTMLElement | null;
+  if (spRestart)
+    spRestart.onclick = () =>
+      modal('Restart the new player?', '<p>The new-player profile goes back to zero. Your main save is not affected.</p>', [
+        { label: 'Cancel' },
+        { label: 'Restart', cls: 'btn-red', onClick: () => restartFresh() },
+      ]);
   (b.querySelector('.notes') as HTMLElement).onclick = () => openPatchNotes();
   (b.querySelector('.rar') as HTMLElement).onclick = () => openRarities();
   const ins = b.querySelector('.install') as HTMLButtonElement;

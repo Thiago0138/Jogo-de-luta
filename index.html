@@ -23,6 +23,38 @@
   <body>
     <div id="splash"><span>KINGS OF THE RING</span></div>
     <div id="app"></div>
+    <script>
+      /* Perfis: troca o save principal por um "jogador novo" (e volta) antes de o jogo carregar. */
+      (function () {
+        try {
+          var L = localStorage, act = L.getItem('kotr-profile-pending');
+          if (!act) return;
+          L.removeItem('kotr-profile-pending');
+          var cur = L.getItem('kotr-profile') || 'main';
+          var game = function (k) { return k === 'reis-do-ringue-save-v1' || (k.indexOf('kotr-') === 0 && k.indexOf('kotr-profile') !== 0 && k.indexOf('kotr-stash-') !== 0); };
+          var keys = [], i;
+          for (i = 0; i < L.length; i++) { var k = L.key(i); if (k && game(k)) keys.push(k); }
+          if (act === 'reset-fresh') {
+            if (cur !== 'fresh') return;
+            keys.forEach(function (k) { L.removeItem(k); });
+            return;
+          }
+          var to = act === 'fresh' ? 'fresh' : 'main';
+          if (to === cur) return;
+          var snap = {};
+          keys.forEach(function (k) { snap[k] = L.getItem(k); });
+          L.setItem('kotr-stash-' + cur, JSON.stringify(snap));
+          keys.forEach(function (k) { L.removeItem(k); });
+          var back = L.getItem('kotr-stash-' + to);
+          if (back) {
+            var o = JSON.parse(back);
+            for (var key in o) if (o[key] != null) L.setItem(key, o[key]);
+            L.removeItem('kotr-stash-' + to);
+          }
+          L.setItem('kotr-profile', to);
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
