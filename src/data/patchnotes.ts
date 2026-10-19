@@ -8,6 +8,20 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.3.0',
+    date: '2026-10-19',
+    title: 'Chest Mania',
+    items: [
+      'Brand-new chest openings: five beautifully redrawn chests (wood, steel, ornate gold, runic legendary and glowing obsidian mythic) with new menu icons to match.',
+      'Suspense: tap to charge the chest — it shakes harder, light leaks through the cracks and its colour hints at the best item inside. Heartbeats and drumrolls before big drops.',
+      '"Could contain" teaser shows the rarest items a chest can drop and your real odds.',
+      'Rare events: a Lucky Upgrade (the chest transforms into the next tier) and a Lucky Bonus extra item.',
+      'Cards now flip from a rarity-coloured back. Legendary, Mythic and Celestial drops get a full-screen celebration with rays, confetti, fanfare and vibration.',
+      'New summary with your Best Drop, totals and quick "Open another" / "Open all" buttons. Open all now bursts every chest at once with a cascade reveal.',
+      'New chest sounds: thump, lock rattle, creak, rising chimes, heartbeat, drumroll and fanfare.',
+    ],
+  },
+  {
     version: '2.2.0',
     date: '2026-10-19',
     title: 'The Forge',
