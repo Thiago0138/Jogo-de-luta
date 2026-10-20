@@ -13,6 +13,7 @@ import { renderFighter } from './screens/fighter';
 import { careerBadge, renderCareer } from './modes/career';
 import { forgeBadge, renderForge } from './modes/forge';
 import { currentProfile } from '../core/profiles';
+import { autoTutorial, helpButton, type TutId } from './tutorial';
 import { gymBadge, renderGym } from './modes/gym';
 import { dailyBadge, renderDaily } from './modes/daily';
 import { passBadge, renderPass } from './modes/pass';
@@ -204,8 +205,25 @@ export function render(): void {
   }
   rendered = `${current}|${sub ?? ''}`;
   view.scrollTop = keep;
+  // guia da secção: botão "?" sempre à mão e abre sozinho na primeira visita
+  const tut = TUT_OF[current];
+  page.appendChild(helpButton(tut, 'tut-fab'));
+  autoTutorial(tut);
   refreshChrome();
 }
+
+const TUT_OF: Record<Tab, TutId> = {
+  home: 'home',
+  shop: 'shop',
+  collection: 'collection',
+  missions: 'missions',
+  fighter: 'fighter',
+  career: 'career',
+  gym: 'gym',
+  daily: 'daily',
+  pass: 'pass',
+  forge: 'forge',
+};
 
 export function currentTab(): Tab {
   return current;

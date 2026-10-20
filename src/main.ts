@@ -9,6 +9,7 @@ import { openCreator } from './ui/screens/creator';
 import { modal } from './ui/dom';
 import { ico } from './ui/icons';
 import { installRotateHint } from './ui/rotateHint';
+import { openTutorial } from './ui/tutorial';
 
 async function boot(): Promise<void> {
   // o áudio nunca pode impedir o jogo de abrir
@@ -39,7 +40,7 @@ async function boot(): Promise<void> {
         'Welcome to the ring!',
         `<p>Fights are <b>automatic</b>: you build your fighter, the crowd goes wild and you enjoy the show.</p>
          <ul class="tips"><li>${ico('glove')} Win fights to climb the leagues and earn chests.</li><li>${ico('chart')} Spend your level-up points on stats.</li><li>${ico('chest')} Two chests are already waiting for you in the Ring!</li></ul>`,
-        [{ label: 'Let\'s fight!', cls: 'btn-gold' }],
+        [{ label: 'Show me around', cls: 'btn-gold', onClick: () => void setTimeout(() => openTutorial('home'), 220) }, { label: 'Let\'s fight!', cls: 'btn-ghost' }],
       );
     });
   } else {

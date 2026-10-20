@@ -6,6 +6,7 @@ import { setAmbient, setSound, setVolume, sfx } from '../../audio/sfx';
 import { music } from '../../audio/music';
 import { pickEnglishVoice } from '../../audio/announcer';
 import { render } from '../app';
+import { openTutorialList } from '../tutorial';
 import { el, esc, modal } from '../dom';
 import { ico } from '../icons';
 
@@ -38,6 +39,7 @@ export function openSettings(onClose?: () => void): void {
     <div class="set-btns">
       <button class="btn btn-ghost notes">${ico('news')} What's New</button>
       <button class="btn btn-ghost rar">${ico('rarity')} Rarities</button>
+      <button class="btn btn-ghost guides">${ico('info')} Guides</button>
       <button class="btn btn-ghost install" hidden>${ico('install')} Install app</button>
       <button class="btn btn-red reset">Delete progress</button>
     </div>
@@ -127,6 +129,7 @@ export function openSettings(onClose?: () => void): void {
       ]);
   (b.querySelector('.notes') as HTMLElement).onclick = () => openPatchNotes();
   (b.querySelector('.rar') as HTMLElement).onclick = () => openRarities();
+  (b.querySelector('.guides') as HTMLElement).onclick = () => openTutorialList();
   const ins = b.querySelector('.install') as HTMLButtonElement;
   const prompt = (window as unknown as { __installPrompt?: { prompt: () => void } }).__installPrompt;
   if (prompt) {

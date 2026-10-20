@@ -11,6 +11,7 @@ import type { FightReport, Mode } from '../fight/engine';
 import type { FighterSpec } from '../fight/fighter';
 import { go, render } from './app';
 import { openChest } from './chest';
+import { openTutorial, tutorialSeen } from './tutorial';
 import { countUp, el, esc, fmt, modal } from './dom';
 import { Preview } from './preview';
 import { versus } from './versus';
@@ -21,6 +22,11 @@ let busy = false;
 
 export function startMatch(mode: Mode): void {
   if (busy) return;
+  // primeira luta de sempre: explica como funcionam as lutas antes de começar
+  if (!tutorialSeen('fight')) {
+    openTutorial('fight', () => startMatch(mode));
+    return;
+  }
   busy = true;
   unlockAudio();
   sfx.click();
