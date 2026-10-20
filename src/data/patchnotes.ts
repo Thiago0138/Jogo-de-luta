@@ -8,6 +8,14 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.4.4',
+    date: '2026-10-20',
+    title: 'Quiet crowd',
+    items: [
+      'Crowd sounds (background murmur, cheers, claps and "oooh"s) are switched off for now. Hits, slams, music and the announcer are unchanged.',
+    ],
+  },
+  {
     version: '2.4.3',
     date: '2026-10-19',
     title: 'Wheel fix',

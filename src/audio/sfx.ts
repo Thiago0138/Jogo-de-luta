@@ -29,6 +29,9 @@ export function setSound(on: boolean): void {
   if (master) master.gain.value = on ? volume : 0;
 }
 
+/** Sons do público (murmúrio, gritos, palmas, "uuuh") desligados por agora. */
+const CROWD_ENABLED = false;
+
 export function setAmbient(on: boolean): void {
   ambientOn = on;
   if (!on) stopCrowd();
@@ -122,7 +125,7 @@ export function unlockAudio(): void {
   conv.connect(wet);
   wet.connect(master);
   for (const cb of unlockCbs) cb(ac, noiseBuf);
-  void buildCrowd(ac.sampleRate);
+  if (CROWD_ENABLED) void buildCrowd(ac.sampleRate);
   prewarmSamples();
 }
 
@@ -1037,7 +1040,7 @@ export const sfx = {
   },
   /** Público a vibrar (gritos + palmas). */
   cheer(amount = 1) {
-    if (!ambientOn) return;
+    if (!CROWD_ENABLED || !ambientOn) return;
     const now = ac?.currentTime ?? 0;
     if (now - lastCrowd < 0.6) return;
     lastCrowd = now;
@@ -1047,7 +1050,7 @@ export const sfx = {
   },
   /** "Uuuh!" do público num golpe brutal. */
   oooh(amount = 1) {
-    if (!ambientOn) return;
+    if (!CROWD_ENABLED || !ambientOn) return;
     play(bank.oooh, 0.32 * Math.min(1.5, amount), jit(1, 0.05));
   },
   charge() {
@@ -1323,7 +1326,7 @@ function claps(c: OfflineAudioContext, out: AudioNode, secs: number, n: number) 
 // ───────── Ambiente do público (murmúrio de vozes em loop) ─────────
 
 export function startCrowd(): void {
-  if (!ok() || !ambientOn || crowd) return;
+  if (!CROWD_ENABLED || !ok() || !ambientOn || crowd) return;
   if (!bank.babble) {
     // ainda a preparar: tenta outra vez daqui a pouco
     setTimeout(startCrowd, 400);

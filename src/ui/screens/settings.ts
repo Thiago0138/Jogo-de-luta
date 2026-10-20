@@ -33,7 +33,6 @@ export function openSettings(onClose?: () => void): void {
     <label class="set-row vol-row"><span>${ico('mic')} Voice volume</span><input type="range" class="annv" min="0" max="100" step="1" value="${Math.round(s.announcerVol * 100)}"/><b class="ann-n">${Math.round(s.announcerVol * 100)}%</b></label>
     <label class="set-row"><span>${ico('unlock')} Unlock everything (test mode)</span><input type="checkbox" data-k="unlockAll" ${s.unlockAll ? 'checked' : ''}/></label>
     <label class="set-row"><span>${ico('speaker')} Sound effects</span><input type="checkbox" data-k="sound" ${s.sound ? 'checked' : ''}/></label>
-    <label class="set-row"><span>${ico('crowd')} Crowd noise</span><input type="checkbox" data-k="music" ${s.music ? 'checked' : ''}/></label>
     <label class="set-row"><span>${ico('sparkle')} High graphics quality</span><input type="checkbox" data-k="quality" ${s.quality === 'alta' ? 'checked' : ''}/></label>
     <label class="set-row"><span>${ico('fast')} 2x fight speed by default</span><input type="checkbox" data-k="speed" ${s.speed === 2 ? 'checked' : ''}/></label>
     <div class="set-btns">
