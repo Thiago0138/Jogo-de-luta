@@ -195,6 +195,10 @@ export class Fight {
   bursts: { x: number; y: number; text: string; life: number; max: number; color: string; rot: number }[] = [];
   /** Show de lasers da entrada (segundos restantes) e cor. */
   lasersT = 0;
+  /** Altura extra de enquadramento pedida por uma entrada (ex.: o dragão lá no alto). */
+  camTall = 0;
+  /** Mostra o nome do lutador mais tarde (entradas que precisam do topo do ecrã livre). */
+  private entName: (() => void) | null = null;
   /** Faixa com retrato + nome do golpe de assinatura (não pára a luta). */
   moveCall: { name: string; move: string; icon: string; color: string; team: 0 | 1; t: number; max: number } | null = null;
   private lastCallT = -99;
@@ -366,7 +370,10 @@ export class Fight {
     this.beams.push(beam);
     this.stage = { disco: 0, carpet: 0, portal: 0, scan: null, side, flicker: 0 };
     this.emit('entrance', f, undefined, d.name);
-    this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.8, 0.75);
+    const showName = () => this.banner(f.spec.name.toUpperCase(), `${f.spec.title ? f.spec.title + ' · ' : ''}${d.name}`, f.team === 0 ? '#ffd23d' : '#7ad7ff', 2.8, 0.75);
+    // no dragão o nome só aparece depois da aterragem (senão tapa o dragão lá em cima)
+    if (type === 'dragao') this.entName = showName;
+    else showName();
     sfx.cheer(1);
     this.addHype(0.4);
     const follow = () => {
@@ -409,6 +416,8 @@ export class Fight {
       }
     } finally {
       follow();
+      this.camTall = 0;
+      this.entName = null;
     }
     f.play('guard');
     f.x = side * 210;
@@ -564,33 +573,46 @@ export class Fight {
   }
 
   // 3) Fumo: o ringue enche-se de nevoeiro e o lutador sai lá de dentro em silhueta
+  // 3) Canhões de confetes: entra pelas cordas e os canhões dos quatro postes disparam nuvens de confetes e serpentinas
   private *entFumo(f: Fighter, side: number, beam: Beam): Script {
-    f.hidden = true;
-    for (const sx of [-1, 1]) for (let i = 0; i < 30; i++) this.parts.spawn(PK.Smoke, sx * FRONT_X, -60, -sx * (200 + Math.random() * 300), -Math.random() * 60, 2.4, 44, i % 2 ? '#e8e4f2' : '#a9a2bd', 0);
-    sfx.whoosh();
-    sfx.whoosh();
-    let t = 0;
-    while (t < 1.2) {
-      t += this.dt;
-      if (Math.random() < 0.9) this.parts.spawn(PK.Smoke, (Math.random() - 0.5) * 900, -4, (Math.random() - 0.5) * 50, -15 - Math.random() * 25, 2.2, 48, '#cdc8dc', 0);
-      yield FRAME;
+    const COLORS = ['#ff3d6e', '#ffd23d', '#3aa0ff', '#4cd964', '#b45cff', '#ffffff', '#ff8a3d'];
+    const posts: [number, number][] = [[-FRONT_X, FRONT_Y - POST_H], [-BACK_X, BACK_Y - POST_H + 10], [BACK_X, BACK_Y - POST_H + 10], [FRONT_X, FRONT_Y - POST_H]];
+    const volley = (k: number) => {
+      for (const [px, py] of posts) {
+        const dir = px > 0 ? -1 : 1;
+        // boca do canhão: clarão e um estalo
+        this.parts.spawn(PK.Star, px, py, 0, 0, 0.18, 46, '#ffffff', 0);
+        for (let i = 0; i < 26 * k; i++) {
+          const sp = 500 + Math.random() * 600;
+          const a = -Math.PI / 2 + dir * (0.35 + Math.random() * 0.55);
+          this.parts.spawn(PK.Confetti, px, py, Math.cos(a) * sp, Math.sin(a) * sp, 2.6 + Math.random(), 9 + Math.random() * 5, COLORS[i % COLORS.length], 420);
+        }
+        // serpentinas: tiras compridas que caem devagar
+        for (let i = 0; i < 4 * k; i++) {
+          const a = -Math.PI / 2 + dir * (0.4 + Math.random() * 0.4);
+          this.parts.spawn(PK.Ember, px, py, Math.cos(a) * 520, Math.sin(a) * 520, 1.2, 10, COLORS[(i + 2) % COLORS.length], 500);
+        }
+      }
+      sfx.boom();
+      sfx.cheer(1.1);
+      this.shake(6, 0.2);
+      this.flash = 0.25;
+      this.flashColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+    };
+    yield* this.stepThrough(f, side, beam);
+    yield* this.walkTo(f, side * 60, 140, beam);
+    f.facing = -side as 1 | -1;
+    beam.w = 110;
+    f.play('point');
+    yield 0.3;
+    for (let v = 0; v < 3; v++) {
+      volley(v === 2 ? 1.6 : 1);
+      if (v === 1) f.play('flex');
+      yield 0.55;
     }
-    f.x = 0;
-    f.z = 0;
+    yield* this.pose(f, 'victory', 1.2, 0.12, () => this.confetti(f.x, 10, COLORS), beam);
+    yield* this.walkTo(f, side * 210, 120, beam);
     f.facing = -side as 1 | -1;
-    f.hidden = false;
-    f.glow = '#ffffff';
-    beam.x = 0;
-    beam.w = 120;
-    f.play('flex');
-    this.flash = 0.5;
-    this.flashColor = '#ffffff';
-    sfx.cheer(1.3);
-    yield* this.pose(f, 'flex', 1.2, 0.05, () => this.parts.spawn(PK.Smoke, (Math.random() - 0.5) * 700, -4, 0, -20, 1.8, 44, '#cdc8dc', 0), beam);
-    f.glow = null;
-    yield* this.walkTo(f, side * 210, 110, beam);
-    f.facing = -side as 1 | -1;
-    yield* this.pose(f, 'victory', 0.9, 0.3, () => {}, beam);
   }
 
   // 4) Lasers: apagão total, varrimento laser revela o lutador
@@ -635,7 +657,8 @@ export class Fight {
     beam.x = f.x;
     f.facing = -side as 1 | -1;
     f.blendIn(0.2);
-    f.play('flex');
+    // em cima da corda: pés juntos sobre ela (nenhum a flutuar)
+    f.play('perchFlex');
     const order: [number, number][] = [[-FRONT_X, FRONT_Y - POST_H], [-BACK_X, BACK_Y - POST_H + 10], [BACK_X, BACK_Y - POST_H + 10], [FRONT_X, FRONT_Y - POST_H]];
     for (const [px, py] of order) {
       this.fireColumn(px, py, 1);
@@ -648,7 +671,7 @@ export class Fight {
     this.flashColor = '#ffb070';
     sfx.boom();
     sfx.cheer(1.4);
-    yield* this.pose(f, 'flex', 1.2, 0.3, () => this.fireColumn(order[Math.floor(Math.random() * 4)][0], order[0][1], 0.7), beam);
+    yield* this.pose(f, 'perchFlex', 1.2, 0.3, () => this.fireColumn(order[Math.floor(Math.random() * 4)][0], order[0][1], 0.7), beam);
     // salta do canto para o meio
     this.leaveRopes(f, (side > 0 ? 1 : 0) as 0 | 1);
     f.play('tuck');
@@ -747,8 +770,8 @@ export class Fight {
       yield FRAME;
     }
     yield* this.stepThrough(f, side, beam);
-    // caminha devagar pela passadeira
-    f.play('victory');
+    // caminha devagar pela passadeira (a andar a sério, não a deslizar)
+    f.play('walk');
     while (Math.abs(f.x - side * 210) > 6) {
       f.vx = -side * 90;
       beam.x = f.x;
@@ -756,6 +779,7 @@ export class Fight {
       yield FRAME;
     }
     f.vx = 0;
+    f.play('victory');
     f.facing = -side as 1 | -1;
     sfx.levelUp();
     yield* this.pose(f, 'victory', 2.0, 0.05, () => {
@@ -824,33 +848,90 @@ export class Fight {
     }, beam);
   }
 
-  // 9) Dragão: sobrevoa a arena duas vezes, cospe fogo no ringue e o lutador sai das chamas
+  // 9) Dragão: chega pendurado nas garras de um dragão alado, que paira sobre o ringue a cuspir fogo e o larga lá do alto
   private *entDragao(f: Fighter, side: number, beam: Beam): Script {
-    f.hidden = true;
+    const dr: Proj = { kind: 'dragonRide', x: -side * 1500, y: -640, vx: 0, life: 99, dir: side, color: '#ff5a00' };
+    this.projs.push(dr);
+    this.camTall = 340;
     beam.life = 0;
-    this.projs.push({ kind: 'dragon', x: -side * 1200, y: -460, vx: side * 1500, life: 1.6, dir: side, color: '#ff5a00' });
-    sfx.fire();
-    yield 1.1;
-    this.projs.push({ kind: 'dragon', x: side * 1200, y: -330, vx: -side * 1100, life: 1.9, dir: -side, color: '#ff5a00' });
-    sfx.fire();
+    f.hidden = false;
+    f.noClamp = true;
+    f.facing = side as 1 | -1;
+    f.play('hang');
+    const clawY = () => dr.y + 86 + Math.sin(this.t * 7) * 6;
+    const carry = () => {
+      f.x = dr.x - side * 8;
+      // as mãos ficam presas às garras (ajusta a altura pela posição real das mãos)
+      f.z = Math.max(0, f.z + (this.jy(f, J_FH) - clawY()));
+      f.vz = 0;
+      f.vx = 0;
+    };
+    sfx.whoosh();
+    // entrada a planar de um lado da arena até por cima do ringue
     let t = 0;
-    while (t < 1.4) {
+    const T1 = 2.0;
+    while (t < T1) {
       t += this.dt;
-      // labaredas a cair sobre o centro
-      for (let i = 0; i < 4; i++) this.parts.spawn(PK.Ember, (Math.random() - 0.5) * 160, -320 + Math.random() * 40, (Math.random() - 0.5) * 200, 500 + Math.random() * 300, 0.6, 30, i % 2 ? '#ffd000' : '#ff5a00', 0);
+      const u = Math.min(1, t / T1);
+      const e = 1 - Math.pow(1 - u, 3);
+      dr.x = -side * 1500 * (1 - e);
+      dr.y = -600 + 160 * Math.sin(u * Math.PI * 0.5) + Math.sin(this.t * 3) * 8;
+      carry();
+      if (Math.random() < 0.3) this.parts.spawn(PK.Ember, dr.x - side * 120, dr.y + (Math.random() - 0.5) * 30, -side * 120, 30, 0.6, 16, '#ff7a1a', -60);
+      if (Math.floor(t / 0.42) !== Math.floor((t - this.dt) / 0.42)) sfx.whoosh();
       yield FRAME;
     }
-    f.x = 0;
+    // paira e cospe fogo em volta do ringue
+    sfx.fire();
+    this.flash = 0.3;
+    this.flashColor = '#ffb070';
+    t = 0;
+    while (t < 1.2) {
+      t += this.dt;
+      dr.x = Math.sin(t * 2) * 10;
+      dr.y = -440 + Math.sin(this.t * 3) * 10;
+      carry();
+      const mx = dr.x + side * 200;
+      const my = dr.y - 60;
+      for (let i = 0; i < 3; i++) {
+        this.parts.spawn(PK.Ember, mx, my, side * (150 + Math.random() * 350) * (Math.random() < 0.5 ? 1 : -0.6), 600 + Math.random() * 450, 0.6, 30, i % 2 ? '#ffd000' : '#ff5a00', 300);
+      }
+      yield FRAME;
+    }
+    // larga o lutador
+    f.play('tuck');
+    f.vz = 0;
+    sfx.whoosh();
+    this.pop('DROP!', f.x, -380, '#ff7a1a', 26);
+    while (f.z > 0) {
+      dr.x += side * 900 * this.dt;
+      dr.y -= 420 * this.dt;
+      yield FRAME;
+    }
+    f.z = 0;
+    f.vx = 0;
     f.facing = -side as 1 | -1;
-    f.hidden = false;
-    this.wave(0, 0, 500, '#ff5a00', 0.8);
-    this.flash = 0.6;
+    this.camTall = 0;
+    this.entName?.();
+    this.entName = null;
+    // impacto no meio do ringue
+    this.dust(f.x, 18);
+    this.fallSfx(1.3);
+    this.shake(18, 0.5);
+    this.wave(f.x, 0, 520, '#ff5a00', 0.8);
+    this.flash = 0.55;
     this.flashColor = '#ffb070';
     sfx.boom();
+    for (let i = 0; i < 40; i++) this.parts.spawn(PK.Ember, f.x + (Math.random() - 0.5) * 300, -10, (Math.random() - 0.5) * 300, -300 - Math.random() * 500, 0.8, 26, i % 2 ? '#ffd000' : '#ff5a00', 600);
     beam.life = 99;
     beam.color = '#ffb070';
-    beam.x = 0;
-    yield* this.pose(f, 'rise', 1.0, 0.04, () => this.parts.spawn(PK.Ember, (Math.random() - 0.5) * 200, -10, 0, -300, 0.6, 26, '#ff7a1a', 0), beam);
+    beam.x = f.x;
+    yield* this.pose(f, 'rise', 1.0, 0.04, () => {
+      dr.x += side * 900 * 0.04;
+      dr.y -= 300 * 0.04;
+      this.parts.spawn(PK.Ember, f.x + (Math.random() - 0.5) * 200, -10, 0, -300, 0.6, 26, '#ff7a1a', 0);
+    }, beam);
+    dr.life = 0;
     yield* this.walkTo(f, side * 210, 140, beam);
     f.facing = -side as 1 | -1;
     yield* this.pose(f, 'point', 0.8, 0.3, () => this.sparks(f.x, -100, 12, '#ff7a1a', 600, PK.Ember), beam);
@@ -1266,7 +1347,7 @@ export class Fight {
     for (const p of this.projs) {
       p.life -= dt;
       p.x += p.vx * dt;
-      if (Math.random() < 0.8) {
+      if (p.kind !== 'dragonRide' && Math.random() < 0.8) {
         this.parts.spawn(PK.Ember, p.x - p.dir * 30, p.y + (Math.random() - 0.5) * 40, -p.dir * 100, (Math.random() - 0.5) * 80, 0.5, 24, p.color, -100);
       }
     }
@@ -3027,7 +3108,7 @@ export class Fight {
     f.tauntCd = 6;
     this.emit('taunt', f);
     sfx.cheer(0.7);
-    const TYPE_IDX: Record<string, number> = { sixseven: 0, aura: 1, ear: 2, flex: 3, belt: 4, point: 5, classic: 6, hail: 7, floss: 8, robot: 9 };
+    const TYPE_IDX: Record<string, number> = { sixseven: 0, aura: 1, ear: 2, flex: 3, belt: 4, point: 5, classic: 6, hail: 7, floss: 8, robot: 9, shuffle: 10, disco: 11 };
     const own = (f.spec.taunts?.length ? f.spec.taunts : ['t_classic']).map((id) => ITEMS[id]?.vis?.type ?? 'classic');
     const pick = TYPE_IDX[forced ?? own[Math.floor(Math.random() * own.length)]] ?? 6;
     const say = (t: string, c = '#ff7ae0', size = 22) => this.pop(t, f.x, -260, c, size);
@@ -3119,6 +3200,32 @@ export class Fight {
             yield 0.4;
           }
           break;
+        case 10:
+          // "Running Man": passos no sítio com os braços a bombear
+          f.play('shuffle');
+          f.setExpr('happy', 1.6);
+          say('RUNNING MAN!', '#ff9a3d', 24);
+          for (let i = 0; i < 6; i++) {
+            this.dust(f.x + (i % 2 ? 20 : -20), 2);
+            yield 0.25;
+          }
+          break;
+        case 11: {
+          // "Disco Fever": pose de rei do disco com um holofote de cores a rodar
+          f.play('disco');
+          f.setExpr('happy', 2);
+          say('DISCO FEVER!', '#ff7ae0', 26);
+          const cols = ['#ff3d6e', '#ffd23d', '#3aa0ff', '#4cd964', '#b45cff'];
+          for (let i = 0; i < 6; i++) {
+            const c = cols[i % cols.length];
+            this.flash = 0.18;
+            this.flashColor = c;
+            this.sparks(f.x, -200, 8, c, 380, PK.Star);
+            yield 0.3;
+          }
+          meter *= 1.1;
+          break;
+        }
         case 7: {
           // "All Hail the King": braços ao alto, uma coroa de estrelas aparece sobre a cabeça e o público curva-se
           f.play('victory');

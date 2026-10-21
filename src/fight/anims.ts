@@ -63,6 +63,12 @@ const BELT = P({ lean: -0.1, head: -0.4, fa1: 0.55, fa2: 0.9, ba1: 0.5, ba2: 0.9
 // danças: "The Floss" (braços esticados a balançar para os lados, anca para o lado oposto)
 const FLOSS_A = P({ lean: 0.02, head: 0.08, fa1: 0.62, fa2: 0.12, ba1: -0.5, ba2: 0.12, fl1: 0.22, bl1: -0.22, dx: -7, dy: 2 });
 const FLOSS_B = P({ lean: 0.02, head: -0.08, fa1: -0.5, fa2: 0.12, ba1: 0.62, ba2: 0.12, fl1: 0.22, bl1: -0.22, dx: 7, dy: 2 });
+// "Running Man": passos no sítio (um joelho sobe enquanto o outro pé desliza para trás), braços a bombear
+const RUN_A = P({ lean: 0.08, head: 0.05, fa1: 1.2, fa2: 1.9, ba1: 0.2, ba2: 1.4, fl1: 1.2, fl2: -1.5, bl1: -0.35, bl2: -0.2, dy: 2 });
+const RUN_B = P({ lean: 0.08, head: -0.05, fa1: 0.2, fa2: 1.4, ba1: 1.2, ba2: 1.9, fl1: -0.35, fl2: -0.2, bl1: 1.2, bl2: -1.5, dy: 2 });
+// "Disco Fever": braço ao céu na diagonal, depois ao chão do outro lado (pose de Travolta)
+const DISCO_UP = P({ lean: -0.12, head: -0.35, fa1: 2.6, fa2: 0.1, ba1: 0.5, ba2: 1.6, fl1: 0.35, bl1: -0.35, dx: -4 });
+const DISCO_DN = P({ lean: 0.18, head: 0.25, fa1: -0.5, fa2: 0.15, ba1: 0.5, ba2: 1.6, fl1: 0.35, bl1: -0.35, dx: 4, dy: 4 });
 // "The Robot": ângulos rectos, movimentos secos e pausas
 const ROBOT_A = P({ lean: 0, head: 0.25, fa1: 1.57, fa2: 1.57, ba1: 0.05, ba2: 1.57, fl1: 0.18, bl1: -0.18 });
 const ROBOT_B = P({ lean: 0, head: -0.25, fa1: 0.05, fa2: 1.57, ba1: 1.57, ba2: 1.57, fl1: 0.18, bl1: -0.18, dy: 3 });
@@ -101,6 +107,9 @@ const DANCE2 = P({ lean: 0.15, head: 0.2, fa1: 0.4, fa2: 1.8, ba1: 2.7, ba2: 0.4
 const DANCE3 = P({ lean: 0, head: -0.1, fa1: 1.6, fa2: -0.3, ba1: 1.5, ba2: 0.3, fl1: 0.2, bl1: -0.2, dy: -4 });
 const FLEX = P({ lean: -0.05, head: -0.25, fa1: 1.9, fa2: 2.3, ba1: 1.75, ba2: 2.3, fl1: 0.35, bl1: -0.35, dy: 2 });
 const FLEX2 = P({ lean: -0.12, head: -0.35, fa1: 2.1, fa2: 2.1, ba1: 1.95, ba2: 2.1, fl1: 0.35, bl1: -0.35, dy: 4 });
+// de pé em cima da corda de cima: pés juntos (a corda é uma linha), a fazer músculo
+const PERCH_FLEX = P({ ...FLEX, lean: -0.05, fl1: 0.08, fl2: -0.12, bl1: -0.06, bl2: -0.1, dy: 4 });
+const PERCH_FLEX2 = P({ ...FLEX2, lean: -0.1, fl1: 0.08, fl2: -0.14, bl1: -0.06, bl2: -0.12, dy: 6 });
 const POINT = P({ lean: -0.15, head: -0.45, fa1: 2.9, fa2: 0.05, ba1: 0.7, ba2: 1.6, fl1: 0.25, bl1: -0.25 });
 const TIRED = P({ lean: 0.55, head: -0.2, dy: 10, fa1: 0.55, fa2: 0.7, ba1: 0.45, ba2: 0.6, fl1: 0.45, fl2: -0.7, bl1: -0.25, bl2: -0.5 });
 const TIRED2 = P({ lean: 0.62, head: -0.1, dy: 13, fa1: 0.6, fa2: 0.6, ba1: 0.5, ba2: 0.55, fl1: 0.45, fl2: -0.75, bl1: -0.25, bl2: -0.55 });
@@ -203,6 +212,8 @@ export const ANIMS = {
   archUp: A([[0, ARCH], [0.4, KNEEL], [0.7, GUARD]]),
   taunt: A([[0, GUARD], [0.2, TAUNT1], [0.45, TAUNT2], [0.7, TAUNT1], [0.95, TAUNT2], [1.25, GUARD]]),
   sixSeven: A([[0, GUARD], [0.18, SIX_A], [0.42, SIX_B], [0.66, SIX_A], [0.9, SIX_B], [1.14, SIX_A], [1.38, SIX_B], [1.62, GUARD]]),
+  shuffle: A([[0, GUARD], [0.15, RUN_A, easeOut], [0.38, RUN_B], [0.61, RUN_A], [0.84, RUN_B], [1.07, RUN_A], [1.3, RUN_B], [1.53, GUARD]]),
+  disco: A([[0, GUARD], [0.2, DISCO_UP, snap], [0.55, DISCO_DN, easeInOut], [0.9, DISCO_UP, easeInOut], [1.25, DISCO_DN, easeInOut], [1.6, DISCO_UP, easeInOut], [1.9, GUARD]]),
   floss: A([[0, GUARD], [0.14, FLOSS_A, easeOut], [0.3, FLOSS_B], [0.46, FLOSS_A], [0.62, FLOSS_B], [0.78, FLOSS_A], [0.94, FLOSS_B], [1.1, FLOSS_A], [1.26, FLOSS_B], [1.42, FLOSS_A], [1.62, GUARD]]),
   robot: A([[0, GUARD], [0.08, ROBOT_A, snap], [0.4, ROBOT_A], [0.48, ROBOT_B, snap], [0.8, ROBOT_B], [0.88, ROBOT_C, snap], [1.2, ROBOT_C], [1.28, ROBOT_A, snap], [1.6, ROBOT_A], [1.75, GUARD]]),
   auraFarm: A([[0, GUARD], [0.3, AURA, easeOut], [1.9, AURA], [2.2, GUARD]]),
@@ -252,6 +263,7 @@ export const ANIMS = {
   kipup: A([[0, P({ ...KIPUP, rot: -1.57 })], [0.12, KIPUP], [0.3, P({ dy: 18, lean: 0.3, fl1: 0.9, fl2: -1.4, bl1: -0.3, bl2: -1.3 })], [0.45, GUARD, easeOut]]),
   dance: A([[0, DANCE1], [0.3, DANCE3], [0.6, DANCE2], [0.9, DANCE3], [1.2, DANCE1]], true),
   flex: A([[0, GUARD], [0.25, FLEX, snap], [0.8, FLEX2], [1.3, FLEX]], true),
+  perchFlex: A([[0, PERCH_FLEX], [0.5, PERCH_FLEX2], [1.0, PERCH_FLEX]], true),
   point: A([[0, GUARD], [0.25, POINT, snap], [0.9, P({ ...POINT, head: -0.6, dy: -3 })], [1.5, POINT]], true),
   tired: A([[0, TIRED], [0.45, TIRED2], [0.9, TIRED]], true),
   clinch: A([[0, GUARD], [0.15, CLINCH, snap], [10, CLINCH]]),

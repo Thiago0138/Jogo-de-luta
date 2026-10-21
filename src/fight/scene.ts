@@ -505,9 +505,9 @@ export class FightScene {
     const d = Math.abs(a.x - b.x);
     if (F.phase === 'entrance' && F.focus) {
       tx = F.focus.x;
-      desired = portrait ? 560 : 900;
-      refH = portrait ? 820 : 620;
-      rate = 0.004;
+      desired = (portrait ? 560 : 900) + F.camTall * 0.7;
+      refH = (portrait ? 820 : 620) + F.camTall;
+      rate = F.camTall > 0 ? 0.08 : 0.004;
     } else if (F.phase !== 'fight') {
       tx = mid;
       desired = portrait ? 900 : 1250;
@@ -717,27 +717,81 @@ export class FightScene {
   }
 
   private drawLasers(ctx: CanvasRenderingContext2D, W: number, H: number, t: number, left: number): void {
+    // espetáculo laser: emissores no teto e no chão, feixes com halo e núcleo branco, leques de luz
+    // entre feixes, pontos de impacto no ringue e padrões que mudam com a batida
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    const a = Math.min(1, left * 2);
-    const cols = ['#ff2e63', '#2ef0ff', '#3dff6e', '#b45cff'];
-    for (let i = 0; i < 8; i++) {
-      const fromLeft = i % 2 === 0;
-      const ox = fromLeft ? W * 0.05 : W * 0.95;
-      const ang = Math.PI / 2 + (fromLeft ? -1 : 1) * (0.25 + 0.45 * (0.5 + 0.5 * Math.sin(t * 2.2 + i * 0.9)));
-      const ex = ox + Math.cos(ang) * H * 1.4;
-      const ey = Math.sin(ang) * H * 1.4;
-      const c = cols[i % cols.length];
-      ctx.strokeStyle = c;
-      ctx.globalAlpha = 0.18 * a;
-      ctx.lineWidth = 10;
+    const a = Math.min(1, left * 2) * Math.min(1, (4.6 - left) * 3);
+    const cols = ['#ff2e63', '#2ef0ff', '#3dff6e', '#b45cff', '#ffd23d'];
+    const beat = Math.floor(t * 2.6);
+    const phase = beat % 4;
+    const floorY = H * 0.72;
+    const n = this.low ? 6 : 10;
+    const beam = (x0: number, y0: number, ang: number, len: number, col: string, k: number) => {
+      const ex = x0 + Math.cos(ang) * len;
+      const ey = y0 + Math.sin(ang) * len;
+      // halo largo (névoa iluminada)
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.1 * a * k;
+      ctx.lineWidth = 18;
       ctx.beginPath();
-      ctx.moveTo(ox, 0);
+      ctx.moveTo(x0, y0);
       ctx.lineTo(ex, ey);
       ctx.stroke();
-      ctx.globalAlpha = 0.9 * a;
-      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.35 * a * k;
+      ctx.lineWidth = 5;
       ctx.stroke();
+      // núcleo quase branco
+      ctx.strokeStyle = '#ffffff';
+      ctx.globalAlpha = 0.75 * a * k;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+      return [ex, ey] as const;
+    };
+    const flare = (x: number, y: number, col: string, r: number) => {
+      ctx.globalAlpha = 0.8 * a;
+      ctx.drawImage(glowSprite(col), x - r, y - r, r * 2, r * 2);
+    };
+    // emissores do teto
+    for (let i = 0; i < n; i++) {
+      const u = (i + 0.5) / n;
+      const ox = W * (0.06 + u * 0.88);
+      const col = cols[(i + beat) % cols.length];
+      let ang: number;
+      if (phase === 0) ang = Math.PI / 2 + Math.sin(t * 2.2 + i * 0.7) * 0.75; // ondas
+      else if (phase === 1) ang = Math.PI / 2 + (u - 0.5) * 2.2 * Math.sin(t * 1.5); // leque a abrir e fechar
+      else if (phase === 2) ang = Math.PI / 2 + (i % 2 ? 1 : -1) * (0.3 + 0.35 * Math.sin(t * 3)); // tesouras
+      else ang = Math.atan2(floorY - 0, W / 2 - ox) + Math.sin(t * 4 + i) * 0.08; // todos ao centro
+      const len = (floorY + 10) / Math.max(0.25, Math.sin(ang));
+      const [ex, ey] = beam(ox, 0, ang, Math.min(len, H * 1.6), col, 1);
+      flare(ox, 4, col, 16);
+      if (ey >= floorY - 4) {
+        ctx.globalAlpha = 0.55 * a;
+        ctx.drawImage(glowSprite(col), ex - 22, ey - 8, 44, 16);
+      }
+      // leque: folha de luz entre este feixe e um gémeo ligeiramente desviado
+      if (!this.low && i % 2 === 0) {
+        const ang2 = ang + 0.12;
+        ctx.globalAlpha = 0.07 * a;
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.moveTo(ox, 0);
+        ctx.lineTo(ox + Math.cos(ang) * H * 1.2, Math.sin(ang) * H * 1.2);
+        ctx.lineTo(ox + Math.cos(ang2) * H * 1.2, Math.sin(ang2) * H * 1.2);
+        ctx.closePath();
+        ctx.fill();
+        beam(ox, 0, ang2, Math.min(len, H * 1.6), col, 0.5);
+      }
+    }
+    // emissores no chão dos cantos a cruzar para o ar
+    for (const sx of [0.02, 0.98]) {
+      for (let k = 0; k < 3; k++) {
+        const ox = W * sx;
+        const col = cols[(k + beat + (sx > 0.5 ? 2 : 0)) % cols.length];
+        const ang = -Math.PI / 2 + (sx < 0.5 ? 1 : -1) * (0.35 + k * 0.22 + Math.sin(t * 1.8 + k) * 0.15);
+        beam(ox, floorY + 20, ang, H * 1.5, col, 0.8);
+        flare(ox, floorY + 20, col, 14);
+      }
     }
     ctx.restore();
   }
@@ -998,7 +1052,219 @@ export class FightScene {
     ctx.restore();
   }
 
+  /** Dragão alado da entrada "Dragon Flight" (corpo, asas a bater, cauda, cabeça com chifres; garras em baixo). */
+  private drawDragonRide(ctx: CanvasRenderingContext2D, x: number, y: number, dir: number, t: number): void {
+    const OUT = '#2a0a08';
+    const BODY = '#c42a1c';
+    const DARK = '#7a1410';
+    const BELLY = '#ffb35a';
+    const flap = Math.sin(t * 7);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(dir * 1.35, 1.35);
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    const fs = (fill: string, lw = 4) => {
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = OUT;
+      ctx.stroke();
+    };
+    // brilho de fogo por trás
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.45;
+    ctx.drawImage(glowSprite('#ff5a00'), -180, -150, 360, 300);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    const wing = (sx: number, col: string, k: number) => {
+      const ay = -110 - flap * 70 * k;
+      const ty = -70 - flap * 95 * k;
+      ctx.beginPath();
+      ctx.moveTo(sx, -22);
+      ctx.lineTo(sx - 55, ay);
+      ctx.lineTo(sx - 175, ty);
+      ctx.quadraticCurveTo(sx - 150, ty * 0.35 + 5, sx - 150, -10);
+      ctx.quadraticCurveTo(sx - 120, -22, sx - 105, 2);
+      ctx.quadraticCurveTo(sx - 80, -14, sx - 62, 8);
+      ctx.quadraticCurveTo(sx - 40, -6, sx - 22, 10);
+      ctx.closePath();
+      fs(col, 4);
+      // ossos/dedos da asa
+      ctx.strokeStyle = OUT;
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(sx - 55, ay);
+      ctx.lineTo(sx - 150, -10);
+      ctx.moveTo(sx - 55, ay);
+      ctx.lineTo(sx - 105, 2);
+      ctx.moveTo(sx - 55, ay);
+      ctx.lineTo(sx - 62, 8);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(sx, -22);
+      ctx.lineTo(sx - 55, ay);
+      ctx.lineTo(sx - 175, ty);
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    };
+    // asa de trás
+    wing(-6, DARK, 0.85);
+    // cauda
+    const tw = Math.sin(t * 4) * 18;
+    ctx.beginPath();
+    ctx.moveTo(-60, -10);
+    ctx.quadraticCurveTo(-140, 10 + tw, -205, 40 - tw);
+    ctx.quadraticCurveTo(-140, 30 + tw * 0.5, -55, 18);
+    ctx.closePath();
+    fs(BODY, 4);
+    ctx.beginPath();
+    ctx.moveTo(-205, 40 - tw);
+    ctx.lineTo(-236, 26 - tw);
+    ctx.lineTo(-222, 52 - tw);
+    ctx.closePath();
+    fs(DARK, 3);
+    // patas de trás com garras (é aqui que o lutador se agarra)
+    for (const lx of [-14, 18]) {
+      ctx.beginPath();
+      ctx.moveTo(lx - 10, 10);
+      ctx.quadraticCurveTo(lx - 14, 40, lx - 2, 56);
+      ctx.lineTo(lx + 10, 54);
+      ctx.quadraticCurveTo(lx + 8, 34, lx + 12, 10);
+      ctx.closePath();
+      fs(BODY, 3.5);
+      ctx.fillStyle = '#f2e6d0';
+      for (let k = -1; k <= 1; k++) {
+        ctx.beginPath();
+        ctx.moveTo(lx + k * 6 - 2, 55);
+        ctx.lineTo(lx + k * 7 + 1, 66);
+        ctx.lineTo(lx + k * 6 + 4, 55);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+      }
+    }
+    // corpo
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 76, 34, -0.08, 0, Math.PI * 2);
+    fs(BODY, 4.5);
+    // barriga com escamas
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 76, 34, -0.08, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.ellipse(6, 22, 66, 18, -0.05, 0, Math.PI * 2);
+    ctx.fillStyle = BELLY;
+    ctx.fill();
+    ctx.strokeStyle = '#d9822a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = -4; i <= 4; i++) {
+      ctx.moveTo(i * 14, 8);
+      ctx.lineTo(i * 14 + 3, 40);
+    }
+    ctx.stroke();
+    // brilho no dorso
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(-10, -22, 40, 6, -0.08, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // espinhos no dorso
+    ctx.fillStyle = '#ffd000';
+    for (let i = 0; i < 6; i++) {
+      const sx = -55 + i * 20;
+      ctx.beginPath();
+      ctx.moveTo(sx - 7, -30 + Math.abs(i - 3) * 1.5);
+      ctx.lineTo(sx, -46 + Math.abs(i - 3) * 2);
+      ctx.lineTo(sx + 7, -30 + Math.abs(i - 3) * 1.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+    }
+    // pescoço e cabeça
+    const hb = Math.sin(t * 3.5) * 5;
+    ctx.beginPath();
+    ctx.moveTo(52, -24);
+    ctx.quadraticCurveTo(95, -50 + hb, 112, -58 + hb);
+    ctx.lineTo(126, -34 + hb);
+    ctx.quadraticCurveTo(96, -20, 60, 14);
+    ctx.closePath();
+    fs(BODY, 4);
+    ctx.save();
+    ctx.translate(122, -52 + hb);
+    const jaw = 0.25 + Math.max(0, Math.sin(t * 5)) * 0.35;
+    // maxila inferior
+    ctx.save();
+    ctx.rotate(jaw);
+    ctx.beginPath();
+    ctx.moveTo(-6, 4);
+    ctx.lineTo(48, 8);
+    ctx.lineTo(44, 16);
+    ctx.lineTo(-8, 16);
+    ctx.closePath();
+    fs(DARK, 3.5);
+    ctx.restore();
+    // boca acesa
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.8;
+    ctx.drawImage(glowSprite('#ffd000'), 20, -10, 50, 40);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    // maxila superior / focinho
+    ctx.beginPath();
+    ctx.moveTo(-14, -14);
+    ctx.quadraticCurveTo(14, -24, 52, -6);
+    ctx.lineTo(54, 4);
+    ctx.lineTo(-10, 8);
+    ctx.closePath();
+    fs(BODY, 4);
+    // dentes
+    ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(14 + i * 10, 5);
+      ctx.lineTo(17 + i * 10, 12);
+      ctx.lineTo(20 + i * 10, 5);
+      ctx.fill();
+    }
+    // chifres
+    ctx.beginPath();
+    ctx.moveTo(-12, -14);
+    ctx.quadraticCurveTo(-34, -30, -44, -46);
+    ctx.quadraticCurveTo(-22, -32, -2, -18);
+    ctx.closePath();
+    fs('#f2e6d0', 3);
+    // olho
+    ctx.fillStyle = '#ffe680';
+    ctx.beginPath();
+    ctx.ellipse(10, -10, 6, 4, -0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = OUT;
+    ctx.fillRect(10, -13, 2, 6);
+    // narina a fumegar
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.5 + Math.sin(t * 9) * 0.3;
+    ctx.drawImage(glowSprite('#ff7a1a'), 40, -18, 20, 16);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+    // asa da frente
+    wing(10, BODY, 1);
+    ctx.restore();
+  }
+
   private drawProj(ctx: CanvasRenderingContext2D, kind: string, x: number, y: number, dir: number, color: string, t: number): void {
+    if (kind === 'dragonRide') {
+      this.drawDragonRide(ctx, x, y, dir, t);
+      return;
+    }
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     if (kind === 'dragon') {

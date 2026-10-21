@@ -1777,11 +1777,14 @@ function drawMask(ctx: CanvasRenderingContext2D, m: Vis, L: Look, expr: Expr, t:
 /** Crânio redondo + maxilar e queixo virados para a frente. */
 function headPath(ctx: CanvasRenderingContext2D) {
   ctx.beginPath();
-  ctx.moveTo(-14, 22);
-  ctx.arc(0, 0, HEAD_R, 2.14, Math.PI * 2 - 0.42);
-  ctx.bezierCurveTo(27.5, -4, 28.5, 13, 22.5, 22.5);
-  ctx.quadraticCurveTo(17, 31.5, 7, 31.5);
-  ctx.quadraticCurveTo(-5, 31, -14, 22);
+  // crânio redondo em cima, mas com maçã do rosto, maxilar e queixo marcados (cara menos "bola")
+  ctx.moveTo(-15, 21);
+  ctx.arc(0, 0, HEAD_R, 2.2, Math.PI * 2 - 0.42);
+  ctx.bezierCurveTo(27.8, -4, 29.2, 8, 26.5, 15.5);
+  ctx.bezierCurveTo(25.5, 21, 24.5, 26, 22.5, 29.5);
+  ctx.quadraticCurveTo(19.5, 35.5, 11, 35.8);
+  ctx.quadraticCurveTo(-1, 35.5, -9, 30);
+  ctx.quadraticCurveTo(-14, 26, -15, 21);
   ctx.closePath();
 }
 
@@ -1860,7 +1863,7 @@ function drawHead(ctx: CanvasRenderingContext2D, L: Look, expr: Expr, t: number)
     ctx.restore();
     ctx.globalAlpha = 1;
   }
-  if (o.mat && (o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold') && !PS.F) {
+  if (o.mat && (o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold' || o.mat === 'storm') && !PS.F) {
     ctx.save();
     headPath(ctx);
     ctx.clip();

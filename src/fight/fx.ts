@@ -235,7 +235,7 @@ export interface Wave {
 
 /** Projétil visual (ex.: dragão de fogo, punho cósmico). */
 export interface Proj {
-  kind: 'dragon' | 'fist';
+  kind: 'dragon' | 'fist' | 'dragonRide';
   x: number;
   y: number;
   vx: number;

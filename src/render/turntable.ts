@@ -534,11 +534,16 @@ function head3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, expr: Expr, t: 
   ctx.lineWidth = OW;
   ctx.strokeStyle = OC();
   ctx.stroke();
-  ell(ctx, H, 8, 14, 0, 18, 15.5, 17, skin, { line: OW, shade: null, hi: false });
+  // maxilar mais largo e queixo marcado: a cabeça deixa de ser uma bola
+  ell(ctx, H, 7, 14, 0, 20.5, 18, 20, skin, { line: OW, shade: null, hi: false });
+  ell(ctx, H, 15, 24, 0, 11, 10.5, 12, skin, { line: OW, shade: null, hi: false });
   ctx.beginPath();
   ctx.arc(c[0], c[1], R, 0, TAU);
   ctx.fillStyle = C(skin);
   ctx.fill();
+  // as duas formas fundem-se sem contorno por dentro
+  ell(ctx, H, 7, 14, 0, 19, 16.5, 18.5, skin, { line: 0, shade: null, hi: false });
+  ell(ctx, H, 15, 24, 0, 9.6, 9.2, 10.6, skin, { line: 0, shade: null, hi: false });
   if (!PS.F) {
     ctx.save();
     ctx.beginPath();
@@ -561,7 +566,7 @@ function head3D(ctx: CanvasRenderingContext2D, L: Look, s: Skel, expr: Expr, t: 
     const e = H.p(-1, 5, sd * (R - 1));
     if (e[2] >= D0) ear(ctx, H, sd, L);
   }
-  if ((o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold') && !PS.F) {
+  if ((o.mat === 'lava' || o.mat === 'ice' || o.mat === 'cosmic' || o.mat === 'gold' || o.mat === 'storm') && !PS.F) {
     ctx.save();
     ctx.beginPath();
     ctx.arc(c[0], c[1], R, 0, TAU);

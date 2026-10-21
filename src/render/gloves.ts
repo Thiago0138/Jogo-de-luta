@@ -400,7 +400,8 @@ export function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: n
   ctx.lineCap = 'round';
   switch (g.style) {
     case 'bare':
-      // sem luvas: mão nua fechada em punho
+      // sem luvas: mão nua fechada em punho (um pouco maior, para se ler bem à escala da luta)
+      ctx.scale(1.22, 1.22);
       bareFist(ctx, back ? sh(skin, -0.12) : skin, L);
       break;
     case 'fita': {
@@ -418,6 +419,7 @@ export function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: n
         ctx.stroke();
       }
       const sk = back ? sh(skin, -0.12) : skin;
+      ctx.scale(1.15, 1.15);
       bareFist(ctx, sk, L, (clip) => {
         // voltas da ligadura: pulso, costas da mão e nós dos dedos (as pontas dos dedos ficam nuas)
         ctx.save();
@@ -437,6 +439,82 @@ export function drawGlove(ctx: CanvasRenderingContext2D, g: Vis, x: number, y: n
         }
         ctx.restore();
       });
+      break;
+    }
+    case 'buraco': {
+      // buraco negro: horizonte de eventos, disco de acreção a rodar e anel de luz desviada por cima
+      const hot = g.c2 ?? '#ff9a2a';
+      const white = g.c3 ?? '#fff3d0';
+      const cx = 0;
+      const cy = 9;
+      const spin = t * 2.4;
+      // punho escuro com orla
+      ctx.beginPath();
+      ctx.roundRect(-8, -15, 16, 13, 4);
+      paint(ctx, '#1a1030', 3);
+      if (!PS.F) {
+        ctx.fillStyle = hot;
+        ctx.fillRect(-7, -6.5, 14, 2.2);
+      }
+      const disk = (a0: number, a1: number) => {
+        if (PS.F) return;
+        // disco inclinado: metade de trás antes da esfera, metade da frente depois
+        add(ctx, () => {
+          for (let k = 0; k < 3; k++) {
+            ctx.globalAlpha = [0.35, 0.7, 0.95][k];
+            ctx.strokeStyle = [hot, hot, white][k];
+            ctx.lineWidth = [7, 3.6, 1.6][k];
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 24 - k * 1.5, 7 - k * 0.6, -0.35, a0, a1);
+            ctx.stroke();
+          }
+          // grãos de matéria a cair em espiral
+          for (let i = 0; i < 6; i++) {
+            const a = spin * (1 + i * 0.13) + i * 1.05;
+            const am = ((a % TAU) + TAU) % TAU;
+            const inHalf = a0 < a1 ? am >= a0 && am <= a1 : am >= a0 || am <= a1;
+            if (!inHalf) continue;
+            const rr = 25 - ((t * 0.6 + i * 0.17) % 1) * 9;
+            const px = cx + Math.cos(a) * rr;
+            const py = cy + Math.sin(a) * rr * 0.3;
+            const c = Math.cos(-0.35), sn = Math.sin(-0.35);
+            ctx.globalAlpha = 0.9;
+            ctx.fillStyle = white;
+            ctx.beginPath();
+            ctx.arc(cx + (px - cx) * c - (py - cy) * sn, cy + (px - cx) * sn + (py - cy) * c, 1.3, 0, TAU);
+            ctx.fill();
+          }
+        });
+      };
+      disk(Math.PI, TAU);
+      if (!PS.F) {
+        add(ctx, () => {
+          ctx.globalAlpha = 0.55 + Math.sin(t * 3) * 0.15;
+          ctx.drawImage(glowSprite(hot), cx - 30, cy - 30, 60, 60);
+        });
+      }
+      // horizonte de eventos
+      ctx.beginPath();
+      ctx.arc(cx, cy, 12.5, 0, TAU);
+      paint(ctx, g.c1 ?? '#05030a', 3);
+      if (!PS.F) {
+        // anel de fotões (luz desviada por cima e por baixo do buraco)
+        add(ctx, () => {
+          ctx.strokeStyle = white;
+          ctx.globalAlpha = 0.9;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(cx, cy, 12.5, 0, TAU);
+          ctx.stroke();
+          ctx.strokeStyle = hot;
+          ctx.globalAlpha = 0.75;
+          ctx.lineWidth = 3.2;
+          ctx.beginPath();
+          ctx.ellipse(cx, cy - 1, 15, 15, 0, Math.PI * 1.05, Math.PI * 1.95);
+          ctx.stroke();
+        });
+      }
+      disk(0, Math.PI);
       break;
     }
     case 'pro':

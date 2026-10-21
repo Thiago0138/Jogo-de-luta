@@ -341,6 +341,41 @@ export function matPattern(
       sparkles(2, 0.9, 3.5, '#ffffff', 1.6);
       break;
     }
+    case 'storm': {
+      // corpo de nuvens de trovoada: novelos claros e relâmpagos que acendem e apagam pelas veias
+      ctx.fillStyle = sh(suit, 0.22);
+      for (let k = 0; k < 3; k++) {
+        const p = M(0.15 + hash(seed * 3 + k) * 0.7, (hash(seed * 5 + k) - 0.5) * 1.2);
+        const r = 5 + hash(seed + k * 7) * 4;
+        ctx.globalAlpha = 0.35;
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], r, 0, TAU);
+        ctx.arc(p[0] + r * 0.8, p[1] + r * 0.2, r * 0.75, 0, TAU);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      // relâmpago: muda de forma ~8x por segundo e só aparece parte do tempo
+      const tick = Math.floor(t * 8 + seed * 1.7);
+      const on = hash(tick * 1.31 + seed) < 0.62;
+      const pts: [number, number][] = [];
+      for (let i = 0; i <= n + 2; i++) pts.push(M(i / (n + 2), (hash(tick * 3.1 + seed * 7 + i) - 0.5) * 1.3));
+      lighter(ctx, () => {
+        const a = on ? 1 : 0.18;
+        line(pts, 5, c2, 0.35 * a);
+        line(pts, 1.8, c3, 0.95 * a);
+        if (on && pts.length > 3) {
+          // ramo lateral
+          const b0 = pts[2];
+          const b1 = M(0.5, (hash(tick + seed) - 0.5) * 2.2);
+          line([b0, b1], 1.2, c3, 0.8);
+        }
+        const p = M(0.5, 0);
+        ctx.globalAlpha = on ? 0.55 : 0.15;
+        ctx.drawImage(glowSprite(c2), p[0] - 18, p[1] - 18, 36, 36);
+      });
+      sparkles(1, 1.4, 3.5, '#ffffff', 1.4);
+      break;
+    }
     case 'dragon':
     case 'dino': {
       const dark = sh(suit, -0.32);
@@ -2281,6 +2316,69 @@ export function headPieces(ctx: CanvasRenderingContext2D, o: Vis, H: Proj, t: nu
           });
         }
         eyesGlow(ctx, H, '#ffffff', t);
+      }
+      break;
+    case 'stormcrown':
+      if (phase === 'front') {
+        // coroa de relâmpagos a flutuar sobre a cabeça, a estalar
+        const bob = Math.sin(t * 2) * 2;
+        const c = H.p(-2, -48 + bob, 0);
+        const a = H.p(20, -48, 0);
+        const b = H.p(-2, -48, 20);
+        const ex = Math.max(24, Math.hypot(a[0] - c[0], b[0] - c[0]) * 1.15);
+        const ey = Math.max(4, Math.hypot(a[1] - c[1], b[1] - c[1])) * 0.45 + 4;
+        lighter(ctx, () => {
+          ctx.globalAlpha = 0.55 + Math.sin(t * 9) * 0.2;
+          ctx.drawImage(glowSprite('#7ad7ff'), c[0] - 46, c[1] - 30, 92, 60);
+        });
+        const tick = Math.floor(t * 10);
+        for (let i = 0; i < 7; i++) {
+          const ang = (i / 7) * TAU + t * 0.6;
+          const front = Math.sin(ang) > -0.2;
+          const bx = c[0] + Math.cos(ang) * ex;
+          const by = c[1] + Math.sin(ang) * ey;
+          const h = 22 + (i % 2) * 10;
+          const j = (hash(tick + i * 3) - 0.5) * 6;
+          ctx.globalAlpha = front ? 1 : 0.55;
+          ctx.beginPath();
+          ctx.moveTo(bx - 4.5, by);
+          ctx.lineTo(bx + 3 + j, by - h * 0.45);
+          ctx.lineTo(bx - 2.5, by - h * 0.5);
+          ctx.lineTo(bx + 1 + j * 0.5, by - h);
+          ctx.lineTo(bx + 6, by - h * 0.42);
+          ctx.lineTo(bx + 1.5, by - h * 0.4);
+          ctx.lineTo(bx + 4.5, by);
+          ctx.closePath();
+          ctx.fillStyle = C(i % 2 ? '#bff4ff' : '#ffffff');
+          ctx.fill();
+          ctx.lineWidth = 1.8;
+          ctx.strokeStyle = OC();
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.beginPath();
+        ctx.ellipse(c[0], c[1], ex, ey, 0, 0, TAU);
+        ctx.lineWidth = 6;
+        ctx.strokeStyle = OC();
+        ctx.stroke();
+        ctx.lineWidth = 3.4;
+        ctx.strokeStyle = C('#7ad7ff');
+        ctx.stroke();
+        if (!PS.F) {
+          // arco eléctrico ocasional entre a coroa e a cabeça
+          if (hash(tick * 1.7) < 0.35) {
+            const h0 = H.p(0, -24, 0);
+            lighter(ctx, () => {
+              ctx.strokeStyle = '#e8fbff';
+              ctx.lineWidth = 1.4;
+              ctx.beginPath();
+              ctx.moveTo(c[0], c[1]);
+              for (let k = 1; k <= 4; k++) ctx.lineTo(c[0] + (h0[0] - c[0]) * (k / 4) + (hash(tick + k) - 0.5) * 8, c[1] + (h0[1] - c[1]) * (k / 4));
+              ctx.stroke();
+            });
+          }
+          eyesGlow(ctx, H, '#bff4ff', t);
+        }
       }
       break;
     case 'fenix': {

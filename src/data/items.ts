@@ -88,9 +88,9 @@ const I: ItemDef[] = [
   { id: 't_point', kind: 'taunt', name: 'Call Out', rarity: 'comum', desc: 'Points at the crowd: "This is my ring!" Charges your Super.', icon: '👉', source: 'start', vis: { type: 'point' } },
   { id: 't_floss', kind: 'taunt', name: 'The Floss', rarity: 'incomum', desc: 'Swings both arms side to side in a non-stop floss dance. Charges your Super.', icon: '🕺', source: 'shop', coins: 5400, vis: { type: 'floss' } },
   { id: 't_robot', kind: 'taunt', name: 'The Robot', rarity: 'incomum', desc: 'Stiff, jerky robot dance moves. Beep boop! Charges your Super.', icon: '🤖', source: 'shop', coins: 7200, vis: { type: 'robot' } },
-  { id: 't_belt', kind: 'taunt', name: 'Champ Pose', rarity: 'raro', desc: 'Hands on the waist like holding the title belt. Charges your Super.', icon: '🏆', source: 'shop', coins: 15000, vis: { type: 'belt' } },
+  { id: 't_shuffle', kind: 'taunt', name: 'Running Man', rarity: 'raro', desc: 'The classic Running Man shuffle, stepping on the spot to the beat. Charges your Super.', icon: '🏃', source: 'shop', coins: 15000, vis: { type: 'shuffle' } },
   { id: 't_sixseven', kind: 'taunt', name: 'Six Seven', rarity: 'epico', desc: 'Palms up, hands bouncing like a scale: SIX SEVEN! Charges your Super.', icon: '🤲', source: 'shop', gems: 150, vis: { type: 'sixseven' } },
-  { id: 't_aura', kind: 'taunt', name: 'Aura Farming', rarity: 'lendario', desc: 'Chin up, hand sliding along the jawline, +1000 aura. Charges more Super than any other taunt.', icon: '🗿', source: 'shop', gems: 320, vis: { type: 'aura' } },
+  { id: 't_disco', kind: 'taunt', name: 'Disco Fever', rarity: 'lendario', desc: 'Points to the sky and the floor like a disco king while a spotlight spins over the ring. Charges your Super.', icon: '🪩', source: 'shop', gems: 320, vis: { type: 'disco' } },
 
   // ───────────── Penteados ─────────────
   { id: 'h_careca', kind: 'hair', name: 'Bald', rarity: 'comum', desc: 'Shines under the spotlights.', icon: '🥚', source: 'start', vis: { style: 'careca' } },

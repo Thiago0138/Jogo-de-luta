@@ -163,7 +163,7 @@ function load(): Save {
     if (!(s.grants ?? []).includes('removed-v25')) {
       const REFUND: Record<string, [number, number]> = {
         o_fenix: [0, 2000], s_trovao: [21000, 0], s_dragao: [0, 300], t_flex: [5400, 0], t_ear: [7200, 0],
-        o_retro: [3000, 0], g_cosmicas: [0, 400],
+        o_retro: [3000, 0], g_cosmicas: [0, 400], t_belt: [15000, 0], t_aura: [0, 320],
       };
       for (const [id, [c, g]] of Object.entries(REFUND)) {
         if (s.owned[id]) {

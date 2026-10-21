@@ -8,6 +8,26 @@ export interface PatchNote {
 /** Mais recente primeiro. Atualizar sempre que houver uma nova versão. */
 export const PATCH_NOTES: PatchNote[] = [
   {
+    version: '2.5.0',
+    date: '2026-10-21',
+    title: 'Guides, polish & a fresh lineup',
+    items: [
+      'NEW: Guides for every section (Ring, Fighter, Shop, Collection, Missions, Career, Gym, Daily, Fight Pass, Forge and fights). They open on your first visit and the Guide button brings them back any time. All guides are also in Settings.',
+      'Menus redesigned: a clear FIGHT button, a "Next up" hint telling you what to do next, tappable coins and gems, clearer shop prices and affordability, stat points that pop, and missions ready to claim that stand out.',
+      'New Celestial outfit: Storm God — a body of living thunderclouds with lightning, electric wings and a floating crown of bolts.',
+      'New Celestial gloves: Black Hole Fists — an event horizon with a blazing accretion disk on each fist.',
+      'New dance taunts: The Floss, The Robot, Running Man and Disco Fever.',
+      'New entrance: Confetti Cannons (replaces Smoke Cannons). Laser Show rebuilt with a real light show. Dragon Flight rebuilt: you arrive hanging from a winged dragon that breathes fire and drops you into the ring!',
+      'Fixed: Pyrotechnics — both feet now stay on the rope. Royal Entrance — the fighter now walks down the carpet instead of sliding.',
+      'Removed: Retro 80s, Immortal Phoenix, Cosmic Gauntlets, Thunder Fist, Fire Dragon, the Gun Show, Can\'t Hear You, Champ Pose and Aura Farming taunts, and the Coronation entrance. Anything you bought is refunded.',
+      'Shadow Ninja is now Mythic. Outfits up to Uncommon can be bought with coins; rarer ones cost gems (or drop from chests).',
+      'Supers: no more hits that only deal 1 damage — every hit of a Super now always counts.',
+      'Passive skills no longer show a demo video (they are always-on bonuses).',
+      'Fighters look better: bigger, clearer bare fists, a sharper jaw and chin (heads are less round), and hairstyle icons now match the in-game hair exactly.',
+      'Redrawn FLEX emote.',
+    ],
+  },
+  {
     version: '2.4.4',
     date: '2026-10-20',
     title: 'Quiet crowd',
