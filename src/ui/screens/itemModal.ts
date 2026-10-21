@@ -173,8 +173,8 @@ export function itemArt(id: string): HTMLElement {
     art.appendChild(new EntrancePreview(id).el);
     art.appendChild(el('div', 'id-badge', ico('entrance')));
   } else {
-    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'passive' || d.kind === 'taunt' || d.kind === 'arena') {
-      // demonstração ao vivo, tal como acontece no ringue
+    if (d.kind === 'move' || d.kind === 'moveStyle' || d.kind === 'super' || d.kind === 'taunt' || d.kind === 'arena') {
+      // demonstração (os passivos não têm demonstração: são só bónus) ao vivo, tal como acontece no ringue
       art.classList.add('id-ent');
       art.appendChild(new ItemDemo(id).el);
     } else {

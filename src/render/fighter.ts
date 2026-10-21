@@ -163,7 +163,7 @@ function curls(ctx: CanvasRenderingContext2D, col: string, alpha: number, cx: nu
 
 // ───────────────────────── Cabelo ─────────────────────────
 
-function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: string, t: number) {
+export function hairBack(ctx: CanvasRenderingContext2D, style: string, c1: string, c2: string, t: number) {
   ctx.lineJoin = 'round';
   const dark = sh(c1, -0.42);
   switch (style) {

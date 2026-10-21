@@ -3027,7 +3027,7 @@ export class Fight {
     f.tauntCd = 6;
     this.emit('taunt', f);
     sfx.cheer(0.7);
-    const TYPE_IDX: Record<string, number> = { sixseven: 0, aura: 1, ear: 2, flex: 3, belt: 4, point: 5, classic: 6, hail: 7 };
+    const TYPE_IDX: Record<string, number> = { sixseven: 0, aura: 1, ear: 2, flex: 3, belt: 4, point: 5, classic: 6, hail: 7, floss: 8, robot: 9 };
     const own = (f.spec.taunts?.length ? f.spec.taunts : ['t_classic']).map((id) => ITEMS[id]?.vis?.type ?? 'classic');
     const pick = TYPE_IDX[forced ?? own[Math.floor(Math.random() * own.length)]] ?? 6;
     const say = (t: string, c = '#ff7ae0', size = 22) => this.pop(t, f.x, -260, c, size);
@@ -3098,6 +3098,26 @@ export class Fight {
           f.setExpr('happy', 1.3);
           say(['THIS IS MY RING!', 'YOU ARE NEXT!', 'WATCH THIS!'][Math.floor(Math.random() * 3)], '#7af7ff', 22);
           yield 1.2;
+          break;
+        case 8:
+          // "The Floss": braços esticados a balançar de um lado para o outro
+          f.play('floss');
+          f.setExpr('happy', 1.8);
+          say('FLOSS TIME!', '#5ef0c0', 24);
+          for (let i = 0; i < 4; i++) {
+            this.parts.spawn(PK.Star, f.x + (Math.random() - 0.5) * 90, -90 - Math.random() * 120, 0, -40, 0.5, 8, '#5ef0c0', 0);
+            yield 0.4;
+          }
+          break;
+        case 9:
+          // "The Robot": movimentos secos, um bip em cada pose
+          f.play('robot');
+          f.setExpr('power', 1.8);
+          say('BEEP BOOP!', '#7ad7ff', 24);
+          for (let i = 0; i < 4; i++) {
+            sfx.click();
+            yield 0.4;
+          }
           break;
         case 7: {
           // "All Hail the King": braços ao alto, uma coroa de estrelas aparece sobre a cabeça e o público curva-se
@@ -3242,7 +3262,9 @@ export class Fight {
     if (o.kind === 'super') {
       dmg = Math.min(dmg, def.maxHp * 0.2);
       if (this.superBudget >= 0) {
-        dmg = Math.min(dmg, this.superBudget);
+        // o orçamento trava o dano total, mas cada golpe do super vale sempre pelo menos ~30% do normal
+        // (antes, nos supers de muitos golpes, os últimos tiravam só 1)
+        dmg = Math.min(dmg, Math.max(this.superBudget, dmg * 0.3));
         this.superBudget = Math.max(0, this.superBudget - dmg);
       }
     }

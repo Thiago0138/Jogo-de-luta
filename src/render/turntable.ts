@@ -1,8 +1,8 @@
 import { shade } from '../data/appearance';
 import type { Vis } from '../data/items';
 import { drawAura } from './aura';
-import { bodyPieces, chestDecal, flame, headPieces, hidesHair, hidesMask, matPattern } from './costume';
-import { eye, hairColors, outfitC1, type DrawOpts, type Expr } from './fighter';
+import { bodyPieces, chestDecal, headPieces, hidesHair, hidesMask, matPattern } from './costume';
+import { eye, hairBack as hairBackGame, hairColors, outfitC1, type DrawOpts, type Expr } from './fighter';
 import { drawBootTo, drawGlove } from './gloves';
 import type { Look } from './look';
 import {
@@ -1200,6 +1200,21 @@ function mask3D(ctx: CanvasRenderingContext2D, H: Proj, m: Vis, phase: 'skin' | 
   }
 }
 
+/** Desenha em coordenadas da cabeça do jogo 2D (x para a frente, y para baixo), seguindo a cabeça 3D. */
+function local2D(ctx: CanvasRenderingContext2D, H: Proj, f: () => void) {
+  const o = H.p(0, 0, 0);
+  const up = H.p(0, -1, 0);
+  const ux = up[0] - o[0];
+  const uy = up[1] - o[1];
+  const fw = H.p(1, 0, 0);
+  // "para a frente" no ecrã: perpendicular a "cima", para o lado para onde a cara aponta
+  const side = (fw[0] - o[0]) * -uy + (fw[1] - o[1]) * ux >= 0 ? 1 : -1;
+  ctx.save();
+  ctx.transform(-uy * side, ux * side, -ux, -uy, o[0], o[1]);
+  f();
+  ctx.restore();
+}
+
 // ───────────────────────── Cabelo em 3D ─────────────────────────
 
 function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: string, c2: string, t: number, phase: 'back' | 'front', masked: boolean) {
@@ -1292,16 +1307,9 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
       ell(ctx, H, -10, -27, 0, 4, 3, 5, '#d22', { line: 1.5, shade: null, hi: false });
     });
   }
-  if (style === 'espetado' || style === 'super') {
-    const big = style === 'super' ? 1.7 : 1;
-    for (let i = 0; i < 14; i++) {
-      const lon = Math.PI + (i - 6.5) * 0.42;
-      const lat = -1.15 + (i % 2) * 0.4;
-      const b = [Math.cos(lat) * Math.cos(lon) * R, Math.sin(lat) * R, Math.cos(lat) * Math.sin(lon) * R];
-      const tl = (12 + (i % 3) * 3) * big;
-      const n = [Math.cos(lat - 0.35) * Math.cos(lon), Math.sin(lat - 0.35), Math.cos(lat - 0.35) * Math.sin(lon)];
-      when(b[0], b[1], b[2], () => spike(ctx, H, b[0], b[1], b[2], b[0] + n[0] * (R * 0.2 + tl), b[1] + n[1] * (R * 0.2 + tl) + (style === 'super' ? Math.sin(t * 10 + i) * 1.5 : 0), b[2] + n[2] * (R * 0.2 + tl), 7, c1, 3));
-    }
+  if ((style === 'espetado' || style === 'super' || style === 'chamas') && phase === 'back') {
+    // exatamente o mesmo desenho do jogo (espinhos em sol / labaredas), alinhado com a cabeça em 3D
+    local2D(ctx, H, () => hairBackGame(ctx, style, c1, c2, t));
   }
   if (style === 'cometa') {
     when(-60, -10, 0, () => {
@@ -1430,21 +1438,6 @@ function hair3D(ctx: CanvasRenderingContext2D, H: Proj, style: string, c1: strin
     if (behind(14, -30, 0)) ell(ctx, H, 12, -31, 0, 21, 11, 18, c1, { line: 3, rot: -0.3 });
   }
   if (style === 'samurai') ell(ctx, H, -12, -34, 0, 7, 10, 7, c1, { line: 3, rot: -0.5 });
-  if (style === 'chamas' && !PS.F) {
-    const prev = ctx.globalCompositeOperation;
-    ctx.globalCompositeOperation = 'lighter';
-    const up = H.p(0, -1, 0);
-    const o0 = H.p(0, 0, 0);
-    const ux = up[0] - o0[0];
-    const uy = up[1] - o0[1];
-    for (let i = 0; i < 7; i++) {
-      const p = spherePt(H, R - 4, 0, -1.8 + i * 0.6, -1.0 + (i % 2) * 0.15);
-      ctx.globalAlpha = 0.95;
-      flame(ctx, p[0], p[1], ux, uy, 30 + (i % 3) * 9, 8, c1, '#ffd23d', t, i);
-    }
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = prev;
-  }
   if (style === 'coroa') {
     const c = H.p(-2, -48 + Math.sin(t * 2) * 2, 0);
     if (!PS.F) {

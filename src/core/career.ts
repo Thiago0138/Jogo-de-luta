@@ -64,7 +64,7 @@ export const CHAPTERS: ChapterDef[] = [
   {
     n: 2, name: 'Local Gym Circuit', sub: 'Sweat, smelly towels and real rivals', color: '#3aa0ff', dark: '#0c2446', arena: 'ar_kings',
     levels: [5, 11], bonus: -11, tier: 2,
-    boss: { name: 'Rocco Anvil', title: 'Gym Boss', quote: 'Nobody leaves my gym standing.', outfit: 'o_luchador', gloves: 'g_ouro', mask: 'm_luchador', aura: 'a_holofotes', hair: 'h_curto', hairColor: 'hc_preto', super: 's_trovao', passive: 'p_folego', entrance: 'e_fumo' },
+    boss: { name: 'Rocco Anvil', title: 'Gym Boss', quote: 'Nobody leaves my gym standing.', outfit: 'o_luchador', gloves: 'g_ouro', mask: 'm_luchador', aura: 'a_holofotes', hair: 'h_curto', hairColor: 'hc_preto', super: 's_relampago', passive: 'p_folego', entrance: 'e_fumo' },
     reward: { chest: 'ouro', gems: 30, items: ['t_belt'] },
   },
   {

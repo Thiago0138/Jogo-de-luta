@@ -50,10 +50,15 @@ export const EMOTES: Emote[] = [
   {
     id: 'flex',
     word: 'FLEX!',
-    svg: `<path d="M8 54 L22 54 Q30 50 34 42 Q38 50 50 48 Q62 44 58 30 Q54 18 42 24 Q38 14 32 10 L26 8 Q20 8 20 14 Q24 18 30 18 L32 22 Q22 30 20 40 L8 42Z" fill="#f2b98d" ${K}/>
-      <path d="M40 30 Q48 26 52 32" fill="none" stroke="#c98a5a" stroke-width="3" stroke-linecap="round"/>
-      <path d="M6 42 L22 42 L22 56 L6 56Z" fill="#e8283c" ${K}/>
-      <path d="M46 10 l2 -5 M52 14 l5 -3 M54 20 l5 0" stroke="#ffd23d" stroke-width="3.5" stroke-linecap="round"/>`,
+    svg: `<path d="M37 50 L33 21 Q33 16 38 16 L48 16 Q53 16 52 21 L50 50 Z" fill="#f2b98d" ${K}/>
+      <path d="M32 9 Q32 3 38 3 L50 3 Q56 3 56 9 L56 18 Q56 23 51 23 L37 23 Q32 23 32 18 Z" fill="#f2b98d" ${K}/>
+      <path d="M38 10 L51 10 M38 16 L51 16" stroke="#c98a5a" stroke-width="2.4" stroke-linecap="round"/>
+      <path d="M32 13 Q28 13 28 17 Q28 21 33 21" fill="#f2b98d" ${K}/>
+      <path d="M3 58 L3 41 Q11 40 15 35 Q21 23 32 26 Q41 29 43 39 L50 45 Q55 57 44 59 Z" fill="#f2b98d" ${K}/>
+      <path d="M15 42 Q25 34 36 39" fill="none" stroke="#c98a5a" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M19 32 Q25 27 31 29" fill="none" stroke="#fff" stroke-width="3" opacity=".6" stroke-linecap="round"/>
+      <path d="M2 40 L12 39 L13 59 L2 59 Z" fill="#e8283c" ${K}/>
+      <path d="M22 12 l-3 -5 M14 18 l-5 -3 M12 26 l-6 0" stroke="#ffd23d" stroke-width="3.5" stroke-linecap="round"/>`,
   },
   {
     id: 'cool',

@@ -60,6 +60,13 @@ const AURA = P({ lean: -0.12, head: -0.32, fa1: 0.8, fa2: 2.4, ba1: 0.25, ba2: 0
 const EAR = P({ lean: -0.18, head: 0.2, fa1: 1.0, fa2: 2.6, ba1: 0.3, ba2: 0.5, fl1: 0.3, bl1: -0.3, dy: 2 });
 // tapar o cinto imaginário / apontar para a cintura: campeão
 const BELT = P({ lean: -0.1, head: -0.4, fa1: 0.55, fa2: 0.9, ba1: 0.5, ba2: 0.9, fl1: 0.4, bl1: -0.4, dy: -2 });
+// danças: "The Floss" (braços esticados a balançar para os lados, anca para o lado oposto)
+const FLOSS_A = P({ lean: 0.02, head: 0.08, fa1: 0.62, fa2: 0.12, ba1: -0.5, ba2: 0.12, fl1: 0.22, bl1: -0.22, dx: -7, dy: 2 });
+const FLOSS_B = P({ lean: 0.02, head: -0.08, fa1: -0.5, fa2: 0.12, ba1: 0.62, ba2: 0.12, fl1: 0.22, bl1: -0.22, dx: 7, dy: 2 });
+// "The Robot": ângulos rectos, movimentos secos e pausas
+const ROBOT_A = P({ lean: 0, head: 0.25, fa1: 1.57, fa2: 1.57, ba1: 0.05, ba2: 1.57, fl1: 0.18, bl1: -0.18 });
+const ROBOT_B = P({ lean: 0, head: -0.25, fa1: 0.05, fa2: 1.57, ba1: 1.57, ba2: 1.57, fl1: 0.18, bl1: -0.18, dy: 3 });
+const ROBOT_C = P({ lean: 0.05, head: 0, fa1: 1.57, fa2: 0.05, ba1: 1.57, ba2: 0.05, fl1: 0.3, bl1: -0.1, dy: 6 });
 const VICTORY = P({ lean: -0.1, head: -0.3, fa1: 2.95, fa2: 0.15, ba1: 2.8, ba2: 0.2, fl1: 0.2, bl1: -0.2 });
 const VICTORY2 = P({ lean: -0.15, head: -0.35, fa1: 2.75, fa2: 0.5, ba1: 3.0, ba2: 0.1, fl1: 0.25, bl1: -0.2, dy: -4 });
 
@@ -196,6 +203,8 @@ export const ANIMS = {
   archUp: A([[0, ARCH], [0.4, KNEEL], [0.7, GUARD]]),
   taunt: A([[0, GUARD], [0.2, TAUNT1], [0.45, TAUNT2], [0.7, TAUNT1], [0.95, TAUNT2], [1.25, GUARD]]),
   sixSeven: A([[0, GUARD], [0.18, SIX_A], [0.42, SIX_B], [0.66, SIX_A], [0.9, SIX_B], [1.14, SIX_A], [1.38, SIX_B], [1.62, GUARD]]),
+  floss: A([[0, GUARD], [0.14, FLOSS_A, easeOut], [0.3, FLOSS_B], [0.46, FLOSS_A], [0.62, FLOSS_B], [0.78, FLOSS_A], [0.94, FLOSS_B], [1.1, FLOSS_A], [1.26, FLOSS_B], [1.42, FLOSS_A], [1.62, GUARD]]),
+  robot: A([[0, GUARD], [0.08, ROBOT_A, snap], [0.4, ROBOT_A], [0.48, ROBOT_B, snap], [0.8, ROBOT_B], [0.88, ROBOT_C, snap], [1.2, ROBOT_C], [1.28, ROBOT_A, snap], [1.6, ROBOT_A], [1.75, GUARD]]),
   auraFarm: A([[0, GUARD], [0.3, AURA, easeOut], [1.9, AURA], [2.2, GUARD]]),
   earCup: A([[0, GUARD], [0.25, EAR, easeOut], [0.7, P({ ...EAR, lean: -0.25, head: 0.28 })], [1.1, EAR], [1.4, GUARD]]),
   belt: A([[0, GUARD], [0.25, BELT, easeOut], [0.6, P({ ...BELT, dy: -5, head: -0.5 })], [1.0, BELT], [1.3, GUARD]]),

@@ -159,7 +159,36 @@ function load(): Save {
     // Remove itens que deixaram de existir.
     // Penteados retirados (Mohawk, Afro, Pompadour, Mullet): o Mullet comprado é reembolsado.
     if (s.owned.h_mullet) s.coins += 5400;
+    // Itens retirados do jogo: quem os comprou recebe o valor de volta (uma vez)
+    if (!(s.grants ?? []).includes('removed-v25')) {
+      const REFUND: Record<string, [number, number]> = {
+        o_fenix: [0, 2000], s_trovao: [21000, 0], s_dragao: [0, 300], t_flex: [5400, 0], t_ear: [7200, 0],
+        o_retro: [3000, 0], g_cosmicas: [0, 400],
+      };
+      for (const [id, [c, g]] of Object.entries(REFUND)) {
+        if (s.owned[id]) {
+          s.coins += c;
+          s.gems += g;
+        }
+      }
+      s.grants = [...(s.grants ?? []), 'removed-v25'];
+    }
     for (const id of Object.keys(s.owned)) if (!ITEMS[id]) delete s.owned[id];
+    // equipamento que deixou de existir volta ao padrão
+    const L = s.loadout;
+    const ok = (id: string | null | undefined) => !!id && !!ITEMS[id];
+    if (L.outfit && !ok(L.outfit)) L.outfit = 'o_classico';
+    if (L.gloves && !ok(L.gloves)) L.gloves = 'g_vermelhas';
+    if (L.mask && !ok(L.mask)) L.mask = null;
+    if (L.aura && !ok(L.aura)) L.aura = null;
+    if (!ok(L.entrance)) L.entrance = 'e_classica';
+    if (L.arena && !ok(L.arena)) L.arena = 'ar_kings';
+    L.supers = (L.supers ?? []).filter(ok);
+    if (!L.supers.length) L.supers = ['s_supersoco'];
+    L.passives = (L.passives ?? []).filter(ok);
+    L.moves = (L.moves ?? []).filter(ok);
+    L.styles = (L.styles ?? []).filter(ok);
+    L.taunts = (L.taunts ?? []).filter(ok);
     if (!ITEMS[s.appearance.hair]) s.appearance.hair = 'h_curto';
     return s;
   } catch {
