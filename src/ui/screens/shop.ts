@@ -47,6 +47,7 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
   const seg = page.querySelector('.seg') as HTMLElement;
   for (const t of TABS) {
     const b = el('button', t.id === sub ? 'on' : '', t.name);
+    if (t.id === 'featured' && S.giftDay !== dayKey()) b.appendChild(el('i', 'seg-dot', '1'));
     b.onclick = () => {
       sfx.click();
       renderShop(page, t.id);
@@ -118,7 +119,8 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
         const card = el('div', 'chest-offer');
         card.style.setProperty('--cg', c.glow);
         const price = c.gemPrice != null ? `${ico('gem')} ${fmt(c.gemPrice)}` : `${ico('coin')} ${fmt(c.coinPrice!)}`;
-        card.innerHTML = `<div class="co-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name)}</b><span class="muted small">${esc(c.desc)}</span><div class="odds"></div><button class="btn btn-ghost sm dr-btn">${ico('info')} Drop rates</button><button class="btn btn-gold sm buy">${price}</button>`;
+        const short = c.gemPrice != null ? S.gems < c.gemPrice : S.coins < (c.coinPrice ?? 0);
+        card.innerHTML = `<div class="co-art">${chestSvg(c.body, c.trim)}</div><b>${esc(c.name)}</b><span class="muted small">${esc(c.desc)}</span><div class="odds"></div><button class="btn btn-ghost sm dr-btn">${ico('info')} Drop rates</button><button class="btn ${short ? 'btn-ghost short' : 'btn-gold'} sm buy">${price}</button>`;
         const odds = card.querySelector('.odds') as HTMLElement;
         odds.innerHTML = perReward(c)
           .map(([r, p]) => `<span class="rar rar-${r}">${RARITIES[r].name} ${pct(p)}</span>`)
@@ -149,8 +151,8 @@ export function renderShop(page: HTMLElement, sub = 'featured'): void {
 function dailyGift(): HTMLElement {
   const today = dayKey();
   const claimed = S.giftDay === today;
-  const box = el('div', `gift ${claimed ? 'done' : ''}`);
-  box.innerHTML = `<span class="gift-ico">${ico('gift')}</span><div><b>Daily gift</b><span>150 coins + 5 gems</span></div><button class="btn ${claimed ? 'btn-ghost' : 'btn-gold'} sm">${claimed ? 'More tomorrow' : 'Claim'}</button>`;
+  const box = el('div', `gift ${claimed ? 'done' : 'ready'}`);
+  box.innerHTML = `<span class="gift-ico">${ico('gift')}</span><div><b>Daily gift</b><span>${ico('coin')} 150 + ${ico('gem')} 5 · free every day</span></div><button class="btn ${claimed ? 'btn-ghost' : 'btn-gold pulse'} sm">${claimed ? `${ico('check')} More tomorrow` : 'Claim'}</button>`;
   (box.querySelector('button') as HTMLElement).onclick = () => {
     if (S.giftDay === today) return;
     S.giftDay = today;

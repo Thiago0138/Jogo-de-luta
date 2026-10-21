@@ -35,9 +35,10 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
   page.innerHTML = `
     <div class="page-head"><h1>Collection</h1><button class="btn btn-gold sm forge-btn">${ico('anvil')} Forge <span class="fb-sh">${ico('shard')}${fmt(shards())}</span>${duplicateCount() ? `<i class="fb-dot">${duplicateCount()}</i>` : ''}</button><button class="btn btn-blue sm trade-btn">${ico('swap')} Trades</button></div>
     <div class="card coll-head">
-      <div class="ch-top"><b>${have}</b><span>/ ${total} items collected</span></div>
+      <div class="ch-top"><b>${have}</b><span>/ ${total} items collected</span><em class="ch-pct">${Math.floor((have / total) * 100)}%</em></div>
       <div class="ch-bar"><i style="transform:scaleX(${have / total})"></i></div>
       <div class="rar-legend"></div>
+      ${rarF ? '' : '<small class="rl-hint">Tap a rarity to show only those items</small>'}
     </div>
     <div class="seg scroll"></div>
     ${rarF ? `<p class="muted small rar-note">Showing only <b class="rar-${rarF}">${RARITIES[rarF].name}</b> items · tap it again to show all</p>` : ''}
@@ -56,7 +57,8 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
   for (const r of RARITY_ORDER) {
     const all = ITEM_LIST.filter((d) => d.rarity === r);
     const got = all.filter((d) => owns(d.id)).length;
-    const b = el('button', `rl rar-${r} ${rarF === r ? 'on' : ''}`, `<span class="rl-name">${RARITIES[r].name}</span><span class="rl-n">${got}/${all.length}</span>`);
+    const b = el('button', `rl rar-${r} ${rarF === r ? 'on' : ''} ${got && got === all.length ? 'full' : ''}`, `<span class="rl-name">${RARITIES[r].name}</span><span class="rl-n">${got}/${all.length}</span><i class="rl-bar" style="transform:scaleX(${all.length ? got / all.length : 0})"></i>`);
+    b.title = `Show only ${RARITIES[r].name} items`;
     b.onclick = () => {
       sfx.click();
       rarF = rarF === r ? null : r;
@@ -91,6 +93,13 @@ export function renderCollection(page: HTMLElement, sub = 'all'): void {
     };
     grid.appendChild(c);
   }
-  if (!list.length) grid.appendChild(el('p', 'muted', 'You have no items in this category yet.'));
+  if (!list.length) {
+    const empty = el('div', 'coll-empty', `${ico('chest')}<b>Nothing here yet</b><span>Open chests, level up or visit the Shop to collect items like these.</span><button class="btn btn-gold sm">${ico('shop')} Go to Shop</button>`);
+    (empty.querySelector('button') as HTMLElement).onclick = () => {
+      sfx.click();
+      go('shop');
+    };
+    grid.appendChild(empty);
+  }
   void S;
 }

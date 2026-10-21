@@ -4,7 +4,7 @@ import { dailyBadge } from '../modes/daily';
 import { passBadge } from '../modes/pass';
 import { openLeagues } from '../progress';
 import { openDropRates } from '../dropRates';
-import { S, claimFreeChest, freeChestReady } from '../../core/state';
+import { S, claimFreeChest, claimableCount, freeChestReady } from '../../core/state';
 import { CHESTS, CHEST_ORDER } from '../../data/chests';
 import { LEAGUES, leagueIndex } from '../../data/leagues';
 import { CURRENT_VERSION } from '../../data/patchnotes';
@@ -45,19 +45,20 @@ export function renderHome(page: HTMLElement): void {
       </div>
       <button class="news-btn ${unseen ? 'dot' : ''}">${ico('news')} What's New</button>
     </section>
+    <button class="next-hint" hidden><span class="nh-ico"></span><span class="nh-txt"><small>Next up</small><b></b></span><span class="nh-go">›</span></button>
     <section class="play">
-      <button class="play-btn solo"><span class="pb-ico">${ico('glove')}</span><span class="pb-txt"><b>FIGHT</b><small>1 vs 1</small></span></button>
-      <button class="play-btn tag"><span class="pb-ico">${ico('tag')}</span><span class="pb-txt"><b>TAG TEAM</b><small>2 vs 2</small></span></button>
-      <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CHAMPION</b><small>Tough challenge · bigger prizes</small></span></button>
+      <button class="play-btn solo"><span class="pb-ico">${ico('glove')}</span><span class="pb-txt"><b>FIGHT</b><small>1 vs 1 · win trophies &amp; coins</small></span><span class="pb-go">PLAY</span></button>
+      <button class="play-btn tag"><span class="pb-ico">${ico('tag')}</span><span class="pb-txt"><b>TAG TEAM</b><small>2 vs 2 with a partner</small></span></button>
+      <button class="play-btn champ"><span class="pb-ico">${ico('crown')}</span><span class="pb-txt"><b>CHAMPION</b><small>Tough fight · big prizes</small></span></button>
     </section>
     <section class="modes">
       <button class="mode-btn m-career" data-go="career"><span class="mb-ico">${ico('road')}</span><span class="mb-txt"><b>CAREER</b><small>Road to the Title</small></span><i class="mb-badge"></i></button>
       <button class="mode-btn m-gym" data-go="gym"><span class="mb-ico">${ico('glove')}</span><span class="mb-txt"><b>GYM</b><small>Train &amp; mini-games</small></span><i class="mb-badge"></i></button>
-      <button class="mode-btn m-daily" data-go="daily"><span class="mb-ico">${ico('gift')}</span><span class="mb-txt"><b>DAILY</b><small>Wheel · rewards · luck</small></span><i class="mb-badge"></i></button>
+      <button class="mode-btn m-daily" data-go="daily"><span class="mb-ico">${ico('gift')}</span><span class="mb-txt"><b>DAILY</b><small>Spin &amp; free rewards</small></span><i class="mb-badge"></i></button>
       <button class="mode-btn m-pass" data-go="pass"><span class="mb-ico">${ico('star')}</span><span class="mb-txt"><b>FIGHT PASS</b><small>Season rewards</small></span><i class="mb-badge"></i></button>
     </section>
     <section class="card chests-card">
-      <div class="card-head"><h2>Chests</h2>${chestCount() > 1 ? `<button class="btn btn-gold sm open-all">${ico('chest')} Open all (${chestCount()})</button>` : ''}<button class="btn btn-ghost sm odds-btn">${ico('info')} Drop rates</button></div>
+      <div class="card-head"><h2>Chests${chestCount() ? `<i class="ch-n">${chestCount()}</i>` : ''}</h2>${chestCount() > 1 ? `<button class="btn btn-gold sm open-all">${ico('chest')} Open all</button>` : ''}<button class="btn btn-ghost sm odds-btn" aria-label="Drop rates" title="Drop rates">${ico('info')}<span>Odds</span></button></div>
       <div class="chest-row"></div>
     </section>`;
 
@@ -145,6 +146,39 @@ export function renderHome(page: HTMLElement): void {
     };
     row.appendChild(b);
   }
+  nextHint(page, free, next ? `${next.name} League` : '', next ? next.min - S.trophies : 0);
+}
+
+/** "O que fazer a seguir": uma dica curta no topo + destaque no botão certo (só a coisa mais útil). */
+function nextHint(page: HTMLElement, free: HTMLElement, nextLeague: string, need: number): void {
+  const hint = page.querySelector('.next-hint') as HTMLElement;
+  const q = (s: string) => page.querySelector(s) as HTMLElement | null;
+  const chests = chestCount();
+  const missions = claimableCount();
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  let pick: { icon: string; text: string; target: HTMLElement | null; act: () => void; own?: boolean } | null = null;
+  if (freeChestReady()) pick = { icon: 'gift', text: 'Your free chest is ready!', target: free, act: () => free.click(), own: true };
+  else if (chests) {
+    const slot = q('.chest-slot.has');
+    pick = { icon: 'chest', text: `Open ${plural(chests, 'chest')}`, target: slot, act: () => slot?.click(), own: true };
+  } else if (missions) pick = { icon: 'missions', text: `Claim ${plural(missions, 'mission reward')}`, target: null, act: () => go('missions') };
+  else if (dailyBadge()) pick = { icon: 'gift', text: 'Free daily rewards waiting', target: q('.m-daily'), act: () => go('daily') };
+  else if (passBadge()) pick = { icon: 'star', text: 'Fight Pass rewards to claim', target: q('.m-pass'), act: () => go('pass') };
+  else if (S.statPoints) pick = { icon: 'chart', text: `Spend ${plural(S.statPoints, 'stat point')}`, target: null, act: () => go('fighter') };
+  else if (careerBadge()) pick = { icon: 'road', text: 'Continue your Career', target: q('.m-career'), act: () => go('career') };
+  else if (gymBadge()) pick = { icon: 'glove', text: 'Train at the Gym today', target: q('.m-gym'), act: () => go('gym') };
+  else if (need > 0) pick = { icon: 'trophy', text: `${fmt(need)} trophies to ${nextLeague}`, target: q('.play-btn.solo'), act: () => startMatch('solo') };
+  if (!pick) return;
+  const p = pick;
+  hint.hidden = false;
+  (hint.querySelector('.nh-ico') as HTMLElement).innerHTML = ico(p.icon);
+  (hint.querySelector('.nh-txt b') as HTMLElement).textContent = p.text;
+  p.target?.classList.add('nudge');
+  hint.onclick = () => {
+    // quando a dica só "carrega" noutro botão, esse botão já toca o seu próprio som
+    if (!p.own) sfx.click();
+    p.act();
+  };
 }
 
 /** Ícone de baú para os menus: o tier é reconhecido pela cor do corpo (mesmo visual da abertura). */

@@ -118,7 +118,7 @@ function row(m: MissionDef, progress: number, claimed: boolean, onClaim: () => v
       <div class="m-bar"><i style="transform:scaleX(${pct})"></i><span>${fmt(Math.min(progress, m.target))} / ${fmt(m.target)}</span></div>
       <div class="m-rw">${rewardHtml(m.reward)}</div>
     </div><span class="m-go">›</span>`;
-  const btn = el('button', `btn sm ${claimed ? 'btn-ghost' : done ? 'btn-gold pulse' : 'btn-ghost'}`, claimed ? ico('check') : done ? 'Claim' : '…');
+  const btn = el('button', `btn sm m-btn ${claimed ? 'btn-ghost' : done ? 'btn-gold pulse' : 'btn-ghost'}`, claimed ? ico('check') : done ? `${ico('gift')} Claim` : `${Math.floor(pct * 100)}%`);
   btn.disabled = claimed || !done;
   btn.onclick = () => {
     sfx.coin();
@@ -138,6 +138,13 @@ function claimSet(set: MissionSet, i: number): void {
   render();
 }
 
+/** Quantas recompensas estão prontas a receber num separador (para o número no separador). */
+function readyIn(tab: string): number {
+  if (tab === 'legend') return LEGENDARY.filter((m) => !S.legendaryClaimed.includes(m.id) && legendaryProgress(m) >= m.target).length;
+  const set = tab === 'daily' ? S.daily : S.weekly;
+  return set.ids.filter((id, i) => !set.claimed[i] && set.progress[i] >= mission(id).target).length;
+}
+
 export function renderMissions(page: HTMLElement, sub = 'daily'): void {
   rememberSub(sub);
   refreshMissions();
@@ -145,6 +152,8 @@ export function renderMissions(page: HTMLElement, sub = 'daily'): void {
   const seg = page.querySelector('.seg') as HTMLElement;
   for (const t of TABS) {
     const b = el('button', t.id === sub ? 'on' : '', t.name);
+    const n = readyIn(t.id);
+    if (n) b.appendChild(el('i', 'seg-dot', String(n)));
     b.onclick = () => {
       sfx.click();
       renderMissions(page, t.id);

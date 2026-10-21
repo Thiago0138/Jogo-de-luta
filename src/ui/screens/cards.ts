@@ -1,4 +1,4 @@
-import { count, owns } from '../../core/state';
+import { S, count, owns } from '../../core/state';
 import { item } from '../../data/items';
 import { RARITIES } from '../../data/rarity';
 import { el, esc } from '../dom';
@@ -30,14 +30,21 @@ export function itemCard(id: string, o: CardOpts = {}): HTMLElement {
     if (have) foot.innerHTML = `<span class="ic-owned">Owned ${ico('check')}</span>`;
     else {
       const old = o.discount ? `<s>${priceHtml(d)}</s>` : '';
-      foot.innerHTML = `${old}<span class="ic-price">${priceHtml(d, o.discount ?? 0)}</span>`;
+      // preço com desconto vs. saldo: "não chega" fica a vermelho para se ver logo o que dá para comprar
+      const k = 1 - (o.discount ?? 0);
+      const short = d.gems != null ? S.gems < Math.round(d.gems * k) : d.coins != null ? S.coins < Math.round(d.coins * k) : false;
+      foot.innerHTML = `${old}<span class="ic-price ${short ? 'cant' : 'can'}">${priceHtml(d, o.discount ?? 0)}</span>`;
+      if (short) c.classList.add('short');
     }
   } else {
     foot.innerHTML = `<span class="rar-dot" style="--rc:${RARITIES[d.rarity].color}"></span>${RARITIES[d.rarity].name}`;
   }
   c.appendChild(foot);
   if (n > 1) c.appendChild(el('div', 'ic-count', `×${n > 99 ? '99+' : n}`));
-  if (o.discount) c.appendChild(el('div', 'ic-sale', `-${Math.round(o.discount * 100)}%`));
+  if (o.discount) {
+    c.classList.add('on-sale');
+    c.appendChild(el('div', 'ic-sale', `-${Math.round(o.discount * 100)}%`));
+  }
   if (have && isEquipped(id)) c.appendChild(el('div', 'ic-eq', 'EQUIPPED'));
   return c;
 }

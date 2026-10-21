@@ -42,6 +42,7 @@ export function renderFighter(page: HTMLElement, sub = 'stats'): void {
   const seg = page.querySelector('.seg') as HTMLElement;
   for (const t of TABS) {
     const b = el('button', t.id === sub ? 'on' : '', t.name);
+    if (t.id === 'stats' && S.statPoints > 0) b.appendChild(el('i', 'seg-dot', String(S.statPoints)));
     b.onclick = () => {
       sfx.click();
       renderFighter(page, t.id);
@@ -55,7 +56,9 @@ export function renderFighter(page: HTMLElement, sub = 'stats'): void {
 }
 
 function stats(body: HTMLElement): void {
-  body.innerHTML = `<div class="pts ${S.statPoints ? 'has' : ''}">Points available: <b>${S.statPoints}</b>${S.statPoints ? '' : ' · earn more by leveling up'}</div>`;
+  body.innerHTML = S.statPoints
+    ? `<div class="pts has"><b>${S.statPoints}</b><span><strong>Stat point${S.statPoints === 1 ? '' : 's'} to spend!</strong><small>Tap <i class="pts-plus">+</i> on a stat to make your fighter stronger.</small></span></div>`
+    : `<div class="pts"><b>0</b><span><strong>No points left</strong><small>Level up to earn 3 more points.</small></span></div>`;
   const list = el('div', 'stat-list');
   for (const st of STATS) {
     const v = S.stats[st.id];
@@ -67,6 +70,8 @@ function stats(body: HTMLElement): void {
       <small>${st.desc}</small></div>`;
     const plus = el('button', 'st-plus', '+');
     plus.disabled = S.statPoints <= 0 || v >= STAT_CAP;
+    plus.setAttribute('aria-label', `Add a point to ${st.name}`);
+    if (v >= STAT_CAP) r.classList.add('maxed');
     plus.onclick = () => add(st.id);
     r.appendChild(plus);
     list.appendChild(r);
@@ -133,7 +138,11 @@ function gear(body: HTMLElement): void {
   for (let i = 0; i < 2; i++) abil.push({ label: `Passive ${i + 1}`, kind: 'passive', id: L.passives[i] ?? null, locked: i >= passiveSlots() ? 6 : undefined });
 
   const section = (title: string, list: Slot[], hint = '') => {
-    body.appendChild(el('h3', 'sec', title));
+    const open = list.filter((x) => !x.locked);
+    const filled = open.filter((x) => x.id).length;
+    // contador "equipado / livre" ao lado do título: mostra logo onde ainda há espaços vazios
+    const tag = open.length > 1 ? `<span class="sec-n ${filled < open.length ? 'gap' : ''}">${filled}/${open.length}</span>` : '';
+    body.appendChild(el('h3', 'sec', `${title}${tag}`));
     if (hint) body.appendChild(el('p', 'muted small', hint));
     const g = el('div', 'slots');
     for (const s of list) g.appendChild(slotEl(s));
@@ -152,17 +161,18 @@ function gear(body: HTMLElement): void {
 }
 
 function slotEl(s: Slot): HTMLElement {
-  const b = el('button', `slot ${s.locked ? 'locked' : ''} ${s.id ? 'r-' + item(s.id).rarity : ''}`);
+  const b = el('button', `slot ${s.locked ? 'locked' : ''} ${!s.locked && !s.id ? 'empty' : ''} ${s.id ? 'r-' + item(s.id).rarity : ''}`);
   const art = el('div', 'slot-art');
   if (s.locked) art.innerHTML = ico('lock', 'ic-big');
   else if (s.id) art.appendChild(itemThumb(s.id));
-  else art.textContent = '+';
+  else art.innerHTML = '<span class="slot-plus">+</span>';
   b.appendChild(art);
-  b.appendChild(el('div', 'slot-l', s.locked ? `${s.label} · Lv ${s.locked}` : s.label));
-  if (s.id && !s.locked) {
+  b.appendChild(el('div', 'slot-l', s.label));
+  if (s.locked) b.appendChild(el('div', 'slot-n', `${ico('lock')} Level ${s.locked}`));
+  else if (s.id) {
     const d = item(s.id);
     b.appendChild(el('div', 'slot-n', esc(d.name)));
-  }
+  } else b.appendChild(el('div', 'slot-n slot-empty', 'Empty · tap to equip'));
   b.onclick = () => {
     sfx.click();
     if (s.locked) {

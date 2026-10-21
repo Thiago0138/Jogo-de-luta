@@ -1,5 +1,6 @@
 import { S, claimableCount, commit, onChange, refreshMissions } from '../core/state';
 import { xpToNext } from '../data/stats';
+import { dayKey } from '../core/rng';
 import { leagueOf } from '../data/leagues';
 import { sfx, unlockAudio } from '../audio/sfx';
 import { resolveLook } from '../render/look';
@@ -61,16 +62,22 @@ function buildTopbar(): void {
       <span class="tb-lvl"></span>
     </button>
     <div class="tb-cur">
-      <button class="pill coins" aria-label="Coins">${ico('coin')}<b></b></button>
-      <button class="pill gems" aria-label="Gems">${ico('gem')}<b></b></button>
+      <button class="pill coins" aria-label="Coins · open the Shop" title="Coins · open the Shop">${ico('coin')}<b></b><i class="pill-plus">+</i></button>
+      <button class="pill gems" aria-label="Gems · get more gems" title="Gems · get more">${ico('gem')}<b></b><i class="pill-plus">+</i></button>
       <button class="icon-btn refresh" aria-label="Reload page" title="Reload">${ico('refresh')}</button>
       <button class="icon-btn gear" aria-label="Settings">${ico('gear')}</button>
     </div>`;
   avatar = new Preview(resolveLook(S.appearance, S.loadout), { stage: false, focusHead: true, zoom: 1.05 });
   topbar.querySelector('.tb-avatar')!.appendChild(avatar.canvas);
   (topbar.querySelector('.tb-me') as HTMLElement).onclick = () => go('fighter');
-  (topbar.querySelector('.coins') as HTMLElement).onclick = () => go('shop');
-  (topbar.querySelector('.gems') as HTMLElement).onclick = () => go('shop', 'gems');
+  (topbar.querySelector('.coins') as HTMLElement).onclick = () => {
+    sfx.click();
+    go('shop', 'featured');
+  };
+  (topbar.querySelector('.gems') as HTMLElement).onclick = () => {
+    sfx.click();
+    go('shop', 'gems');
+  };
   (topbar.querySelector('.refresh') as HTMLElement).onclick = () => {
     sfx.click();
     save();
@@ -122,7 +129,7 @@ export function refreshChrome(): void {
   if (avatar) avatar.look = resolveLook(S.appearance, S.loadout);
   const badges: Partial<Record<Tab, number>> = {
     home: Object.values(S.chests).reduce((a, b) => a + b, 0) + careerBadge() + gymBadge() + dailyBadge() + passBadge(),
-    shop: 0,
+    shop: S.giftDay !== dayKey() ? 1 : 0,
     collection: forgeBadge(),
     missions: claimableCount(),
     fighter: S.statPoints,
